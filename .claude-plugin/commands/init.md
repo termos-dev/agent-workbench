@@ -195,7 +195,7 @@ If user is in Zellij, ask if they want a persistent git diff pane:
 - **No**: Skip git diff pane
 
 This pane shows `git diff` output and updates continuously.
-Command: `termos run --title "Git Diff" --position split:right --cmd "watch -n5 -c 'git diff --color=always'"`
+Command: `termos run --title "Git Diff" --position split:right --cmd "while true; do clear; git diff --color=always; sleep 5; done"`
 
 ## Step 3: Generate termos.md
 
@@ -271,7 +271,7 @@ Example: `termos run --title "Quick Check" --position floating:bottom-right ask 
 
 ### Live Git Diff Pane (Zellij only)
 {if selected: Show live git diff in a split pane while coding:
-`termos run --title "Git Diff" --position split:right --cmd "watch -n5 -c 'git diff --color=always'"`
+`termos run --title "Git Diff" --position split:right --cmd "while true; do clear; git diff --color=always; sleep 5; done"`
 This updates continuously as you make changes.
 Start this when beginning a coding session.}
 

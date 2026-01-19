@@ -98,7 +98,7 @@ Best practices for engagement:
 ### Live Git Diff Pane (Zellij only)
 Show live git diff in a split pane while coding:
 ```bash
-termos run --title "Git Diff" --position split:right --cmd "watch -n5 -c 'git diff --color=always'"
+termos run --title "Git Diff" --position split:right --cmd "while true; do clear; git diff --color=always; sleep 5; done"
 ```
 
 This updates continuously as you make changes.

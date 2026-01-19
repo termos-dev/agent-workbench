@@ -66,8 +66,8 @@ Examples:
   termos run --title "Confirm" --position floating confirm --prompt "Delete files?"
   termos wait interaction-1-123456789 --timeout 60
 
-Live Data (use shell's watch command):
-  termos run --title "Changes" --position floating --cmd "watch -n1 -c 'git diff --color=always'"
+Live Data (auto-refresh with shell loop):
+  termos run --title "Changes" --position floating --cmd "while true; do clear; git diff --color=always; sleep 1; done"
   termos run --title "Logs" --position split:down --cmd "tail -f /var/log/app.log"
 
 Session Awareness:

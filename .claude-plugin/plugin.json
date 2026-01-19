@@ -8,18 +8,5 @@
   "repository": "https://github.com/termos-dev/termos",
   "license": "MIT",
   "keywords": ["ide", "interactive", "terminal", "claude-code", "zellij", "tui"],
-  "commands": "./.claude-plugin/commands/",
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-status.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": "./hooks/hooks.json"
 }

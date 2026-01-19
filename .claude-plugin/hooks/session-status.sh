@@ -2,6 +2,9 @@
 # Termos session awareness hook - runs on SessionStart
 # Outputs session status to Claude's context
 
+# Debug log
+echo "$(date): SessionStart hook called from ${CLAUDE_PLUGIN_ROOT:-unknown}" >> /tmp/termos-hook-debug.log
+
 # Check if termos is available
 if ! command -v termos &> /dev/null; then
   exit 0

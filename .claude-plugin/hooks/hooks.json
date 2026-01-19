@@ -1,0 +1,13 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-status.sh",
+          "timeout": 5
+        }
+      ]
+    }
+  ]
+}
