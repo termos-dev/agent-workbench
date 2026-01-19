@@ -24,6 +24,7 @@ termos wait <id>
 - **Non-blocking** - Claude asks without stopping
 - **Parallel interactions** - Multiple panes, multiple questions
 - **Rich components** - Diffs, tables, checklists, not just text prompts
+- **Side-by-side workflow** - Run a Zellij session alongside Claude with your dev servers
 
 ## Install
 
@@ -33,6 +34,27 @@ claude plugins install termos
 ```
 
 Then run `/termos:init` in Claude to configure.
+
+## Side-by-Side Workflow
+
+Run a Zellij session alongside Claude with your background processes:
+
+```bash
+# Terminal 1: Claude Code
+claude
+
+# Terminal 2: View interactions + run dev servers
+termos attach
+```
+
+`/termos:init` asks about your project's background processes (dev server, API, logs) and generates a custom layout. When you run `termos attach`, everything starts automatically.
+
+```bash
+termos attach              # Start session with default layout
+termos attach -l debug     # Use a different layout
+termos status              # Check session status
+termos stop                # Kill the session
+```
 
 ## Components
 

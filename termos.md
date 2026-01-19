@@ -1,10 +1,19 @@
 # Project: mcp-sidecar
 
 ## Environment
-- IDE: Cursor
 - Platform: macOS
-- Zellij: available
+- Zellij: available (installed)
 - Ghostty: available
+
+## Editor
+```yaml
+editor: code
+type: gui
+command: code
+lineFormat: "-g {file}:{line}"
+```
+
+Opens files externally in VS Code. Press `e` in code viewer to open file.
 
 ## Interaction Preferences
 Proactive style: Show confirmations, progress, and status frequently to keep the user informed at every step.
@@ -85,6 +94,15 @@ Best practices for engagement:
 - Check in every few major steps
 - Confirm before proceeding to new phases
 - Show progress updates for long operations
+
+### Live Git Diff Pane (Zellij only)
+Show live git diff in a split pane while coding:
+```bash
+termos run --title "Git Diff" --position split:right --cmd "watch -n5 -c 'git diff --color=always'"
+```
+
+This updates continuously as you make changes.
+Start this when beginning a coding session inside Zellij.
 
 ## Component Preferences
 - Default position: `floating:center` for important decisions

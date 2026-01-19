@@ -48,6 +48,18 @@ termos run --title "Test" confirm --prompt "Smoke test?"
 termos wait <id>
 ```
 
+### Terminal Override
+
+Set `TERMOS_TERMINAL` to override auto-detection:
+
+```bash
+# Force Terminal.app
+export TERMOS_TERMINAL=terminal
+
+# Force Ghostty (errors if not installed)
+export TERMOS_TERMINAL=ghostty
+```
+
 ## Testing
 
 When testing from different directories, clear the plugin cache first:
@@ -75,3 +87,22 @@ Workflow:
 - **Display task progress** visually for multi-step operations
 
 Run `termos --help` for available components. Always use `--title` and `--position` flags.
+
+## Session Awareness
+
+Check what's running in the termos session:
+```bash
+termos status
+```
+
+This shows the session name, status, and layout with tabs/panes and their commands.
+
+To get logs from a pane (dumps the focused pane's screen):
+```bash
+zellij --session <session-name> action dump-screen /tmp/pane.txt && cat /tmp/pane.txt
+```
+
+To focus a specific tab first:
+```bash
+zellij --session <session-name> action go-to-tab-name "Tab Name"
+```

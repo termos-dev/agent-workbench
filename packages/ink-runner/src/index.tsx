@@ -2,10 +2,16 @@
 
 import React from "react";
 import { render } from "ink";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import notifier from "node-notifier";
 import { SchemaForm } from "./components/SchemaForm.js";
 import { emitResult, parseFormSchema, getSchemaHelp } from "./types.js";
 import { runFromFile } from "./file-runner.js";
 import type { FormSchema } from "./types.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 interface CliArgs {
   schema?: string;
@@ -109,9 +115,37 @@ function registerCancelHandlers(): void {
   }
 }
 
+function notifyUser(title?: string): void {
+  // Ring terminal bell - cross-platform
+  process.stdout.write('\x07');
+
+  // Find icon relative to this file (works in dev and dist)
+  const iconPath = path.resolve(__dirname, 'assets', 'icon.png');
+  const hasIcon = fs.existsSync(iconPath);
+
+  // Send native notification (cross-platform via node-notifier)
+  // Wrapped in try-catch for headless systems or missing notification support
+  try {
+    notifier.notify({
+      title: 'Termos',
+      message: title || 'Interaction waiting',
+      icon: hasIcon ? iconPath : undefined,
+      sound: true,
+      wait: false,
+    });
+  } catch {
+    // Silently ignore - terminal bell already rang as fallback
+  }
+}
+
 async function main(): Promise<void> {
   registerCancelHandlers();
   const args = parseArgs();
+
+  // Notify user of new interaction (skip for --help)
+  if (!args.help) {
+    notifyUser(args.title);
+  }
 
   if (args.help) {
     showHelp();

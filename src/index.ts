@@ -2,14 +2,22 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
 import { InteractionManager, type InteractionResult } from "./interaction-manager.js";
-import { ensureEventsFile, getEventsFilePath } from "./runtime.js";
+import { ensureEventsFile, getEventsFilePath, getZellijSessionName, writeMarkerFile, deleteMarkerFile, getMarkerPath, findLayoutFile, listAvailableLayouts } from "./runtime.js";
 import { selectPaneHost, VALID_POSITIONS, type PositionPreset } from "./pane-hosts.js";
+import { isSessionAlive, killSession, isZellijInstalled, getSessionLayout } from "./zellij.js";
 import { generateFullHelp, componentSchemas, normalizeFormSchema, type FormSchema } from "@termosdev/shared";
 import { getComponentHeight, rowsToPercent } from "./height-calculator.js";
 import { loadMergedInstructions } from "./instructions-loader.js";
 import { extractFlags } from "./arg-parser.js";
+
+function outputStartedJson(id: string, host: { kind: string; sessionName: string }): void {
+  const output: Record<string, unknown> = { id, status: "started" };
+  if (host.kind === "zellij") output.session = host.sessionName;
+  console.log(JSON.stringify(output));
+}
 
 function showRunHelp(): void {
   console.log(generateFullHelp());
@@ -28,6 +36,10 @@ Usage:
   termos wait <id> [--timeout <seconds>]           Wait for interaction result (default: 300s)
   termos result [<id>]                             Get result(s) - all if no ID provided
 
+  termos attach [-l <layout>]                      Attach to zellij session (side-by-side workflow)
+  termos status                                    Show session status
+  termos stop                                      Kill the zellij session
+
 Built-in components: ask, confirm, checklist, code, edit, diff, table, progress, mermaid, markdown,
                      plan-viewer, chart, select, tree, json, gauge
 
@@ -44,9 +56,11 @@ Options:
   -h, --help            Show this help
 
 Workflow:
-  1. termos run ... → Returns {"id": "...", "status": "started"}
-  2. User interacts with pane
-  3. termos wait <id> → Returns result when complete
+  1. id=$(termos run ...)  → spawns pane, returns ID
+  2. termos wait $id &     → background (ALWAYS use &)
+  3. termos result $id     → poll for response
+
+⚠️  Never block on wait - keep working while user interacts
 
 Examples:
   termos run --title "Confirm" --position floating confirm --prompt "Delete files?"
@@ -55,6 +69,11 @@ Examples:
 Live Data (use shell's watch command):
   termos run --title "Changes" --position floating --cmd "watch -n1 -c 'git diff --color=always'"
   termos run --title "Logs" --position split:down --cmd "tail -f /var/log/app.log"
+
+Session Awareness:
+  termos status                                    Show session with tabs/panes and commands
+  zellij --session <name> action dump-screen <file>   Get pane output/logs
+  zellij --session <name> action go-to-tab-name "Tab" Focus a specific tab
 `);
 
   const instructions = loadMergedInstructions(process.cwd());
@@ -298,7 +317,7 @@ async function handleRun(args: string[]): Promise<void> {
       });
       console.log(JSON.stringify(result));
     } else {
-      console.log(JSON.stringify({ id, status: "started" }));
+      outputStartedJson(id, host);
     }
     process.exit(0);
   }
@@ -359,7 +378,7 @@ async function handleRun(args: string[]): Promise<void> {
       });
       console.log(JSON.stringify(result));
     } else {
-      console.log(JSON.stringify({ id, status: "started" }));
+      outputStartedJson(id, host);
     }
     process.exit(0);
   }
@@ -423,6 +442,23 @@ async function handleRun(args: string[]): Promise<void> {
       inkArgs["title"] = titleValue;
     }
     if (!Object.keys(inkArgs).length) inkArgs = undefined;
+
+    // Normalize common aliases (--json -> --data for table/chart/json/gauge)
+    if (inkArgs?.["json"] && !inkArgs["data"]) {
+      inkArgs["data"] = inkArgs["json"];
+      delete inkArgs["json"];
+    }
+    // Also support --rows and --content as aliases for --data in table
+    if (component === "table" && inkArgs) {
+      if (inkArgs["rows"] && !inkArgs["data"]) {
+        inkArgs["data"] = inkArgs["rows"];
+        delete inkArgs["rows"];
+      }
+      if (inkArgs["content"] && !inkArgs["data"]) {
+        inkArgs["data"] = inkArgs["content"];
+        delete inkArgs["content"];
+      }
+    }
   }
 
   // Validate component args against schema
@@ -435,6 +471,16 @@ async function handleRun(args: string[]): Promise<void> {
           return emitRunError(`Missing required argument: --${argName}`);
         }
       }
+
+      // Check oneOf validation (at least one of these must be provided)
+      if (schema.validation?.oneOf) {
+        const hasOne = schema.validation.oneOf.some(arg => inkArgs?.[arg]);
+        if (!hasOne) {
+          const opts = schema.validation.oneOf.map(a => `--${a}`).join(' or ');
+          return emitRunError(`Either ${opts} is required for '${component}'`);
+        }
+      }
+
       // Fail on unknown args for built-in components
       if (inkArgs) {
         const knownArgs = new Set(Object.keys(schema.args));
@@ -444,6 +490,24 @@ async function handleRun(args: string[]): Promise<void> {
             return emitRunError(
               `Unknown argument --${argName} for component '${component}'. Valid args: ${validArgs}`
             );
+          }
+        }
+      }
+
+      // Early JSON validation for args with type: "json"
+      if (inkArgs) {
+        for (const [argName, argDef] of Object.entries(schema.args)) {
+          if (argDef.type === "json" && inkArgs[argName]) {
+            try {
+              JSON.parse(inkArgs[argName]);
+            } catch (e) {
+              const value = inkArgs[argName];
+              const preview = value.length > 50 ? value.slice(0, 50) + '...' : value;
+              const errMsg = e instanceof Error ? e.message : String(e);
+              return emitRunError(
+                `Invalid JSON in --${argName}: ${errMsg}\nValue: ${preview}`
+              );
+            }
           }
         }
       }
@@ -480,7 +544,7 @@ async function handleRun(args: string[]): Promise<void> {
     });
     console.log(JSON.stringify(result));
   } else {
-    console.log(JSON.stringify({ id, status: "started" }));
+    outputStartedJson(id, host);
   }
 }
 
@@ -600,6 +664,163 @@ function handleResult(args: string[]): void {
   process.exit(0);
 }
 
+/**
+ * Attach to zellij session for the current project.
+ * Creates the session if it doesn't exist.
+ */
+async function handleAttach(args: string[]): Promise<void> {
+  // Check if zellij is installed
+  if (!await isZellijInstalled()) {
+    console.error("Error: zellij is not installed.");
+    console.error("Install it from: https://zellij.dev/");
+    process.exit(1);
+  }
+
+  // Parse --layout / -l flag
+  let layoutName: string | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--layout" || arg === "-l") {
+      layoutName = args[i + 1];
+      break;
+    } else if (arg.startsWith("--layout=")) {
+      layoutName = arg.slice("--layout=".length);
+      break;
+    }
+  }
+
+  const cwd = process.cwd();
+  const sessionName = getZellijSessionName(cwd);
+
+  // Check if session already exists
+  const sessionExists = await isSessionAlive(sessionName);
+
+  // Find layout file
+  let layoutPath: string | null = null;
+  if (layoutName) {
+    // User explicitly requested a layout
+    layoutPath = findLayoutFile(cwd, layoutName);
+    if (!layoutPath) {
+      const available = listAvailableLayouts(cwd);
+      console.error(`Error: Layout '${layoutName}' not found.`);
+      if (available.length > 0) {
+        console.error(`Available layouts: ${available.join(", ")}`);
+      } else {
+        console.error("No layouts found. Run /termos:init in Claude Code to create one.");
+      }
+      process.exit(1);
+    }
+  } else {
+    // Try to find default layout
+    layoutPath = findLayoutFile(cwd, "default");
+  }
+
+  // Write marker file before attaching
+  writeMarkerFile(sessionName);
+
+  console.log(`Attaching to session: ${sessionName}`);
+  if (layoutPath && !sessionExists) {
+    console.log(`Using layout: ${path.basename(layoutPath)}`);
+  }
+  console.log("Press Ctrl+O, d to detach\n");
+
+  let result;
+  if (sessionExists) {
+    // Attach to existing session
+    result = spawnSync("zellij", ["attach", sessionName], {
+      stdio: "inherit",
+    });
+  } else if (layoutPath) {
+    // Create new session with layout
+    result = spawnSync("zellij", ["--new-session-with-layout", layoutPath, "-s", sessionName], {
+      stdio: "inherit",
+    });
+  } else {
+    // Create new session without layout
+    result = spawnSync("zellij", ["attach", "--create", sessionName], {
+      stdio: "inherit",
+    });
+  }
+
+  // After user detaches, check if session is still alive
+  const alive = await isSessionAlive(sessionName);
+  if (!alive) {
+    // Session was killed, clean up marker
+    deleteMarkerFile(sessionName);
+  }
+
+  process.exit(result.status ?? 0);
+}
+
+/**
+ * Show status of the zellij session for the current project.
+ */
+async function handleStatus(): Promise<void> {
+  const sessionName = getZellijSessionName(process.cwd());
+  const markerPath = getMarkerPath(sessionName);
+  const hasMarker = fs.existsSync(markerPath);
+
+  console.log(`Session: ${sessionName}`);
+
+  if (!hasMarker) {
+    console.log("Status: not attached");
+    console.log("\nRun 'termos attach' to start a session");
+    process.exit(0);
+  }
+
+  // Verify session is actually alive
+  const alive = await isSessionAlive(sessionName);
+  if (alive) {
+    console.log("Status: running");
+
+    // Get and display layout info
+    const tabs = await getSessionLayout(sessionName);
+    if (tabs.length > 0) {
+      console.log("\nLayout:");
+      for (const tab of tabs) {
+        const focusMarker = tab.focused ? " (focused)" : "";
+        console.log(`  Tab: ${tab.name}${focusMarker}`);
+        for (const pane of tab.panes) {
+          const cmd = pane.command || "shell";
+          const args = pane.args?.length ? ` ${pane.args.join(" ")}` : "";
+          const name = pane.name ? `[${pane.name}] ` : "";
+          console.log(`    ${name}${cmd}${args}`);
+        }
+      }
+    }
+  } else {
+    console.log("Status: not running (stale marker)");
+    deleteMarkerFile(sessionName);
+    console.log("\nRun 'termos attach' to start a new session");
+  }
+  process.exit(0);
+}
+
+/**
+ * Stop (kill) the zellij session for the current project.
+ */
+async function handleStop(): Promise<void> {
+  const sessionName = getZellijSessionName(process.cwd());
+
+  // Check if session exists
+  const alive = await isSessionAlive(sessionName);
+  if (!alive) {
+    console.log(`Session ${sessionName} is not running`);
+    deleteMarkerFile(sessionName);
+    process.exit(0);
+  }
+
+  try {
+    await killSession(sessionName);
+    deleteMarkerFile(sessionName);
+    console.log(`Stopped session: ${sessionName}`);
+  } catch (err) {
+    console.error(`Failed to stop session: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const cmd = args[0];
@@ -621,6 +842,21 @@ async function main() {
 
   if (cmd === "result") {
     handleResult(args.slice(1));
+    return;
+  }
+
+  if (cmd === "attach") {
+    await handleAttach(args.slice(1));
+    return;
+  }
+
+  if (cmd === "status") {
+    await handleStatus();
+    return;
+  }
+
+  if (cmd === "stop") {
+    await handleStop();
     return;
   }
 

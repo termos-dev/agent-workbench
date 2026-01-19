@@ -1,9 +1,9 @@
-import { execFile } from "child_process";
+import { execFile, spawn } from "child_process";
 import { promisify } from "util";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
-import { pathToSessionName } from "./runtime.js";
+import { pathToSessionName, getZellijSessionName, getMarkerPath } from "./runtime.js";
 import { runFloatingPane, runTab, runSplitPane, getOptimalSplitDirection } from "./zellij.js";
 import { shellEscape, buildMacOSTerminalCommand } from "./shell-utils.js";
 
@@ -302,12 +302,20 @@ ${shellCommand}
       fs.writeFileSync(tmpFile, scriptContent, "utf8");
       fs.chmodSync(tmpFile, 0o755);
       if (ghosttyExe) {
-        await execFileAsync(ghosttyExe, ["-e", tmpFile]);
+        const child = spawn(ghosttyExe, ["-e", tmpFile], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
       } else {
-        await execFileAsync("open", ["-na", ghosttyApp, "--args", "-e", tmpFile]);
+        const child = spawn("open", ["-na", ghosttyApp, "--args", "-e", tmpFile], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
       }
-      // Clean up after delay (longer delay to ensure script has time to start)
-      setTimeout(() => { try { fs.unlinkSync(tmpFile); } catch {} }, 10000);
+      // Clean up after delay (30s to handle slow Ghostty startup on some systems)
+      setTimeout(() => { try { fs.unlinkSync(tmpFile); } catch {} }, 30000);
     },
   };
 }
@@ -355,7 +363,11 @@ end tell`;
         "set title displays custom title of newTab to true",
       ];
       scriptLines.push("end tell");
-      await execFileAsync("osascript", ["-e", scriptLines.join("\n")]);
+      const child = spawn("osascript", ["-e", scriptLines.join("\n")], {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
     },
   };
   return host;
@@ -369,7 +381,31 @@ export function selectPaneHost(cwd: string): PaneHost {
     return createZellijHost(resolved.name);
   }
 
+  // Check if a zellij session is attached for this project (via marker file)
+  const zellijSessionName = getZellijSessionName(cwd);
+  const markerPath = getMarkerPath(zellijSessionName);
+  if (fs.existsSync(markerPath)) {
+    return createZellijHost(zellijSessionName);
+  }
+
   if (process.platform === "darwin") {
+    // Check for terminal override via TERMOS_TERMINAL env var
+    // Valid values: "ghostty", "terminal" (or "zellij" if inside Zellij session)
+    const terminalOverride = process.env.TERMOS_TERMINAL?.toLowerCase();
+
+    if (terminalOverride === "terminal") {
+      return createMacTerminalHost(resolved.name);
+    }
+
+    if (terminalOverride === "ghostty") {
+      // User explicitly requested Ghostty - verify it exists
+      if (!findExecutable("ghostty") && !resolveGhosttyApp()) {
+        throw new Error("TERMOS_TERMINAL=ghostty but Ghostty is not installed.");
+      }
+      return createGhosttyHost(resolved.name);
+    }
+
+    // Default: auto-detect (Ghostty if available, else Terminal)
     if (findExecutable("ghostty") || resolveGhosttyApp()) {
       return createGhosttyHost(resolved.name);
     }

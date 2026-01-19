@@ -176,3 +176,179 @@ export async function runSplitPane(
   // Schedule cleanup after the script has had time to start
   scheduleScriptCleanup(scriptPath);
 }
+
+/**
+ * Check if a zellij session is alive by querying zellij list-sessions.
+ */
+export async function isSessionAlive(sessionName: string): Promise<boolean> {
+  try {
+    const sessions = await listSessions();
+    return sessions.includes(sessionName);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * List all zellij sessions.
+ */
+export async function listSessions(): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync("zellij", ["list-sessions", "-s"]);
+    return stdout
+      .trim()
+      .split("\n")
+      .filter((s) => s.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Kill a zellij session by name.
+ */
+export async function killSession(sessionName: string): Promise<void> {
+  await execFileAsync("zellij", ["kill-session", sessionName]);
+}
+
+/**
+ * Check if zellij is installed and available.
+ */
+export async function isZellijInstalled(): Promise<boolean> {
+  try {
+    await execFileAsync("zellij", ["--version"]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export interface PaneInfo {
+  name?: string;
+  command?: string;
+  args?: string[];
+  suspended?: boolean;
+}
+
+export interface TabInfo {
+  name: string;
+  focused: boolean;
+  panes: PaneInfo[];
+}
+
+/**
+ * Get the layout of a zellij session including tabs and panes.
+ */
+export async function getSessionLayout(sessionName: string): Promise<TabInfo[]> {
+  try {
+    const { stdout } = await execFileAsync("zellij", [
+      "--session", sessionName,
+      "action", "dump-layout"
+    ]);
+    return parseLayoutKdl(stdout);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Parse KDL layout output to extract tab and pane info.
+ * This is a simple parser for the specific format zellij outputs.
+ */
+function parseLayoutKdl(kdl: string): TabInfo[] {
+  const tabs: TabInfo[] = [];
+  const lines = kdl.split('\n');
+
+  let currentTab: TabInfo | null = null;
+  let currentPane: PaneInfo | null = null;
+  let inPane = false;
+  let inTemplate = false;
+  let braceDepth = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Skip template sections (new_tab_template, swap_tiled_layout, etc.)
+    if (trimmed.match(/^(new_tab_template|swap_tiled_layout|swap_floating_layout)\s*{/)) {
+      inTemplate = true;
+      braceDepth = 1;
+      continue;
+    }
+
+    // Track template brace depth
+    if (inTemplate) {
+      const openBraces = (trimmed.match(/{/g) || []).length;
+      const closeBraces = (trimmed.match(/}/g) || []).length;
+      braceDepth += openBraces - closeBraces;
+      if (braceDepth <= 0) {
+        inTemplate = false;
+        braceDepth = 0;
+      }
+      continue;
+    }
+
+    // Match tab line: tab name="Tab #1" focus=true { or tab { (attributes can be in any order)
+    if (trimmed.startsWith('tab ') && trimmed.endsWith('{')) {
+      if (currentTab) tabs.push(currentTab);
+      const nameMatch = trimmed.match(/name="([^"]*)"/);
+      const focusMatch = trimmed.match(/focus=(true|false)/);
+      currentTab = {
+        name: nameMatch?.[1] || 'Tab',
+        focused: focusMatch?.[1] === 'true',
+        panes: []
+      };
+      continue;
+    }
+
+    // Match pane with command: pane command="python" name="docs" { (order may vary)
+    if (trimmed.startsWith('pane ') && trimmed.includes('command=') && currentTab) {
+      const commandMatch = trimmed.match(/command="([^"]*)"/);
+      const nameMatch = trimmed.match(/name="([^"]*)"/);
+      if (commandMatch) {
+        currentPane = {
+          command: commandMatch[1],
+          name: nameMatch?.[1],
+          args: [],
+          suspended: false
+        };
+        inPane = true;
+        continue;
+      }
+    }
+
+    // Match pane without command (plugins, etc) - skip these
+    if (trimmed.startsWith('pane ') && trimmed.includes('{')) {
+      continue;
+    }
+
+    // Inside a pane, look for args and start_suspended
+    if (inPane && currentPane) {
+      // Match args "arg1" "arg2" ...
+      const argsMatch = trimmed.match(/^args\s+(.+)/);
+      if (argsMatch) {
+        const argsStr = argsMatch[1];
+        const argMatches = argsStr.match(/"([^"]*)"/g);
+        if (argMatches) {
+          currentPane.args = argMatches.map(a => a.slice(1, -1));
+        }
+      }
+
+      // Match start_suspended true
+      if (trimmed.includes('start_suspended true')) {
+        currentPane.suspended = true;
+      }
+
+      // End of pane block
+      if (trimmed === '}' && currentTab) {
+        currentTab.panes.push(currentPane);
+        currentPane = null;
+        inPane = false;
+      }
+    }
+  }
+
+  // Don't forget the last tab
+  if (currentTab) tabs.push(currentTab);
+
+  return tabs;
+}

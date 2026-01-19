@@ -112,13 +112,13 @@ Based on detection, explain the experience they'll get:
 > - **No split panes**: `split:right` and `split:down` aren't available
 > - **Still functional**: Floating positions work as separate windows
 >
-> For the best experience with split panes, run inside Zellij:
-> `zellij attach --create $(basename $PWD)`
+> For the best experience with split panes, use `termos attach` after setup:
+> `termos attach` (uses layout from .termos/layouts/default.kdl)
 
 **If Linux without Zellij:**
 > On Linux, termos requires Zellij for pane management.
-> Start a Zellij session: `zellij attach --create $(basename $PWD)`
-> Then run `termos init` again inside the session.
+> Install Zellij first, then run `termos init` again.
+> After init, use `termos attach` to start your session.
 
 ## Step 2: Ask User Preferences
 
@@ -289,7 +289,191 @@ Confirm with user before writing:
 termos run --title "Confirm" confirm --prompt "Create termos.md with these settings?"
 ```
 
-## Step 5: Update CLAUDE.md
+## Step 5: Zellij Layout Setup (Optional)
+
+If Zellij is available, ask if user wants to create a layout for `termos attach` with their project's background processes.
+
+### Step 5a: Detect Project Type
+
+First, detect what kind of project this is by checking for common files:
+
+```bash
+# Detect project type
+[ -f "package.json" ] && echo "nodejs"
+[ -f "requirements.txt" ] || [ -f "pyproject.toml" ] && echo "python"
+[ -f "Cargo.toml" ] && echo "rust"
+[ -f "go.mod" ] && echo "go"
+[ -f "Gemfile" ] && echo "ruby"
+[ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] && echo "docker"
+[ -f "Makefile" ] && echo "make"
+```
+
+### Step 5b: Ask About Background Processes
+
+Ask the user what processes they typically run for this project:
+
+"What background processes do you want to run when starting `termos attach`?
+
+Examples based on your project:
+{if nodejs:}
+- Dev server: `npm run dev` or `yarn dev`
+- API server: `npm run api`
+- Build watcher: `npm run build:watch`
+{endif}
+{if python:}
+- Django server: `python manage.py runserver`
+- FastAPI: `uvicorn main:app --reload`
+- Celery worker: `celery -A app worker`
+{endif}
+{if docker:}
+- Docker compose: `docker compose up`
+- Logs: `docker compose logs -f`
+{endif}
+
+Common options:
+- Web server / frontend
+- API / backend server
+- Database
+- Log viewer / tail
+- File watcher
+- Test runner (watch mode)
+- Custom command
+
+Which processes do you want? (You can add multiple, or 'none' for empty layout)"
+
+### Step 5c: Collect Process Details
+
+For each process the user wants, ask:
+1. **Name**: Short name for the pane (e.g., "server", "api", "logs")
+2. **Command**: The command to run (e.g., `npm run dev`)
+3. **Position**: Main pane, side pane, or bottom pane
+
+Example interaction:
+```
+Process 1:
+- Name: server
+- Command: npm run dev
+- Position: main (large pane)
+
+Process 2:
+- Name: logs
+- Command: tail -f logs/app.log
+- Position: bottom (small pane)
+
+Add another process? (y/n)
+```
+
+### Step 5d: Generate Layout KDL
+
+Based on collected processes, generate a custom layout.
+
+**Tab naming:** Use the project directory name (basename of `$PWD`) as the tab name.
+This makes it easy to identify the project in Zellij's tab bar.
+
+**Template for layout with commands:**
+```kdl
+layout {
+    // Use project name or layout name for the tab
+    tab name="{project_name}" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        // Main content area
+        pane split_direction="horizontal" {
+            // Main pane (or split for multiple main processes)
+            {for each main process:}
+            pane name="{name}" {
+                command "{shell}"
+                args "-c" "{command}"
+            }
+            {endfor}
+            // Side pane (if any side processes)
+            {if side processes:}
+            pane size="40%" split_direction="horizontal" {
+                {for each side process:}
+                pane name="{name}" {
+                    command "{shell}"
+                    args "-c" "{command}"
+                }
+                {endfor}
+            }
+            {endif}
+        }
+        // Bottom pane (if any bottom processes like logs)
+        {if bottom processes:}
+        pane size="20%" name="{name}" {
+            command "{shell}"
+            args "-c" "{command}"
+        }
+        {endif}
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+}
+```
+
+**Example: Node.js fullstack project**
+User wants: dev server (main), API (side), logs (bottom)
+
+`.termos/layouts/default.kdl`:
+```kdl
+layout {
+    tab name="my-app" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane split_direction="horizontal" {
+            pane size="60%" name="frontend" {
+                command "bash"
+                args "-c" "npm run dev"
+            }
+            pane size="40%" name="api" {
+                command "bash"
+                args "-c" "npm run api"
+            }
+        }
+        pane size="20%" name="logs" {
+            command "bash"
+            args "-c" "tail -f logs/*.log"
+        }
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+}
+```
+
+**Example: Empty layout (no auto-start processes)**
+If user selects 'none', create a minimal layout:
+```kdl
+layout {
+    tab name="{project_name}" {
+        pane size=1 borderless=true {
+            plugin location="zellij:tab-bar"
+        }
+        pane
+        pane size=1 borderless=true {
+            plugin location="zellij:status-bar"
+        }
+    }
+}
+```
+
+### Step 5e: Ask About Additional Layouts
+
+"Would you like to create additional named layouts for different workflows?
+
+Examples:
+- `debug`: Layout with debugger and logs
+- `test`: Layout with test runner in watch mode
+- `prod`: Layout for production monitoring
+
+You can switch between them with `termos attach -l <name>`"
+
+If yes, repeat Steps 5b-5d for each additional layout.
+
+## Step 6: Update CLAUDE.md
 
 If a `CLAUDE.md` exists in the project root, append termos instructions so Claude actively uses interactive components:
 
@@ -313,11 +497,56 @@ Tip: Run wait in background so user isn't blocked while interacting with the pan
 - **Display task progress** visually for multi-step operations
 
 Run `termos --help` for available components. Always use `--title` and `--position` flags.
+
+## Session Awareness
+
+Check what's running in the termos session:
+```bash
+termos status
+```
+
+This shows the session name, status, and layout with tabs/panes and their commands.
+
+To get logs from a pane (dumps the focused pane's screen):
+```bash
+zellij --session <session-name> action dump-screen /tmp/pane.txt && cat /tmp/pane.txt
+```
+
+To focus a specific tab first:
+```bash
+zellij --session <session-name> action go-to-tab-name "Tab Name"
+```
 EOF
 fi
 ```
 
 If no `CLAUDE.md` exists, ask the user if they want to create one with termos instructions.
+
+## Step 7: Final Output
+
+After completing setup, output a summary with next steps:
+
+```
+✓ Termos initialized!
+
+Created files:
+- termos.md (interaction preferences)
+{if layout was created:}
+- .termos/layouts/default.kdl (Zellij layout)
+{endif}
+
+{if Zellij available:}
+Side-by-side workflow:
+  termos attach              # Start Zellij session with your layout
+  termos attach -l <name>    # Use a specific layout
+  termos status              # Check session status
+  termos stop                # Stop the session
+
+Detach from Zellij with Ctrl+O, d and reattach anytime.
+{endif}
+
+Run `termos --help` for all available components.
+```
 
 ## Example Output
 

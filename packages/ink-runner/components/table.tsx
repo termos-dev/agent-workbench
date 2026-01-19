@@ -36,6 +36,34 @@ function parseCSV(content: string): Row[] {
   return rows;
 }
 
+function getJsonErrorContext(content: string, error: Error): string {
+  const msg = error.message;
+  // Try to extract position from error message like "at position 211"
+  const posMatch = msg.match(/position\s+(\d+)/i);
+  if (posMatch) {
+    const pos = parseInt(posMatch[1], 10);
+    const start = Math.max(0, pos - 20);
+    const end = Math.min(content.length, pos + 20);
+    const snippet = content.slice(start, end);
+    const pointer = ' '.repeat(Math.min(20, pos - start)) + '^';
+    return `${msg}\nContext: ...${snippet}...\n            ${pointer}`;
+  }
+  // Try to extract line/column from error message
+  const lineMatch = msg.match(/line\s+(\d+)/i);
+  if (lineMatch) {
+    const lineNum = parseInt(lineMatch[1], 10);
+    const lines = content.split('\n');
+    if (lineNum > 0 && lineNum <= lines.length) {
+      const line = lines[lineNum - 1];
+      const preview = line.length > 60 ? line.slice(0, 60) + '...' : line;
+      return `${msg}\nLine ${lineNum}: ${preview}`;
+    }
+  }
+  // Fallback: show truncated content
+  const preview = content.length > 80 ? content.slice(0, 80) + '...' : content;
+  return `${msg}\nContent starts with: ${preview}`;
+}
+
 function parseJSON(content: string): Row[] {
   const data = JSON.parse(content);
   if (Array.isArray(data)) return data;
@@ -90,14 +118,17 @@ export default function TableViewer() {
   const isFirstLoad = useRef(true);
 
   useFileWatch(args?.file, () => {
+    let contentForError = '';  // Track content for error context
     try {
       let data: Row[] = [];
 
       const dataArg = args?.data || args?.rows || args?.content;
       if (dataArg) {
+        contentForError = dataArg;
         data = parseJSON(dataArg);
       } else if (args?.file) {
         const content = readFileSync(args.file, 'utf-8');
+        contentForError = content;
         if (args.file.endsWith('.csv')) {
           data = parseCSV(content);
         } else {
@@ -132,7 +163,11 @@ export default function TableViewer() {
         setSelectedRow(0);
       }
     } catch (e) {
-      setError(`Error parsing data: ${e instanceof Error ? e.message : String(e)}`);
+      const err = e instanceof Error ? e : new Error(String(e));
+      const contextMsg = contentForError
+        ? getJsonErrorContext(contentForError, err)
+        : err.message;
+      setError(`Error parsing data: ${contextMsg}`);
     }
   });
 

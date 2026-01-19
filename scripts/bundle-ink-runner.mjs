@@ -79,6 +79,13 @@ async function bundlePackage(name) {
   // Copy dist folder
   copyDir(path.join(src, 'dist'), path.join(dest, 'dist'));
 
+  // Copy assets folder (icons, etc.) to dist
+  const assetsDir = path.join(src, 'src', 'assets');
+  if (fs.existsSync(assetsDir)) {
+    console.log(`Copying assets from ${name}...`);
+    copyDir(assetsDir, path.join(dest, 'dist', 'assets'));
+  }
+
   // Copy node_modules (skip symlinks to local packages - they're resolved via dist/)
   copyDir(path.join(src, 'node_modules'), path.join(dest, 'node_modules'), true);
 

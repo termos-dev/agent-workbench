@@ -15,6 +15,9 @@ export interface ComponentSchema {
   args: Record<string, ArgSchema>;
   returns: Record<string, string>;
   examples?: string[];
+  validation?: {
+    oneOf?: string[];  // At least one of these args must be provided
+  };
 }
 
 export const componentSchemas: Record<string, ComponentSchema> = {
@@ -139,15 +142,23 @@ export const componentSchemas: Record<string, ComponentSchema> = {
     name: "table",
     description: "Display tabular data from JSON or CSV",
     args: {
-      file: { type: "string", required: true, description: "Path to JSON or CSV file" },
+      file: { type: "string", description: "Path to JSON or CSV file" },
+      data: { type: "json", description: "Inline JSON array of objects" },
       columns: { type: "string", description: "Columns to display (comma-separated)" },
+      select: { type: "boolean", description: "Enable row selection mode" },
+    },
+    validation: {
+      oneOf: ["file", "data"],
     },
     returns: {
       action: "accept",
+      selectedRow: "object - selected row data (when select=true)",
+      selectedIndex: "number - index of selected row (when select=true)",
     },
     examples: [
       'termos run --title "Table" table --file data.json',
       'termos run --title "Table" table --file data.csv --columns "name,status,date"',
+      'termos run --title "Table" table --data \'[{"name":"Alice","age":30},{"name":"Bob","age":25}]\'',
     ],
   },
 
@@ -169,12 +180,15 @@ export const componentSchemas: Record<string, ComponentSchema> = {
 
   mermaid: {
     name: "mermaid",
-    description: "Render Mermaid diagrams as ASCII flowcharts",
+    description: "Render Mermaid diagrams as ASCII art. SUPPORTED: flowchart/graph, sequenceDiagram, classDiagram, stateDiagram (renders as ASCII boxes/arrows). NOT SUPPORTED (shows source only): erDiagram, pie, gantt, journey, gitGraph, mindmap, timeline, quadrantChart, xychart, sankey, packet, block. Accepts raw mermaid or markdown with code fences.",
     args: {
-      file: { type: "string", description: "Path to .mmd file" },
+      file: { type: "string", description: "Path to .mmd or .md file" },
       code: { type: "string", description: "Inline mermaid code" },
       title: { type: "string", description: "Title above diagram" },
       editor: { type: "string", description: "Editor command to open file (e.g. 'code', 'vim')" },
+    },
+    validation: {
+      oneOf: ["file", "code"],
     },
     returns: {
       action: "accept | edit",
@@ -182,9 +196,10 @@ export const componentSchemas: Record<string, ComponentSchema> = {
       editor: "string - editor command (when action=edit)",
     },
     examples: [
-      'termos run --title "Mermaid" mermaid --file diagram.mmd',
-      'termos run --title "Mermaid" mermaid --code "flowchart LR; A-->B-->C"',
-      'termos run --title "Mermaid" mermaid --file diagram.mmd --editor "code"',
+      'termos run --title "Flow" mermaid --code "flowchart LR; A-->B-->C"',
+      'termos run --title "Sequence" mermaid --code "sequenceDiagram; A->>B: Hello; B->>A: Hi"',
+      'termos run --title "Class" mermaid --code "classDiagram; class Animal { +name +eat() }; class Dog; Animal <|-- Dog"',
+      'termos run --title "State" mermaid --code "stateDiagram-v2; [*] --> Active; Active --> [*]"',
     ],
   },
 
@@ -195,6 +210,9 @@ export const componentSchemas: Record<string, ComponentSchema> = {
       file: { type: "string", description: "Path to markdown file" },
       content: { type: "string", description: "Inline markdown content" },
       title: { type: "string", description: "Title above content" },
+    },
+    validation: {
+      oneOf: ["file", "content"],
     },
     returns: {
       action: "accept",
@@ -232,6 +250,9 @@ export const componentSchemas: Record<string, ComponentSchema> = {
       height: { type: "number", default: "8", description: "Chart height in rows (for line graphs)" },
       sort: { type: "string", default: "none", description: "Sort order: none | asc | desc (for bar charts)" },
       showValues: { type: "boolean", default: "true", description: "Show values next to bars" },
+    },
+    validation: {
+      oneOf: ["file", "data"],
     },
     returns: {
       action: "accept",
@@ -297,6 +318,9 @@ export const componentSchemas: Record<string, ComponentSchema> = {
       data: { type: "json", description: "Inline JSON data" },
       title: { type: "string", description: "Title above viewer" },
       expandDepth: { type: "number", default: "2", description: "Initial expand depth" },
+    },
+    validation: {
+      oneOf: ["file", "data"],
     },
     returns: {
       action: "accept | cancel",
@@ -397,15 +421,26 @@ export function generateComponentHelp(schema: ComponentSchema): string {
     .filter(([_, arg]) => arg.required)
     .map(([name, _]) => `--${name} <value>`)
     .join(' ');
-  lines.push(`  Usage: termos run --title "<text>" ${schema.name} ${requiredArgs}`.trimEnd());
+  const oneOfHint = schema.validation?.oneOf
+    ? `<${schema.validation.oneOf.map(a => `--${a}`).join(' | ')}>`
+    : '';
+  lines.push(`  Usage: termos run --title "<text>" ${schema.name} ${requiredArgs} ${oneOfHint}`.trimEnd());
   lines.push('');
+
+  // oneOf validation note
+  if (schema.validation?.oneOf) {
+    const opts = schema.validation.oneOf.map(a => `--${a}`).join(' or ');
+    lines.push(`  Note: Either ${opts} is required`);
+    lines.push('');
+  }
 
   // Options
   lines.push('  Options:');
   for (const [name, arg] of Object.entries(schema.args)) {
     const req = arg.required ? '(required)' : '';
+    const oneOf = schema.validation?.oneOf?.includes(name) ? '(oneOf)' : '';
     const def = arg.default ? `(default: ${arg.default})` : '';
-    lines.push(`    --${name.padEnd(12)} ${arg.description} ${req} ${def}`.trimEnd());
+    lines.push(`    --${name.padEnd(12)} ${arg.description} ${req} ${oneOf} ${def}`.trimEnd());
   }
   lines.push('');
 

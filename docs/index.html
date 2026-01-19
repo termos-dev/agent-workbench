@@ -230,6 +230,58 @@ claude plugins install termos</code></pre>
         </div>
       </section>
 
+      <!-- Side-by-Side Workflow -->
+      <section class="mt-24">
+        <div class="text-center">
+          <h2 class="text-3xl font-bold">Side-by-Side Workflow</h2>
+          <p class="mt-3 text-slate-400">Run a Zellij session alongside Claude with your dev servers</p>
+        </div>
+
+        <div class="mt-10 grid gap-6 md:grid-cols-2">
+          <!-- Terminal 1 -->
+          <div class="rounded-2xl border border-white/10 bg-black/40 p-5">
+            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500/80"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-green-500/80"></span>
+              <span class="ml-2 text-xs text-slate-500">Terminal 1 — Claude</span>
+            </div>
+            <pre class="font-mono text-sm text-slate-300"><span class="text-slate-500">$</span> <span class="text-cyan-400">claude</span>
+
+<span class="text-slate-500"># Claude runs termos commands...</span>
+<span class="text-slate-500"># Interactions appear in Terminal 2</span></pre>
+          </div>
+
+          <!-- Terminal 2 -->
+          <div class="rounded-2xl border border-cyan-500/30 bg-black/40 p-5">
+            <div class="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500/80"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-green-500/80"></span>
+              <span class="ml-2 text-xs text-slate-500">Terminal 2 — Interactions + Dev Servers</span>
+            </div>
+            <pre class="font-mono text-sm text-slate-300"><span class="text-slate-500">$</span> <span class="text-cyan-400">termos attach</span>
+
+<span class="text-slate-500"># Zellij session with your layout:</span>
+<span class="text-slate-500"># - Dev server running</span>
+<span class="text-slate-500"># - API server running</span>
+<span class="text-slate-500"># - Termos interactions appear here</span></pre>
+          </div>
+        </div>
+
+        <div class="mt-6 text-center">
+          <p class="text-sm text-slate-500">
+            <span class="font-mono text-slate-400">/termos:init</span> asks about your background processes and generates custom layouts
+          </p>
+          <div class="mt-4 flex flex-wrap justify-center gap-2">
+            <code class="rounded bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300">termos attach</code>
+            <code class="rounded bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300">termos attach -l debug</code>
+            <code class="rounded bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300">termos status</code>
+            <code class="rounded bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300">termos stop</code>
+          </div>
+        </div>
+      </section>
+
       <!-- Component Showcase -->
       <section id="components" class="mt-24">
         <div class="text-center">
@@ -376,21 +428,27 @@ claude plugins install termos</code></pre>
 
       <!-- How it works (brief) -->
       <section class="mt-16">
-        <div class="grid gap-4 md:grid-cols-3">
+        <div class="grid gap-4 md:grid-cols-4">
           <div class="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
             <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-mono font-semibold">1</div>
             <div class="text-sm text-slate-300">
-              <span class="font-mono text-slate-400">termos run</span> spawns interactive panes
+              <span class="font-mono text-slate-400">termos attach</span> starts side-by-side session
             </div>
           </div>
           <div class="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
             <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-mono font-semibold">2</div>
             <div class="text-sm text-slate-300">
-              <span class="font-mono text-slate-400">termos wait</span> runs in background
+              <span class="font-mono text-slate-400">termos run</span> spawns interactive panes
             </div>
           </div>
           <div class="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
             <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-mono font-semibold">3</div>
+            <div class="text-sm text-slate-300">
+              <span class="font-mono text-slate-400">termos wait</span> runs in background
+            </div>
+          </div>
+          <div class="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-mono font-semibold">4</div>
             <div class="text-sm text-slate-300">
               Claude runs without blocking
             </div>

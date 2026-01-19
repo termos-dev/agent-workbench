@@ -8,6 +8,12 @@ USE_DOCKER=false
 TEST_PATH="."
 SESSION_NAME="termos-e2e"
 PROMPT=""
+RECORD=false
+RECORD_OUTPUT="demo.cast"
+HEADLESS=false
+SCREENSHOTS=false
+COLS=120
+ROWS=40
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -27,6 +33,30 @@ while [[ $# -gt 0 ]]; do
       PROMPT="$2"
       shift 2
       ;;
+    --record|-r)
+      RECORD=true
+      shift
+      ;;
+    --output|-o)
+      RECORD_OUTPUT="$2"
+      shift 2
+      ;;
+    --headless|-H)
+      HEADLESS=true
+      shift
+      ;;
+    --screenshots)
+      SCREENSHOTS=true
+      shift
+      ;;
+    --cols)
+      COLS="$2"
+      shift 2
+      ;;
+    --rows)
+      ROWS="$2"
+      shift 2
+      ;;
     *)
       # Treat as prompt if not a flag
       if [[ ! "$1" =~ ^-- ]]; then
@@ -36,6 +66,9 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+TMUX_SESSION="termos-tmux-$$"
+ZELLIJ_SESSION="$SESSION_NAME"
 
 # Check if we're inside Zellij
 in_zellij() {
@@ -202,6 +235,97 @@ run_tests() {
 }
 
 #######################################
+# SCREENSHOT MODE
+# Captures SVG screenshots of all components
+#######################################
+capture_component() {
+  local name="$1"
+  local cmd="$2"
+  local output="docs/images/components/${name}.svg"
+  local cast_file="/tmp/${name}.cast"
+
+  # Use termtosvg to record the component directly to SVG
+  # Run in a subshell with timeout
+  if command -v termtosvg >/dev/null 2>&1; then
+    # termtosvg records directly to SVG
+    timeout 5 termtosvg --still-frame -g 100x24 "$output" \
+      -c "bash -c '$cmd --position inline 2>/dev/null || $cmd 2>/dev/null; sleep 1'" 2>/dev/null || true
+  else
+    # Fallback: use asciinema + svg-term
+    asciinema rec --overwrite --cols 100 --rows 24 \
+      -c "bash -c '$cmd --position inline 2>/dev/null || $cmd 2>/dev/null; sleep 1'" \
+      "$cast_file" 2>/dev/null || true
+
+    # Convert to SVG (at 1000ms to capture rendered state)
+    if command -v svg-term >/dev/null 2>&1; then
+      svg-term --in "$cast_file" --out "$output" --at 1000 \
+        --window --no-cursor --padding 16 --padding-x 20 --padding-y 16 2>/dev/null || {
+        echo "  ⚠ svg-term failed for $name"
+      }
+    fi
+  fi
+
+  if [ -f "$output" ]; then
+    echo "✓ $name"
+  else
+    echo "⚠ $name (no output)"
+  fi
+}
+
+capture_screenshots() {
+  echo ""
+  echo "Capturing Component Screenshots"
+  echo "=========================================="
+
+  # Ensure output directory exists
+  mkdir -p docs/images/components
+
+  # Check for svg-term
+  if ! command -v svg-term >/dev/null 2>&1; then
+    echo "⚠ svg-term-cli not installed. Install with: npm install -g svg-term-cli"
+    echo "  Continuing anyway, will save .cast files..."
+  fi
+
+  echo ""
+
+  # Capture each component with sample data
+  capture_component "confirm" "termos run confirm --title 'Deploy' --prompt 'Deploy to production?'"
+  capture_component "ask" "termos run ask --title 'Name' --prompt 'What is your name?'"
+  capture_component "checklist" "termos run checklist --title 'Tasks' --items '[\"Build application\",\"Run tests\",\"Deploy to staging\",\"Notify team\"]'"
+  capture_component "select" "termos run select --title 'Choose' --prompt 'Select environment' --items '[\"Development\",\"Staging\",\"Production\"]'"
+  capture_component "table" "termos run table --title 'Users' --data '[{\"name\":\"Alice\",\"role\":\"Admin\",\"status\":\"Active\"},{\"name\":\"Bob\",\"role\":\"User\",\"status\":\"Active\"},{\"name\":\"Charlie\",\"role\":\"User\",\"status\":\"Inactive\"}]'"
+  capture_component "progress" "termos run progress --title 'Build' --steps '[\"Installing dependencies\",\"Compiling TypeScript\",\"Running tests\",\"Building bundle\"]'"
+  capture_component "code" "termos run code --title 'Code' --content 'function hello(name: string) {\n  console.log(\"Hello, \" + name);\n}\n\nhello(\"World\");' --lang typescript"
+  capture_component "diff" "termos run diff --title 'Changes' --content '--- a/config.ts\n+++ b/config.ts\n@@ -1,3 +1,4 @@\n export const config = {\n   port: 3000,\n+  debug: true,\n };'"
+  capture_component "markdown" "termos run markdown --title 'Docs' --content '# Welcome\n\nThis is **bold** and *italic* text.\n\n- Item 1\n- Item 2\n\n\`\`\`js\nconsole.log(\"hi\");\n\`\`\`'"
+  capture_component "mermaid" "termos run mermaid --title 'Flow' --content 'graph LR\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Action]\n  B -->|No| D[End]'"
+  capture_component "chart" "termos run chart --title 'Stats' --type bar --data '[{\"label\":\"Mon\",\"value\":10},{\"label\":\"Tue\",\"value\":25},{\"label\":\"Wed\",\"value\":15},{\"label\":\"Thu\",\"value\":30},{\"label\":\"Fri\",\"value\":20}]'"
+  capture_component "json" "termos run json --title 'Data' --data '{\"user\":{\"name\":\"Alice\",\"email\":\"alice@example.com\"},\"settings\":{\"theme\":\"dark\",\"notifications\":true}}'"
+  capture_component "tree" "termos run tree --title 'Files' --data '{\"src\":{\"index.ts\":null,\"utils\":{\"helper.ts\":null,\"format.ts\":null}},\"package.json\":null}'"
+  capture_component "gauge" "termos run gauge --title 'CPU' --value 75 --max 100 --label 'CPU Usage'"
+  capture_component "plan-viewer" "termos run plan-viewer --title 'Plan' --file README.md"
+
+  echo ""
+  echo "=========================================="
+  echo "Screenshots saved to docs/images/components/"
+  echo "=========================================="
+}
+
+if [ "$SCREENSHOTS" = true ]; then
+  cd "$TEST_PATH"
+
+  # Build termos if needed
+  if ! command -v termos >/dev/null 2>&1; then
+    echo "Building termos..."
+    npm run build --silent 2>&1 | tail -1
+    npm link --silent 2>&1 | tail -1
+  fi
+
+  capture_screenshots
+  exit 0
+fi
+
+#######################################
 # DOCKER MODE
 #######################################
 if [ "$USE_DOCKER" = true ]; then
@@ -244,6 +368,114 @@ if in_zellij; then
   echo "Already in Zellij session: $ZELLIJ_SESSION_NAME"
   run_tests
   exit $?
+fi
+
+#######################################
+# HEADLESS MODE (tmux → zellij → claude)
+# Use this from non-TTY environments like Claude Code
+#######################################
+if [ "$HEADLESS" = true ]; then
+  echo "Headless mode: tmux → zellij → claude"
+  echo "=========================================="
+
+  # Cleanup function
+  cleanup_headless() {
+    echo "Cleaning up..."
+    tmux kill-session -t "$TMUX_SESSION" 2>/dev/null || true
+    zellij kill-session "$ZELLIJ_SESSION" 2>/dev/null || true
+  }
+  trap cleanup_headless EXIT
+
+  # Kill any existing sessions
+  tmux kill-session -t "$TMUX_SESSION" 2>/dev/null || true
+  zellij kill-session "$ZELLIJ_SESSION" 2>/dev/null || true
+  sleep 1
+
+  # Create tmux session
+  echo "Creating tmux session: $TMUX_SESSION"
+  tmux new-session -d -s "$TMUX_SESSION" -x "$COLS" -y "$ROWS"
+
+  # Start zellij inside tmux
+  echo "Starting zellij session: $ZELLIJ_SESSION"
+  tmux send-keys -t "$TMUX_SESSION" "cd $(pwd) && zellij --session $ZELLIJ_SESSION" Enter
+  sleep 3
+
+  # Dismiss zellij welcome screen
+  tmux send-keys -t "$TMUX_SESSION" Escape
+  sleep 1
+
+  # Start Claude
+  echo "Starting Claude..."
+  tmux send-keys -t "$TMUX_SESSION" "claude --dangerously-skip-permissions" Enter
+
+  # Wait for Claude to be ready
+  echo "Waiting for Claude to be ready..."
+  for i in {1..30}; do
+    screen=$(tmux capture-pane -t "$TMUX_SESSION" -p 2>/dev/null || true)
+    if echo "$screen" | grep -qE "^> |^› |Claude Code"; then
+      echo "Claude is ready."
+      break
+    fi
+    sleep 1
+  done
+
+  # Inject prompt if provided
+  if [ -n "$PROMPT" ]; then
+    echo "Injecting prompt..."
+    sleep 2
+    tmux send-keys -t "$TMUX_SESSION" "$PROMPT"
+    sleep 1
+    tmux send-keys -t "$TMUX_SESSION" Enter
+    # Press Enter again to make sure it submits
+    sleep 1
+    tmux send-keys -t "$TMUX_SESSION" Enter
+  fi
+
+  echo ""
+  echo "=========================================="
+  echo "Session ready!"
+  echo ""
+  echo "View output:  tmux capture-pane -t $TMUX_SESSION -p"
+  echo "Attach:       tmux attach -t $TMUX_SESSION"
+  echo "Kill:         tmux kill-session -t $TMUX_SESSION"
+  echo "=========================================="
+
+  # If recording, attach with asciinema
+  if [ "$RECORD" = true ]; then
+    echo ""
+    echo "Recording to: $RECORD_OUTPUT"
+    echo "Detach with Ctrl+B then D when done."
+    echo ""
+    asciinema rec \
+      --overwrite \
+      --cols "$COLS" \
+      --rows "$ROWS" \
+      -c "tmux attach -t $TMUX_SESSION" \
+      "$RECORD_OUTPUT"
+    echo ""
+    echo "Recording saved to: $RECORD_OUTPUT"
+    exit 0
+  fi
+
+  # Otherwise wait for user to attach or timeout
+  echo ""
+  echo "Run 'tmux attach -t $TMUX_SESSION' to interact."
+  echo "Session will auto-cleanup in 5 minutes or when you detach."
+  echo ""
+
+  # Wait for Claude to process, then show output
+  echo "Waiting for Claude to process (30s)..."
+  sleep 30
+  echo "Current screen:"
+  echo "----------------------------------------"
+  tmux capture-pane -t "$TMUX_SESSION" -p -S -40 | tail -30
+  echo "----------------------------------------"
+
+  # Keep session alive for manual attachment
+  echo ""
+  echo "Session still running. Attach with: tmux attach -t $TMUX_SESSION"
+  # Don't exit - let trap handle cleanup when script is killed
+  sleep 300
 fi
 
 # Check if we have a TTY (interactive terminal)
@@ -299,8 +531,23 @@ if [ -t 0 ] && [ -t 1 ]; then
   echo "To kill:   zellij kill-session $SESSION_NAME"
   echo "=========================================="
 
-  # Attach to the session
-  exec zellij attach "$SESSION_NAME"
+  # Attach to the session (with optional recording)
+  if [ "$RECORD" = true ]; then
+    echo ""
+    echo "Recording to: $RECORD_OUTPUT"
+    echo "Press Ctrl+D or type 'exit' when done to stop recording."
+    echo ""
+    asciinema rec \
+      --overwrite \
+      --cols 120 \
+      --rows 35 \
+      -c "zellij attach $SESSION_NAME" \
+      "$RECORD_OUTPUT"
+    echo ""
+    echo "Recording saved to: $RECORD_OUTPUT"
+  else
+    exec zellij attach "$SESSION_NAME"
+  fi
 else
   # Non-interactive (e.g., CI, Claude) - run tests in native mode (Ghostty/Terminal)
   echo "Non-interactive mode detected - running tests in native mode"

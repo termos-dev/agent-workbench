@@ -2,6 +2,7 @@ import { Box, Text, useInput, useApp } from 'ink';
 import { useState } from 'react';
 import { readFileSync } from 'fs';
 import { spawn } from 'child_process';
+import { mermaidToAscii } from 'mermaid-ascii';
 import { useTerminalSize, ScrollBar, useMouseScroll, useFileWatch } from './shared/index.js';
 
 declare const onComplete: (result: unknown) => void;
@@ -13,357 +14,792 @@ declare const args: {
   'no-header'?: boolean; // Hide header when pane host shows title
 };
 
-interface FlowNode {
+type DiagramType = 'flowchart' | 'sequence' | 'class' | 'state' | 'er' | 'unknown';
+
+function detectDiagramType(source: string): DiagramType {
+  const firstLine = source.trim().split('\n')[0]?.toLowerCase() || '';
+
+  if (firstLine.startsWith('flowchart') || firstLine.startsWith('graph')) {
+    return 'flowchart';
+  } else if (firstLine.startsWith('sequencediagram')) {
+    return 'sequence';
+  } else if (firstLine.startsWith('classdiagram')) {
+    return 'class';
+  } else if (firstLine.startsWith('statediagram')) {
+    return 'state';
+  } else if (firstLine.startsWith('erdiagram')) {
+    return 'er';
+  }
+  return 'unknown';
+}
+
+function stripMarkdownFences(source: string): string {
+  let clean = source.trim();
+
+  // Full fence match: ```mermaid ... ```
+  const fenceMatch = clean.match(/^```(?:mermaid)?\s*\n([\s\S]*?)\n```\s*$/);
+  if (fenceMatch) {
+    return fenceMatch[1];
+  }
+
+  // Opening fence only
+  if (clean.startsWith('```mermaid')) {
+    clean = clean.replace(/^```mermaid\s*\n?/, '');
+  } else if (clean.startsWith('```')) {
+    clean = clean.replace(/^```\s*\n?/, '');
+  }
+
+  // Trailing fence
+  clean = clean.replace(/\n```\s*$/, '');
+
+  return clean;
+}
+
+interface PreprocessResult {
+  source: string;
+  warnings: string[];
+}
+
+function preprocessFlowchart(source: string): PreprocessResult {
+  // mermaid-ascii doesn't support subgraphs or standalone node definitions
+  // We need to:
+  // 1. Remove subgraph/end blocks
+  // 2. Collect node labels from definitions like Node[Label]
+  // 3. Keep only edge definitions and the header
+
+  const lines = source.split('\n');
+  const processed: string[] = [];
+  const nodeLabels = new Map<string, string>(); // id -> label
+  const warnings: string[] = [];
+  let subgraphDepth = 0;
+
+  // First pass: collect node labels and filter lines
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Skip empty lines and comments
+    if (!trimmed || trimmed.startsWith('%%')) continue;
+
+    // Skip subgraph declarations
+    if (trimmed.match(/^subgraph\s/i)) {
+      subgraphDepth++;
+      continue;
+    }
+
+    // Skip 'end' that closes subgraph
+    if (trimmed === 'end' && subgraphDepth > 0) {
+      subgraphDepth--;
+      continue;
+    }
+
+    // Keep header line (graph/flowchart)
+    // Normalize TB to TD (mermaid-ascii only supports TD, not TB)
+    // Best effort: extract just the direction, ignore extra tokens
+    if (trimmed.match(/^(graph|flowchart)\s/i)) {
+      const headerMatch = trimmed.match(/^(graph|flowchart)\s+(TB|TD|BT|LR|RL)/i);
+      if (headerMatch) {
+        const [fullMatch, keyword, direction] = headerMatch;
+        const normalizedDirection = direction.toUpperCase() === 'TB' ? 'TD' : direction.toUpperCase();
+        const cleanHeader = `${keyword} ${normalizedDirection}`;
+
+        // Check if there was extra content after the direction
+        const extraContent = trimmed.slice(fullMatch.length).trim();
+        if (extraContent) {
+          warnings.push(`Ignored extra content in header: "${extraContent}"`);
+        }
+
+        processed.push(cleanHeader);
+      } else {
+        // No valid direction found, default to TD
+        const keywordMatch = trimmed.match(/^(graph|flowchart)/i);
+        const keyword = keywordMatch ? keywordMatch[1] : 'graph';
+        processed.push(`${keyword} TD`);
+        warnings.push(`Could not parse direction, defaulting to TD`);
+      }
+      continue;
+    }
+
+    // Check for standalone node definition: Node[Label] or Node(Label) etc.
+    const standaloneMatch = trimmed.match(/^(\w+)\s*[\[\(\{<]([^\]\)\}>]+)[\]\)\}>]\s*$/);
+    if (standaloneMatch) {
+      const [, id, label] = standaloneMatch;
+      nodeLabels.set(id, label);
+      continue; // Don't add standalone definitions
+    }
+
+    // Check for edge with inline node definitions
+    // e.g., A[Label A] --> B[Label B] or A --> B[Label]
+    const edgeMatch = trimmed.match(/^(\w+)(?:\s*[\[\(\{<][^\]\)\}>]+[\]\)\}>])?\s*(-->|---|\.-\.>|==>|--?>)\s*(?:\|[^|]*\|)?\s*(\w+)(?:\s*[\[\(\{<]([^\]\)\}>]+)[\]\)\}>])?/);
+    if (edgeMatch) {
+      const [, , , toId, toLabel] = edgeMatch;
+      if (toLabel) nodeLabels.set(toId, toLabel);
+
+      // mermaid-ascii handles labels in edges fine, so keep as-is
+      processed.push(trimmed);
+      continue;
+    }
+
+    // Keep other lines (might be edges in different formats)
+    processed.push(trimmed);
+  }
+
+  return { source: processed.join('\n'), warnings };
+}
+
+function renderFlowchartAscii(source: string): { lines: string[]; error?: string; warnings?: string[] } {
+  // Suppress console.debug from mermaid-ascii library
+  const originalDebug = console.debug;
+  console.debug = () => {};
+
+  try {
+    // Preprocess to handle subgraphs
+    const { source: processed, warnings } = preprocessFlowchart(source);
+    const ascii = mermaidToAscii(processed);
+    return { lines: ascii.split('\n'), warnings };
+  } catch (e) {
+    return {
+      lines: source.split('\n'),
+      error: e instanceof Error ? e.message : String(e)
+    };
+  } finally {
+    console.debug = originalDebug;
+  }
+}
+
+// ============================================================================
+// Sequence Diagram ASCII Renderer
+// ============================================================================
+
+interface Participant {
   id: string;
   label: string;
-  shape: 'rect' | 'round' | 'diamond' | 'circle';
 }
 
-interface FlowEdge {
+interface Message {
   from: string;
   to: string;
-  label?: string;
-  style: 'solid' | 'dotted';
+  label: string;
+  style: 'solid' | 'dashed';
+  arrowType: 'filled' | 'open';
 }
 
-interface ParsedDiagram {
-  type: 'flowchart' | 'sequence' | 'unknown';
-  direction: 'LR' | 'TD';
-  nodes: FlowNode[];
-  edges: FlowEdge[];
-  raw: string[];
-}
+function parseSequenceDiagram(source: string): { participants: Participant[]; messages: Message[] } {
+  const lines = source.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('%%'));
+  const participants: Participant[] = [];
+  const participantMap = new Map<string, Participant>();
+  const messages: Message[] = [];
 
-function parseMermaid(source: string): ParsedDiagram {
-  const lines = source.trim().split('\n').map(l => l.trim()).filter(Boolean);
-  const nodes: FlowNode[] = [];
-  const edges: FlowEdge[] = [];
-  const nodeMap = new Map<string, FlowNode>();
+  for (const line of lines) {
+    // Skip the diagram declaration
+    if (line.toLowerCase() === 'sequencediagram') continue;
 
-  const firstLine = lines[0] || '';
-  const firstLineLower = firstLine.toLowerCase();
-  let type: ParsedDiagram['type'] = 'unknown';
-  let direction: 'LR' | 'TD' = 'TD';
-
-  if (firstLineLower.startsWith('flowchart') || firstLineLower.startsWith('graph')) {
-    type = 'flowchart';
-    // Extract direction: flowchart LR, flowchart TD, graph LR, etc.
-    if (firstLine.includes('LR') || firstLine.includes('RL')) {
-      direction = 'LR';
+    // Parse: participant A as Alice
+    const participantMatch = line.match(/^participant\s+(\w+)(?:\s+as\s+(.+))?$/i);
+    if (participantMatch) {
+      const [, id, label] = participantMatch;
+      const p: Participant = { id, label: label || id };
+      participants.push(p);
+      participantMap.set(id, p);
+      continue;
     }
-  } else if (firstLineLower.startsWith('sequencediagram')) {
-    type = 'sequence';
-  }
 
-  // Parse flowchart/graph
-  if (type === 'flowchart') {
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
+    // Parse: A->>B: Message  or  A-->>B: Message  or  A->B: Message  or  A-->B: Message
+    const messageMatch = line.match(/^(\w+)\s*(--?>?>)\s*(\w+)\s*:\s*(.*)$/);
+    if (messageMatch) {
+      const [, from, arrow, to, label] = messageMatch;
 
-      // Skip comments and subgraph definitions
-      if (line.startsWith('%%') || line.startsWith('subgraph') || line === 'end') continue;
-
-      // Parse edges: A --> B, A -->|text| B, A --- B
-      const edgeMatch = line.match(/^(\w+)\s*(-->|---|\.-\.>|==>)\s*(?:\|([^|]*)\|)?\s*(\w+)(?:\[([^\]]+)\])?/);
-      if (edgeMatch) {
-        const [, fromId, arrow, edgeLabel, toId, toLabel] = edgeMatch;
-
-        // Add nodes if not exist
-        if (!nodeMap.has(fromId)) {
-          const node: FlowNode = { id: fromId, label: fromId, shape: 'rect' };
-          nodeMap.set(fromId, node);
-          nodes.push(node);
-        }
-
-        let shape: FlowNode['shape'] = 'rect';
-        let label = toLabel || toId;
-
-        // Detect shape from label syntax
-        if (toLabel) {
-          if (toLabel.startsWith('(') && toLabel.endsWith(')')) {
-            shape = 'round';
-            label = toLabel.slice(1, -1);
-          } else if (toLabel.startsWith('{') && toLabel.endsWith('}')) {
-            shape = 'diamond';
-            label = toLabel.slice(1, -1);
-          } else if (toLabel.startsWith('((') && toLabel.endsWith('))')) {
-            shape = 'circle';
-            label = toLabel.slice(2, -2);
-          }
-        }
-
-        if (!nodeMap.has(toId)) {
-          const node: FlowNode = { id: toId, label, shape };
-          nodeMap.set(toId, node);
-          nodes.push(node);
-        }
-
-        edges.push({
-          from: fromId,
-          to: toId,
-          label: edgeLabel,
-          style: arrow === '---' || arrow === '.-.' ? 'dotted' : 'solid',
-        });
-        continue;
+      // Auto-create participants if not declared
+      if (!participantMap.has(from)) {
+        const p: Participant = { id: from, label: from };
+        participants.push(p);
+        participantMap.set(from, p);
+      }
+      if (!participantMap.has(to)) {
+        const p: Participant = { id: to, label: to };
+        participants.push(p);
+        participantMap.set(to, p);
       }
 
-      // Parse standalone node definition: A[Label] or B(Round) or C{Diamond}
-      const nodeMatch = line.match(/^(\w+)(?:\[([^\]]+)\]|\(([^)]+)\)|\{([^}]+)\}|\(\(([^)]+)\)\))?$/);
-      if (nodeMatch) {
-        const [, id, rectLabel, roundLabel, diamondLabel, circleLabel] = nodeMatch;
-        if (!nodeMap.has(id)) {
-          let shape: FlowNode['shape'] = 'rect';
-          let label = id;
-
-          if (rectLabel) { label = rectLabel; shape = 'rect'; }
-          else if (roundLabel) { label = roundLabel; shape = 'round'; }
-          else if (diamondLabel) { label = diamondLabel; shape = 'diamond'; }
-          else if (circleLabel) { label = circleLabel; shape = 'circle'; }
-
-          const node: FlowNode = { id, label, shape };
-          nodeMap.set(id, node);
-          nodes.push(node);
-        }
-      }
-    }
-  }
-
-  return { type, direction, nodes, edges, raw: lines };
-}
-
-// Box-drawing characters
-const BOX = {
-  topLeft: '┌', topRight: '┐', bottomLeft: '└', bottomRight: '┘',
-  horizontal: '─', vertical: '│',
-  roundTopLeft: '╭', roundTopRight: '╮', roundBottomLeft: '╰', roundBottomRight: '╯',
-  arrowRight: '▶', arrowDown: '▼', arrowLeft: '◀', arrowUp: '▲',
-  lineH: '─', lineV: '│',
-};
-
-interface GridNode {
-  node: FlowNode;
-  col: number;
-  row: number;
-  width: number;
-  height: number;
-}
-
-function renderFlowchartASCII(diagram: ParsedDiagram): string[] {
-  const { nodes, edges, direction } = diagram;
-  if (nodes.length === 0) return ['(empty flowchart)'];
-
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
-  // Calculate width based on longest label (min 16, max 50 for readability)
-  const maxLabelLength = Math.max(...nodes.map(n => n.label.length));
-  const NODE_WIDTH = Math.min(50, Math.max(16, maxLabelLength + 4));
-  const MAX_LABEL_LENGTH = NODE_WIDTH - 4;
-  const NODE_HEIGHT = 3;
-  const H_SPACING = 4;
-  const V_SPACING = 2;
-
-  // Build adjacency list
-  const outgoing = new Map<string, string[]>();
-  const incoming = new Map<string, string[]>();
-  for (const node of nodes) {
-    outgoing.set(node.id, []);
-    incoming.set(node.id, []);
-  }
-  for (const edge of edges) {
-    outgoing.get(edge.from)?.push(edge.to);
-    incoming.get(edge.to)?.push(edge.from);
-  }
-
-  // Assign grid positions using layered layout
-  const nodeLevel = new Map<string, number>();
-  const visited = new Set<string>();
-
-  // Find roots (no incoming edges)
-  const roots = nodes.filter(n => incoming.get(n.id)!.length === 0);
-  if (roots.length === 0 && nodes.length > 0) roots.push(nodes[0]);
-
-  // BFS to assign levels
-  const queue = roots.map(n => ({ id: n.id, level: 0 }));
-  for (const root of roots) visited.add(root.id);
-
-  while (queue.length > 0) {
-    const { id, level } = queue.shift()!;
-    nodeLevel.set(id, Math.max(nodeLevel.get(id) || 0, level));
-
-    for (const next of outgoing.get(id) || []) {
-      if (!visited.has(next)) {
-        visited.add(next);
-        queue.push({ id: next, level: level + 1 });
-      }
-    }
-  }
-
-  // Handle disconnected nodes
-  for (const node of nodes) {
-    if (!nodeLevel.has(node.id)) nodeLevel.set(node.id, 0);
-  }
-
-  // Group nodes by level
-  const levels: FlowNode[][] = [];
-  for (const node of nodes) {
-    const lvl = nodeLevel.get(node.id) || 0;
-    while (levels.length <= lvl) levels.push([]);
-    levels[lvl].push(node);
-  }
-
-  // Calculate grid positions
-  const gridNodes: GridNode[] = [];
-  for (let lvl = 0; lvl < levels.length; lvl++) {
-    const levelNodes = levels[lvl];
-    for (let idx = 0; idx < levelNodes.length; idx++) {
-      const node = levelNodes[idx];
-      // Truncate only if label exceeds max (for very long labels)
-      const label = node.label.length > MAX_LABEL_LENGTH
-        ? node.label.slice(0, MAX_LABEL_LENGTH - 1) + '…'
-        : node.label;
-      const width = Math.max(label.length + 4, 8);
-
-      gridNodes.push({
-        node: { ...node, label },
-        col: direction === 'LR' ? lvl : idx,
-        row: direction === 'LR' ? idx : lvl,
-        width,
-        height: NODE_HEIGHT,
+      messages.push({
+        from,
+        to,
+        label,
+        style: arrow.includes('--') ? 'dashed' : 'solid',
+        arrowType: arrow.includes('>>') ? 'filled' : 'open',
       });
     }
   }
 
-  // Calculate canvas size
-  const maxCol = Math.max(...gridNodes.map(n => n.col));
-  const maxRow = Math.max(...gridNodes.map(n => n.row));
+  return { participants, messages };
+}
 
-  const cellWidth = NODE_WIDTH + H_SPACING;
-  const cellHeight = NODE_HEIGHT + V_SPACING;
-  const canvasWidth = (maxCol + 1) * cellWidth + 4;
-  const canvasHeight = (maxRow + 1) * cellHeight + 2;
+function renderSequenceAscii(source: string): { lines: string[]; error?: string } {
+  try {
+    const { participants, messages } = parseSequenceDiagram(source);
 
-  // Create canvas
-  const canvas: string[][] = Array(canvasHeight).fill(null).map(() =>
-    Array(canvasWidth).fill(' ')
-  );
-
-  // Helper to draw on canvas
-  const draw = (row: number, col: number, char: string) => {
-    if (row >= 0 && row < canvasHeight && col >= 0 && col < canvasWidth) {
-      canvas[row][col] = char;
+    if (participants.length === 0) {
+      return { lines: ['(no participants found)'], error: 'No participants' };
     }
-  };
 
-  const drawString = (row: number, col: number, str: string) => {
-    for (let i = 0; i < str.length; i++) {
-      draw(row, col + i, str[i]);
+    // Calculate column widths
+    const minBoxWidth = 10;
+    const colWidths = participants.map(p => Math.max(minBoxWidth, p.label.length + 4));
+    const colSpacing = 6; // Space between columns
+
+    // Calculate positions (center of each participant column)
+    const positions: number[] = [];
+    let x = 0;
+    for (let i = 0; i < participants.length; i++) {
+      positions.push(x + Math.floor(colWidths[i] / 2));
+      x += colWidths[i] + colSpacing;
     }
-  };
+    const totalWidth = x - colSpacing;
 
-  // Draw nodes
-  const nodePositions = new Map<string, { x: number; y: number; w: number }>();
+    const output: string[] = [];
 
-  for (const gn of gridNodes) {
-    const x = gn.col * cellWidth + 2;
-    const y = gn.row * cellHeight + 1;
-    const w = gn.width;
+    // Draw participant boxes (top)
+    const drawParticipantBoxes = () => {
+      // Top border
+      let topLine = '';
+      let midLine = '';
+      let botLine = '';
 
-    nodePositions.set(gn.node.id, { x, y, w });
-
-    // Draw box based on shape
-    const isRound = gn.node.shape === 'round' || gn.node.shape === 'circle';
-    const tl = isRound ? BOX.roundTopLeft : BOX.topLeft;
-    const tr = isRound ? BOX.roundTopRight : BOX.topRight;
-    const bl = isRound ? BOX.roundBottomLeft : BOX.bottomLeft;
-    const br = isRound ? BOX.roundBottomRight : BOX.bottomRight;
-
-    // Top border
-    draw(y, x, tl);
-    for (let i = 1; i < w - 1; i++) draw(y, x + i, BOX.horizontal);
-    draw(y, x + w - 1, tr);
-
-    // Middle with label
-    draw(y + 1, x, BOX.vertical);
-    const labelPad = Math.floor((w - 2 - gn.node.label.length) / 2);
-    drawString(y + 1, x + 1 + labelPad, gn.node.label);
-    draw(y + 1, x + w - 1, BOX.vertical);
-
-    // Bottom border
-    draw(y + 2, x, bl);
-    for (let i = 1; i < w - 1; i++) draw(y + 2, x + i, BOX.horizontal);
-    draw(y + 2, x + w - 1, br);
-  }
-
-  // Draw edges
-  for (const edge of edges) {
-    const fromPos = nodePositions.get(edge.from);
-    const toPos = nodePositions.get(edge.to);
-    if (!fromPos || !toPos) continue;
-
-    const fromLevel = nodeLevel.get(edge.from) || 0;
-    const toLevel = nodeLevel.get(edge.to) || 0;
-
-    if (direction === 'LR') {
-      // Horizontal flow
-      const startX = fromPos.x + fromPos.w;
-      const startY = fromPos.y + 1;
-      const endX = toPos.x - 1;
-      const endY = toPos.y + 1;
-
-      // Draw horizontal line
-      for (let x = startX; x < endX; x++) {
-        draw(startY, x, BOX.lineH);
+      for (let i = 0; i < participants.length; i++) {
+        const p = participants[i];
+        const w = colWidths[i];
+        const pad = i > 0 ? ' '.repeat(colSpacing) : '';
+        topLine += pad + '┌' + '─'.repeat(w - 2) + '┐';
+        const labelPad = Math.floor((w - 2 - p.label.length) / 2);
+        midLine += pad + '│' + ' '.repeat(labelPad) + p.label + ' '.repeat(w - 2 - labelPad - p.label.length) + '│';
+        botLine += pad + '└' + '─'.repeat(w - 2) + '┘';
       }
-      // Draw vertical connector if needed
-      if (startY !== endY) {
-        const midX = Math.floor((startX + endX) / 2);
-        for (let y = Math.min(startY, endY); y <= Math.max(startY, endY); y++) {
-          draw(y, midX, BOX.lineV);
+      output.push(topLine);
+      output.push(midLine);
+      output.push(botLine);
+    };
+
+    // Draw lifelines (vertical lines from each participant)
+    const drawLifelines = () => {
+      let line = '';
+      for (let i = 0; i < participants.length; i++) {
+        const pos = positions[i];
+        while (line.length < pos) line += ' ';
+        line = line.slice(0, pos) + '│' + line.slice(pos + 1);
+      }
+      // Pad to total width
+      while (line.length < totalWidth) line += ' ';
+      return line;
+    };
+
+    // Draw a message arrow between two participants
+    const drawMessage = (msg: Message) => {
+      const fromIdx = participants.findIndex(p => p.id === msg.from);
+      const toIdx = participants.findIndex(p => p.id === msg.to);
+      if (fromIdx === -1 || toIdx === -1) return;
+
+      const fromPos = positions[fromIdx];
+      const toPos = positions[toIdx];
+      const leftToRight = fromPos < toPos;
+      const startPos = Math.min(fromPos, toPos);
+      const endPos = Math.max(fromPos, toPos);
+      const arrowLen = endPos - startPos;
+
+      // Self-message
+      if (fromIdx === toIdx) {
+        const base = drawLifelines();
+        const selfLine1 = base.slice(0, fromPos + 1) + '─┐' + base.slice(fromPos + 3);
+        const selfLine2 = base.slice(0, fromPos) + ' │ ' + msg.label;
+        const selfLine3 = base.slice(0, fromPos + 1) + '◄┘' + base.slice(fromPos + 3);
+        output.push(selfLine1);
+        output.push(selfLine2);
+        output.push(selfLine3);
+        return;
+      }
+
+      // Build the arrow line
+      const lineChar = msg.style === 'dashed' ? '╌' : '─';
+      const arrowHead = leftToRight ? (msg.arrowType === 'filled' ? '▶' : '>') : (msg.arrowType === 'filled' ? '◀' : '<');
+
+      let arrowLine = '';
+      for (let i = 0; i < totalWidth; i++) {
+        if (i === fromPos || i === toPos) {
+          if ((leftToRight && i === toPos) || (!leftToRight && i === fromPos)) {
+            arrowLine += arrowHead;
+          } else {
+            arrowLine += lineChar;
+          }
+        } else if (i > startPos && i < endPos) {
+          arrowLine += lineChar;
+        } else if (positions.includes(i)) {
+          arrowLine += '│';
+        } else {
+          arrowLine += ' ';
         }
       }
-      // Arrow
-      draw(endY, endX, BOX.arrowRight);
-    } else {
-      // Vertical flow
-      const startX = fromPos.x + Math.floor(fromPos.w / 2);
-      const startY = fromPos.y + 3;
-      const endX = toPos.x + Math.floor(toPos.w / 2);
-      const endY = toPos.y - 1;
 
-      // Draw vertical line
-      for (let y = startY; y < endY; y++) {
-        draw(y, startX, BOX.lineV);
+      // Center the label above the arrow
+      const labelPos = startPos + Math.floor((arrowLen - msg.label.length) / 2);
+      let labelLine = drawLifelines();
+      if (msg.label && labelPos > 0) {
+        labelLine = labelLine.slice(0, labelPos) + msg.label + labelLine.slice(labelPos + msg.label.length);
       }
-      // Draw horizontal connector if needed
-      if (startX !== endX) {
-        const midY = Math.floor((startY + endY) / 2);
-        for (let x = Math.min(startX, endX); x <= Math.max(startX, endX); x++) {
-          draw(midY, x, BOX.lineH);
-        }
-        // Vertical segments
-        for (let y = startY; y <= midY; y++) draw(y, startX, BOX.lineV);
-        for (let y = midY; y < endY; y++) draw(y, endX, BOX.lineV);
+
+      output.push(labelLine);
+      output.push(arrowLine);
+    };
+
+    // Render the diagram
+    drawParticipantBoxes();
+
+    for (const msg of messages) {
+      output.push(drawLifelines()); // Spacing line
+      drawMessage(msg);
+    }
+
+    output.push(drawLifelines()); // Final lifeline
+
+    return { lines: output };
+  } catch (e) {
+    return {
+      lines: source.split('\n'),
+      error: e instanceof Error ? e.message : String(e)
+    };
+  }
+}
+
+// ============================================================================
+// Class Diagram ASCII Renderer
+// ============================================================================
+
+interface ClassDef {
+  name: string;
+  members: string[];      // Properties
+  methods: string[];      // Methods
+  annotation?: string;    // <<interface>>, <<abstract>>, etc.
+}
+
+interface ClassRelation {
+  from: string;
+  to: string;
+  type: 'inheritance' | 'composition' | 'aggregation' | 'association' | 'dependency';
+  label?: string;
+}
+
+function parseClassDiagram(source: string): { classes: ClassDef[]; relations: ClassRelation[] } {
+  const lines = source.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('%%'));
+  const classes: ClassDef[] = [];
+  const classMap = new Map<string, ClassDef>();
+  const relations: ClassRelation[] = [];
+
+  let currentClass: ClassDef | null = null;
+  let inClassBlock = false;
+
+  for (const line of lines) {
+    if (line.toLowerCase() === 'classdiagram') continue;
+
+    // Class block start: class Animal {
+    const classStartMatch = line.match(/^class\s+(\w+)\s*\{?\s*$/);
+    if (classStartMatch) {
+      const [, name] = classStartMatch;
+      currentClass = { name, members: [], methods: [] };
+      inClassBlock = line.includes('{');
+      if (!inClassBlock) {
+        // Single line class declaration
+        classes.push(currentClass);
+        classMap.set(name, currentClass);
+        currentClass = null;
       }
-      // Arrow
-      draw(endY, endX, BOX.arrowDown);
+      continue;
+    }
+
+    // Class block end
+    if (line === '}' && currentClass) {
+      classes.push(currentClass);
+      classMap.set(currentClass.name, currentClass);
+      currentClass = null;
+      inClassBlock = false;
+      continue;
+    }
+
+    // Inside class block - parse members/methods
+    if (currentClass && inClassBlock) {
+      // Annotation: <<interface>>
+      const annotationMatch = line.match(/^<<(\w+)>>$/);
+      if (annotationMatch) {
+        currentClass.annotation = annotationMatch[1];
+        continue;
+      }
+
+      // Method: +method() or -method() or method()
+      if (line.includes('(')) {
+        currentClass.methods.push(line);
+      } else if (line.length > 0) {
+        // Property
+        currentClass.members.push(line);
+      }
+      continue;
+    }
+
+    // Inline class with members: class Duck { +swim() }
+    const inlineClassMatch = line.match(/^class\s+(\w+)\s*\{\s*(.+)\s*\}$/);
+    if (inlineClassMatch) {
+      const [, name, content] = inlineClassMatch;
+      const cls: ClassDef = { name, members: [], methods: [] };
+      content.split(/\s+/).forEach(item => {
+        if (item.includes('(')) cls.methods.push(item);
+        else if (item.length > 0) cls.members.push(item);
+      });
+      classes.push(cls);
+      classMap.set(name, cls);
+      continue;
+    }
+
+    // Simple class declaration: class Animal
+    const simpleClassMatch = line.match(/^class\s+(\w+)$/);
+    if (simpleClassMatch) {
+      const [, name] = simpleClassMatch;
+      if (!classMap.has(name)) {
+        const cls: ClassDef = { name, members: [], methods: [] };
+        classes.push(cls);
+        classMap.set(name, cls);
+      }
+      continue;
+    }
+
+    // Relations: A --|> B (inheritance), A --* B (composition), A --o B (aggregation), A --> B (association)
+    const relationMatch = line.match(/^(\w+)\s*(<?\.?\.?-+[\|*o>]?[\|*o>]?\.?\.?>?)\s*(\w+)(?:\s*:\s*(.+))?$/);
+    if (relationMatch) {
+      const [, from, arrow, to, label] = relationMatch;
+
+      // Auto-create classes
+      if (!classMap.has(from)) {
+        const cls: ClassDef = { name: from, members: [], methods: [] };
+        classes.push(cls);
+        classMap.set(from, cls);
+      }
+      if (!classMap.has(to)) {
+        const cls: ClassDef = { name: to, members: [], methods: [] };
+        classes.push(cls);
+        classMap.set(to, cls);
+      }
+
+      let type: ClassRelation['type'] = 'association';
+      if (arrow.includes('|>')) type = 'inheritance';
+      else if (arrow.includes('*')) type = 'composition';
+      else if (arrow.includes('o')) type = 'aggregation';
+      else if (arrow.includes('..')) type = 'dependency';
+
+      relations.push({ from, to, type, label });
     }
   }
 
-  // Convert canvas to string array
-  return canvas.map(row => row.join('').trimEnd()).filter((line, i, arr) => {
-    // Remove trailing empty lines
-    if (i === arr.length - 1 && !line.trim()) return false;
-    return true;
-  });
+  return { classes, relations };
+}
+
+function renderClassAscii(source: string): { lines: string[]; error?: string } {
+  try {
+    const { classes, relations } = parseClassDiagram(source);
+
+    if (classes.length === 0) {
+      return { lines: ['(no classes found)'], error: 'No classes' };
+    }
+
+    const output: string[] = [];
+
+    // Calculate box widths for each class
+    const getBoxWidth = (cls: ClassDef): number => {
+      let maxLen = cls.name.length;
+      if (cls.annotation) maxLen = Math.max(maxLen, cls.annotation.length + 4);
+      cls.members.forEach(m => maxLen = Math.max(maxLen, m.length));
+      cls.methods.forEach(m => maxLen = Math.max(maxLen, m.length));
+      return maxLen + 4; // padding
+    };
+
+    // Draw a single class box
+    const drawClass = (cls: ClassDef): string[] => {
+      const width = getBoxWidth(cls);
+      const lines: string[] = [];
+      const hr = '─'.repeat(width - 2);
+
+      lines.push('┌' + hr + '┐');
+
+      // Annotation
+      if (cls.annotation) {
+        const annot = `<<${cls.annotation}>>`;
+        const pad = Math.floor((width - 2 - annot.length) / 2);
+        lines.push('│' + ' '.repeat(pad) + annot + ' '.repeat(width - 2 - pad - annot.length) + '│');
+      }
+
+      // Class name (centered, bold implied)
+      const namePad = Math.floor((width - 2 - cls.name.length) / 2);
+      lines.push('│' + ' '.repeat(namePad) + cls.name + ' '.repeat(width - 2 - namePad - cls.name.length) + '│');
+
+      // Separator if has members or methods
+      if (cls.members.length > 0 || cls.methods.length > 0) {
+        lines.push('├' + hr + '┤');
+      }
+
+      // Members (properties)
+      for (const m of cls.members) {
+        lines.push('│ ' + m + ' '.repeat(width - 3 - m.length) + '│');
+      }
+
+      // Separator between members and methods
+      if (cls.members.length > 0 && cls.methods.length > 0) {
+        lines.push('├' + hr + '┤');
+      }
+
+      // Methods
+      for (const m of cls.methods) {
+        lines.push('│ ' + m + ' '.repeat(width - 3 - m.length) + '│');
+      }
+
+      lines.push('└' + hr + '┘');
+      return lines;
+    };
+
+    // Arrange classes horizontally with spacing
+    const classBoxes = classes.map(cls => drawClass(cls));
+    const maxHeight = Math.max(...classBoxes.map(b => b.length));
+    const spacing = 4;
+
+    // Pad all boxes to same height
+    classBoxes.forEach(box => {
+      if (box.length === 0) return;
+      const width = box[0].length;
+      while (box.length < maxHeight) {
+        box.splice(box.length - 1, 0, '│' + ' '.repeat(width - 2) + '│');
+      }
+    });
+
+    // Merge horizontally
+    for (let row = 0; row < maxHeight; row++) {
+      let line = '';
+      for (let i = 0; i < classBoxes.length; i++) {
+        if (i > 0) line += ' '.repeat(spacing);
+        line += classBoxes[i][row];
+      }
+      output.push(line);
+    }
+
+    // Add relations below
+    if (relations.length > 0) {
+      output.push('');
+      output.push('Relations:');
+      for (const rel of relations) {
+        const arrowMap = {
+          inheritance: '──▷',
+          composition: '──◆',
+          aggregation: '──◇',
+          association: '───',
+          dependency: '╌╌>',
+        };
+        const arrow = arrowMap[rel.type];
+        const label = rel.label ? ` : ${rel.label}` : '';
+        output.push(`  ${rel.from} ${arrow} ${rel.to}${label}`);
+      }
+    }
+
+    return { lines: output };
+  } catch (e) {
+    return {
+      lines: source.split('\n'),
+      error: e instanceof Error ? e.message : String(e)
+    };
+  }
+}
+
+// ============================================================================
+// State Diagram ASCII Renderer
+// ============================================================================
+
+interface State {
+  id: string;
+  label: string;
+  isStart?: boolean;
+  isEnd?: boolean;
+}
+
+interface StateTransition {
+  from: string;
+  to: string;
+  label?: string;
+}
+
+function parseStateDiagram(source: string): { states: State[]; transitions: StateTransition[] } {
+  const lines = source.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('%%'));
+  const states: State[] = [];
+  const stateMap = new Map<string, State>();
+  const transitions: StateTransition[] = [];
+
+  // Add special start/end states
+  stateMap.set('[*]', { id: '[*]', label: '●', isStart: true, isEnd: true });
+
+  for (const line of lines) {
+    if (line.toLowerCase().startsWith('statediagram')) continue;
+    if (line === 'direction LR' || line === 'direction TB') continue;
+
+    // State definition: state "Description" as s1
+    const stateDefMatch = line.match(/^state\s+"([^"]+)"\s+as\s+(\w+)$/);
+    if (stateDefMatch) {
+      const [, label, id] = stateDefMatch;
+      const state: State = { id, label };
+      states.push(state);
+      stateMap.set(id, state);
+      continue;
+    }
+
+    // Simple state: state StateName
+    const simpleStateMatch = line.match(/^state\s+(\w+)$/);
+    if (simpleStateMatch) {
+      const [, id] = simpleStateMatch;
+      if (!stateMap.has(id)) {
+        const state: State = { id, label: id };
+        states.push(state);
+        stateMap.set(id, state);
+      }
+      continue;
+    }
+
+    // Transition: s1 --> s2 : label  or  [*] --> s1
+    const transitionMatch = line.match(/^(\[\*\]|\w+)\s*-->\s*(\[\*\]|\w+)(?:\s*:\s*(.+))?$/);
+    if (transitionMatch) {
+      const [, from, to, label] = transitionMatch;
+
+      // Auto-create states
+      if (!stateMap.has(from) && from !== '[*]') {
+        const state: State = { id: from, label: from };
+        states.push(state);
+        stateMap.set(from, state);
+      }
+      if (!stateMap.has(to) && to !== '[*]') {
+        const state: State = { id: to, label: to };
+        states.push(state);
+        stateMap.set(to, state);
+      }
+
+      transitions.push({ from, to, label });
+    }
+  }
+
+  // Add [*] to states if used
+  if (transitions.some(t => t.from === '[*]' || t.to === '[*]')) {
+    if (!states.some(s => s.id === '[*]')) {
+      states.unshift({ id: '[*]', label: '●', isStart: true });
+    }
+  }
+
+  return { states, transitions };
+}
+
+function renderStateAscii(source: string): { lines: string[]; error?: string } {
+  try {
+    const { states, transitions } = parseStateDiagram(source);
+
+    if (states.length === 0) {
+      return { lines: ['(no states found)'], error: 'No states' };
+    }
+
+    const output: string[] = [];
+
+    // Calculate box widths
+    const getBoxWidth = (state: State): number => {
+      if (state.id === '[*]') return 3;
+      return Math.max(8, state.label.length + 4);
+    };
+
+    // Draw a state box
+    const drawState = (state: State): string[] => {
+      if (state.id === '[*]') {
+        return [' ● '];
+      }
+
+      const width = getBoxWidth(state);
+      const lines: string[] = [];
+
+      // Rounded corners for states
+      lines.push('╭' + '─'.repeat(width - 2) + '╮');
+      const pad = Math.floor((width - 2 - state.label.length) / 2);
+      lines.push('│' + ' '.repeat(pad) + state.label + ' '.repeat(width - 2 - pad - state.label.length) + '│');
+      lines.push('╰' + '─'.repeat(width - 2) + '╯');
+
+      return lines;
+    };
+
+    // Arrange states horizontally
+    const stateBoxes = states.map(s => drawState(s));
+    const maxHeight = Math.max(...stateBoxes.map(b => b.length));
+    const spacing = 4;
+
+    // Pad boxes to same height (center vertically)
+    stateBoxes.forEach((box, idx) => {
+      const state = states[idx];
+      if (state.id === '[*]') {
+        // Center the dot vertically
+        const topPad = Math.floor((maxHeight - 1) / 2);
+        const newBox: string[] = [];
+        for (let i = 0; i < maxHeight; i++) {
+          newBox.push(i === topPad ? box[0] : '   ');
+        }
+        stateBoxes[idx] = newBox;
+      } else {
+        const topPad = Math.floor((maxHeight - box.length) / 2);
+        const width = box[0].length;
+        const newBox: string[] = [];
+        for (let i = 0; i < maxHeight; i++) {
+          if (i < topPad || i >= topPad + box.length) {
+            newBox.push(' '.repeat(width));
+          } else {
+            newBox.push(box[i - topPad]);
+          }
+        }
+        stateBoxes[idx] = newBox;
+      }
+    });
+
+    // Merge horizontally
+    for (let row = 0; row < maxHeight; row++) {
+      let line = '';
+      for (let i = 0; i < stateBoxes.length; i++) {
+        if (i > 0) line += ' '.repeat(spacing);
+        line += stateBoxes[i][row];
+      }
+      output.push(line);
+    }
+
+    // Add transitions below
+    if (transitions.length > 0) {
+      output.push('');
+      output.push('Transitions:');
+      for (const t of transitions) {
+        const fromLabel = t.from === '[*]' ? '●' : t.from;
+        const toLabel = t.to === '[*]' ? '●' : t.to;
+        const label = t.label ? ` [${t.label}]` : '';
+        output.push(`  ${fromLabel} ──▶ ${toLabel}${label}`);
+      }
+    }
+
+    return { lines: output };
+  } catch (e) {
+    return {
+      lines: source.split('\n'),
+      error: e instanceof Error ? e.message : String(e)
+    };
+  }
 }
 
 export default function MermaidViewer() {
   const { exit } = useApp();
   const { rows } = useTerminalSize();
 
-  const [diagram, setDiagram] = useState<ParsedDiagram | null>(null);
+  const [diagramType, setDiagramType] = useState<DiagramType>('unknown');
+  const [asciiLines, setAsciiLines] = useState<string[]>([]);
+  const [sourceLines, setSourceLines] = useState<string[]>([]);
   const [scroll, setScroll] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'ascii' | 'source'>('ascii');
+  const [asciiSupported, setAsciiSupported] = useState(true);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const title = args?.title || 'Mermaid Diagram';
   const visibleLines = Math.max(5, rows - 6);
@@ -381,25 +817,45 @@ export default function MermaidViewer() {
         return;
       }
 
-      const parsed = parseMermaid(source);
-      setDiagram(parsed);
-      setError(null);
+      // Strip markdown fences
+      const cleanSource = stripMarkdownFences(source);
+      const type = detectDiagramType(cleanSource);
+      setDiagramType(type);
+      setSourceLines(cleanSource.split('\n'));
 
-      // Default to source view for unknown types
-      if (parsed.type === 'unknown') {
-        setViewMode('source');
+      // Render ASCII based on diagram type
+      let result: { lines: string[]; error?: string } | null = null;
+
+      if (type === 'flowchart') {
+        result = renderFlowchartAscii(cleanSource);
+      } else if (type === 'sequence') {
+        result = renderSequenceAscii(cleanSource);
+      } else if (type === 'class') {
+        result = renderClassAscii(cleanSource);
+      } else if (type === 'state') {
+        result = renderStateAscii(cleanSource);
       }
+
+      if (result) {
+        setAsciiLines(result.lines);
+        setAsciiSupported(!result.error);
+        setViewMode(result.error ? 'source' : 'ascii');
+        setWarnings(result.warnings || []);
+      } else {
+        // Other diagram types: source view only
+        setAsciiLines([]);
+        setAsciiSupported(false);
+        setViewMode('source');
+        setWarnings([]);
+      }
+
+      setError(null);
     } catch (e) {
-      setError(`Error parsing diagram: ${e instanceof Error ? e.message : String(e)}`);
+      setError(`Error loading diagram: ${e instanceof Error ? e.message : String(e)}`);
     }
   });
 
-  const lines = diagram
-    ? viewMode === 'ascii' && diagram.type === 'flowchart'
-      ? renderFlowchartASCII(diagram)
-      : diagram.raw
-    : [];
-
+  const lines = viewMode === 'ascii' && asciiSupported ? asciiLines : sourceLines;
   const maxScroll = Math.max(0, lines.length - visibleLines);
   const showScrollBar = lines.length > visibleLines;
 
@@ -408,12 +864,12 @@ export default function MermaidViewer() {
 
   useInput((input, key) => {
     if (input === 'q' || key.escape) {
-      onComplete({ action: 'accept', type: diagram?.type });
+      onComplete({ action: 'accept', type: diagramType });
       exit();
       return;
     }
 
-    if (input === 'v') {
+    if (input === 'v' && asciiSupported) {
       setViewMode(m => m === 'ascii' ? 'source' : 'ascii');
       setScroll(0);
     }
@@ -463,11 +919,17 @@ export default function MermaidViewer() {
       {!args?.['no-header'] && (
         <Box paddingX={1}>
           <Text bold color="cyan">{title}</Text>
-          <Text dimColor> [{diagram?.type || 'unknown'}]</Text>
+          <Text dimColor> [{diagramType}]</Text>
+          {warnings.length > 0 && <Text color="yellow"> ⚠</Text>}
           <Text dimColor> ({viewMode})</Text>
           {showScrollBar && (
             <Text dimColor> ({scroll + 1}-{Math.min(scroll + visibleLines, lines.length)}/{lines.length})</Text>
           )}
+        </Box>
+      )}
+      {warnings.length > 0 && viewMode === 'ascii' && (
+        <Box paddingX={1}>
+          <Text color="yellow" dimColor>⚠ {warnings[0]}</Text>
         </Box>
       )}
 
@@ -479,17 +941,14 @@ export default function MermaidViewer() {
               let color: string | undefined;
               if (line.startsWith('%%')) color = 'gray';
               else if (line.match(/^(flowchart|graph|sequenceDiagram|classDiagram)/i)) color = 'magenta';
-              else if (line.includes('-->') || line.includes('---')) color = 'cyan';
+              else if (line.includes('-->') || line.includes('---') || line.includes('->>')) color = 'cyan';
+              else if (line.match(/^\s*participant\s/i)) color = 'green';
               else if (line.match(/^\w+\[/)) color = 'green';
 
               return <Text key={idx} color={color}>{line}</Text>;
             } else {
-              // ASCII rendering
-              let color: string | undefined;
-              if (line.startsWith('[') || line.startsWith('(') || line.startsWith('<')) color = 'green';
-              else if (line.includes('\u25BC') || line.includes('\u2502') || line.includes('\u250A')) color = 'cyan';
-
-              return <Text key={idx} color={color}>{line}</Text>;
+              // ASCII rendering - show as-is
+              return <Text key={idx}>{line}</Text>;
             }
           })}
         </Box>
@@ -500,9 +959,12 @@ export default function MermaidViewer() {
       </Box>
 
       <Box paddingX={1} marginTop={1}>
-        <Text dimColor>v=toggle view  ↑↓/jk=scroll  q=close</Text>
-        {args?.editor && args?.file && <Text dimColor>  e=edit</Text>}
-        {showScrollBar && <Text dimColor>  mouse=scroll</Text>}
+        <Text dimColor>
+          {asciiSupported ? 'v=toggle view  ' : ''}
+          ↑↓/jk=scroll  q=close
+          {args?.editor && args?.file ? '  e=edit' : ''}
+          {showScrollBar ? '  mouse=scroll' : ''}
+        </Text>
       </Box>
     </Box>
   );
