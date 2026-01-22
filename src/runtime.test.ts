@@ -36,12 +36,14 @@ describe("runtime", () => {
       // Ignore
     }
     if (originalRuntimeDir === undefined) {
-      process.env.TERMOS_RUNTIME_DIR = undefined;
+      // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
+      delete process.env.TERMOS_RUNTIME_DIR;
     } else {
       process.env.TERMOS_RUNTIME_DIR = originalRuntimeDir;
     }
     if (originalHome === undefined) {
-      process.env.HOME = undefined;
+      // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
+      delete process.env.HOME;
     } else {
       process.env.HOME = originalHome;
     }
@@ -101,7 +103,8 @@ describe("runtime", () => {
     });
 
     it("should fall back to ~/.termos/sessions", () => {
-      process.env.TERMOS_RUNTIME_DIR = undefined;
+      // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
+      delete process.env.TERMOS_RUNTIME_DIR;
       const result = getRuntimeRoot();
       expect(result).toBe(path.join(testDir, ".termos", "sessions"));
     });

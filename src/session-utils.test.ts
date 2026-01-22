@@ -15,7 +15,8 @@ describe("session-utils", () => {
 
   beforeEach(() => {
     process.env.HOME = testDir;
-    process.env.TERMOS_SESSION_ID = undefined;
+    // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
+    delete process.env.TERMOS_SESSION_ID;
     fs.mkdirSync(testDir, { recursive: true });
   });
 
@@ -26,12 +27,14 @@ describe("session-utils", () => {
       // Ignore
     }
     if (originalHome === undefined) {
-      process.env.HOME = undefined;
+      // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
+      delete process.env.HOME;
     } else {
       process.env.HOME = originalHome;
     }
     if (originalSessionId === undefined) {
-      process.env.TERMOS_SESSION_ID = undefined;
+      // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
+      delete process.env.TERMOS_SESSION_ID;
     } else {
       process.env.TERMOS_SESSION_ID = originalSessionId;
     }
