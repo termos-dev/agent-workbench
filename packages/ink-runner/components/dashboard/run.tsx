@@ -4,8 +4,6 @@
  * Run with: npx tsx packages/ink-runner/components/dashboard/run.tsx
  */
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { render } from "ink";
 import React from "react";
 import {
@@ -13,8 +11,6 @@ import {
   writeDashboardMarker,
 } from "../../../../src/runtime.js";
 import Dashboard from "./dashboard.js";
-
-const execFileAsync = promisify(execFile);
 
 interface Args {
   refresh?: string;
@@ -57,48 +53,6 @@ function parseArgs(): Args {
   return result;
 }
 
-// Bring terminal to front on macOS
-async function bringTerminalToFront(): Promise<void> {
-  if (process.platform !== "darwin") {
-    return;
-  }
-
-  const termProgram = process.env.TERM_PROGRAM;
-  let terminalApp: string | null = null;
-
-  // Map TERM_PROGRAM to macOS app name
-  if (termProgram === "Ghostty" || process.env.GHOSTTY_RESOURCES_DIR) {
-    terminalApp = "Ghostty";
-  } else if (termProgram === "Apple_Terminal") {
-    terminalApp = "Terminal";
-  } else if (termProgram === "iTerm.app") {
-    terminalApp = "iTerm";
-  } else if (termProgram === "WarpTerminal") {
-    terminalApp = "Warp";
-  } else if (termProgram === "vscode") {
-    terminalApp = "Visual Studio Code";
-  }
-  // Don't activate unknown terminals to avoid opening wrong apps
-
-  if (!terminalApp) {
-    return;
-  }
-
-  try {
-    const script = `tell application "${terminalApp}" to activate`;
-    await execFileAsync("osascript", ["-e", script]);
-  } catch {
-    // Silently fail
-  }
-}
-
-// Handle auto-focus
-function handleAutoFocus(): void {
-  if (process.platform === "darwin") {
-    bringTerminalToFront();
-  }
-}
-
 // Parse CLI args
 const args = parseArgs();
 
@@ -134,7 +88,6 @@ async function main(): Promise<void> {
   // Pass args via props (dependency injection) instead of globals
   const { waitUntilExit } = render(
     React.createElement(Dashboard, {
-      onAutoFocus: handleAutoFocus,
       args: {
         global: args.global,
         currentProject: args.currentProject,

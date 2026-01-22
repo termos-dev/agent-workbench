@@ -29,8 +29,6 @@ function getPlanFirstLine(planFile: string | undefined): string | null {
   }
 }
 
-const MAX_VISIBLE = 3;
-
 export interface AgentRowProps {
   agent: AgentDisplayStatus;
   interactions: DashboardInteraction[];
@@ -65,16 +63,6 @@ export function AgentRow({
         : agent.displayStatus === "waiting"
           ? "yellow"
           : "gray";
-  const selIdx = interactions.findIndex((i) => i.id === selectedId);
-
-  let visible = interactions;
-  let hidden = 0;
-  if (interactions.length > MAX_VISIBLE) {
-    const start = selIdx >= MAX_VISIBLE ? Math.max(0, selIdx - 1) : 0;
-    visible = interactions.slice(start, start + MAX_VISIBLE);
-    hidden = interactions.length - MAX_VISIBLE;
-  }
-
   // Use title as the status indicator (more user-friendly than idle/running)
   const displayTitle =
     agent.title ||
@@ -112,7 +100,7 @@ export function AgentRow({
       )}
       {interactions.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
-          {visible.map((i) => (
+          {interactions.map((i) => (
             <InteractionCard
               key={i.id}
               interaction={i}
@@ -123,7 +111,6 @@ export function AgentRow({
               onTabPrev={onTabPrev}
             />
           ))}
-          {hidden > 0 && <Text dimColor> +{hidden} more</Text>}
         </Box>
       )}
     </Box>

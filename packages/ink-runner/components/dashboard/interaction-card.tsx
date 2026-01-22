@@ -339,7 +339,9 @@ export function InteractionCard({
                 0,
                 Math.min(100, ((value - min) / (max - min)) * 100)
               );
-              const barWidth = Math.min(30, Math.max(10, width - 20));
+              // Safeguard against NaN width
+              const safeWidth = Number.isFinite(width) ? width : 80;
+              const barWidth = Math.min(30, Math.max(10, safeWidth - 20));
               const filled = Math.round((percent * barWidth) / 100);
               const empty = barWidth - filled;
               const color =
@@ -349,9 +351,9 @@ export function InteractionCard({
                   {label && <Text bold>{label}</Text>}
                   <Box>
                     <Text color={color}>
-                      {"█".repeat(filled)}
-                      {"░".repeat(empty)}
+                      {filled > 0 ? "█".repeat(filled) : ""}
                     </Text>
+                    <Text dimColor>{empty > 0 ? "░".repeat(empty) : ""}</Text>
                     <Text> </Text>
                     <Text bold>{value.toLocaleString()}</Text>
                     <Text dimColor>{unit}</Text>

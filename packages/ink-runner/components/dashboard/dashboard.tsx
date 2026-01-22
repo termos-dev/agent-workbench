@@ -102,8 +102,6 @@ const INTERACTIVE = new Set([
 const isInteractive = (c: string) => INTERACTIVE.has(c);
 
 export interface DashboardProps {
-  /** Callback when auto-focus should be triggered (macOS terminal activation) */
-  onAutoFocus?: () => void;
   /** Dashboard args - if not provided, falls back to globalThis.args */
   args?: DashboardArgs;
 }
@@ -129,11 +127,9 @@ export default function Dashboard(props?: DashboardProps) {
 
   const handleNew = useCallback(
     (i: DashboardInteraction) => {
-      if (process.platform === "darwin" && props?.onAutoFocus)
-        props.onAutoFocus();
       showStatus(`New: ${i.title || i.component}`);
     },
-    [props, showStatus]
+    [showStatus]
   );
 
   const {
@@ -277,8 +273,10 @@ export default function Dashboard(props?: DashboardProps) {
     // Skip input handling if we're in focused session mode (FocusedSessionView handles its own input)
     if (focusedSessionId) return;
 
-    // Help
-    if (input === "h") {
+    // Help - skip when user is typing in input components
+    const isTyping =
+      selected?.component === "input" || selected?.component === "ask";
+    if (input === "h" && !isTyping) {
       setShowHelp(true);
       return;
     }
