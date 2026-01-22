@@ -7,13 +7,7 @@
   "bin": {
     "termos": "dist/index.js"
   },
-  "files": [
-    "dist",
-    ".claude-plugin",
-    "skills",
-    "templates",
-    "!dist/**/*.map"
-  ],
+  "files": ["dist", ".claude-plugin", "skills", "templates", "!dist/**/*.map"],
   "scripts": {
     "build": "tsc && cp -r src/templates dist/ && npm run bundle:ink-runner",
     "bundle:ink-runner": "node scripts/bundle-ink-runner.mjs",
@@ -24,7 +18,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build"
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "prepublishOnly": "npm run build",
+    "prepare": "husky",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "npm run build && changeset publish"
   },
   "repository": {
     "type": "git",
@@ -35,13 +36,7 @@
   "bugs": {
     "url": "https://github.com/termos-dev/termos/issues"
   },
-  "keywords": [
-    "tui",
-    "interactive",
-    "terminal",
-    "claude-code",
-    "ai-agent"
-  ],
+  "keywords": ["tui", "interactive", "terminal", "claude-code", "ai-agent"],
   "license": "MIT",
   "dependencies": {
     "@termosdev/shared": "file:packages/shared",
@@ -50,13 +45,24 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@changesets/changelog-github": "^0.5.2",
+    "@changesets/cli": "^2.29.8",
+    "@commitlint/cli": "^20.3.1",
+    "@commitlint/config-conventional": "^20.3.1",
     "@types/node": "^20.19.27",
     "@vitest/coverage-v8": "^4.0.17",
     "esbuild": "^0.27.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "typescript": "^5.3.0",
     "vitest": "^4.0.16"
   },
   "engines": {
     "node": ">=18"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": ["biome check --write"],
+    "*.{json,md}": ["biome format --write"]
   }
 }
