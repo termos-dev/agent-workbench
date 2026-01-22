@@ -4,13 +4,13 @@
  * We copy instead of bundle because ink requires ESM with top-level await
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
-import { fileURLToPath } from 'url';
-import { execFileSync } from 'child_process';
+import { execFileSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.join(__dirname, '..');
+const projectRoot = path.join(__dirname, "..");
 
 function copyDir(src, dest, skipSymlinks = false) {
   fs.mkdirSync(dest, { recursive: true });
@@ -28,7 +28,7 @@ function copyDir(src, dest, skipSymlinks = false) {
         continue;
       }
       // Copy the target of the symlink
-      const target = fs.readlinkSync(srcPath);
+      const _target = fs.readlinkSync(srcPath);
       if (fs.statSync(srcPath).isDirectory()) {
         copyDir(srcPath, destPath, skipSymlinks);
       } else {
@@ -63,11 +63,14 @@ async function bundlePackage(name) {
   console.log(`\nBuilding ${name}...`);
 
   // Build the package first
-  execFileSync('npm', ['run', 'build'], { cwd: src, stdio: 'inherit' });
+  execFileSync("npm", ["run", "build"], { cwd: src, stdio: "inherit" });
 
   // Install production dependencies
   console.log(`Installing ${name} dependencies...`);
-  execFileSync('npm', ['install', '--omit=dev'], { cwd: src, stdio: 'inherit' });
+  execFileSync("npm", ["install", "--omit=dev"], {
+    cwd: src,
+    stdio: "inherit",
+  });
 
   console.log(`Copying ${name} to dist...`);
 
@@ -77,28 +80,32 @@ async function bundlePackage(name) {
   }
 
   // Copy dist folder
-  copyDir(path.join(src, 'dist'), path.join(dest, 'dist'));
+  copyDir(path.join(src, "dist"), path.join(dest, "dist"));
 
   // Copy assets folder (icons, etc.) to dist
-  const assetsDir = path.join(src, 'src', 'assets');
+  const assetsDir = path.join(src, "src", "assets");
   if (fs.existsSync(assetsDir)) {
     console.log(`Copying assets from ${name}...`);
-    copyDir(assetsDir, path.join(dest, 'dist', 'assets'));
+    copyDir(assetsDir, path.join(dest, "dist", "assets"));
   }
 
   // Copy node_modules (skip symlinks to local packages - they're resolved via dist/)
-  copyDir(path.join(src, 'node_modules'), path.join(dest, 'node_modules'), true);
+  copyDir(
+    path.join(src, "node_modules"),
+    path.join(dest, "node_modules"),
+    true
+  );
 
   // Copy package.json
   fs.copyFileSync(
-    path.join(src, 'package.json'),
-    path.join(dest, 'package.json')
+    path.join(src, "package.json"),
+    path.join(dest, "package.json")
   );
 
   // Copy built-in components (for ink-runner)
-  const componentsDir = path.join(src, 'components');
+  const componentsDir = path.join(src, "components");
   if (fs.existsSync(componentsDir)) {
-    copyDir(componentsDir, path.join(dest, 'components'));
+    copyDir(componentsDir, path.join(dest, "components"));
   }
 
   const totalSize = getSize(dest);
@@ -108,37 +115,43 @@ async function bundlePackage(name) {
 
 async function bundle() {
   // Build shared first (dependencies need it)
-  await bundlePackage('shared');
+  await bundlePackage("shared");
 
   // Build ink-runner (clack-runner has been removed)
-  await bundlePackage('ink-runner');
+  await bundlePackage("ink-runner");
 
   // Copy shared into node_modules so imports can resolve @termosdev/shared
-  console.log('\nLinking shared package...');
-  const sharedDist = path.join(projectRoot, 'dist/shared');
+  console.log("\nLinking shared package...");
+  const sharedDist = path.join(projectRoot, "dist/shared");
 
   // Link to main dist/node_modules for the CLI
-  const mainSharedDest = path.join(projectRoot, 'dist/node_modules/@termosdev/shared');
+  const mainSharedDest = path.join(
+    projectRoot,
+    "dist/node_modules/@termosdev/shared"
+  );
   if (fs.existsSync(mainSharedDest)) {
     fs.rmSync(mainSharedDest, { recursive: true });
   }
   fs.mkdirSync(path.dirname(mainSharedDest), { recursive: true });
   copyDir(sharedDist, mainSharedDest);
-  console.log('  Linked shared to dist/node_modules');
+  console.log("  Linked shared to dist/node_modules");
 
   // Link to ink-runner's node_modules
-  const runnerSharedDest = path.join(projectRoot, 'dist/ink-runner/node_modules/@termosdev/shared');
+  const runnerSharedDest = path.join(
+    projectRoot,
+    "dist/ink-runner/node_modules/@termosdev/shared"
+  );
   if (fs.existsSync(runnerSharedDest)) {
     fs.rmSync(runnerSharedDest, { recursive: true });
   }
   fs.mkdirSync(path.dirname(runnerSharedDest), { recursive: true });
   copyDir(sharedDist, runnerSharedDest);
-  console.log('  Linked shared to ink-runner');
+  console.log("  Linked shared to ink-runner");
 
-  console.log('\nBundle complete!');
+  console.log("\nBundle complete!");
 }
 
 bundle().catch((err) => {
-  console.error('Bundle failed:', err);
+  console.error("Bundle failed:", err);
   process.exit(1);
 });

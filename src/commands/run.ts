@@ -2,20 +2,25 @@
  * Run command handler - creates interactive components or runs commands.
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import { spawnSync } from "child_process";
-import { fileURLToPath } from "url";
+import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
-  ensureEventsFile,
-  pathToSessionName,
-  cwdToProject,
-  writeIdleMarker,
-} from "../runtime.js";
-import { writeEvent, type ComponentType } from "../events.js";
-import { generateFullHelp, componentSchemas, normalizeFormSchema } from "@termosdev/shared";
+  type FormSchema,
+  componentSchemas,
+  generateFullHelp,
+  normalizeFormSchema,
+} from "@termosdev/shared";
 import { extractFlags } from "../arg-parser.js";
 import { builtinComponents, positionalArgMap } from "../component-registry.js";
+import { type ComponentType, writeEvent } from "../events.js";
+import {
+  cwdToProject,
+  ensureEventsFile,
+  pathToSessionName,
+  writeIdleMarker,
+} from "../runtime.js";
 import { getAgentSessionId } from "../session-utils.js";
 
 /**
@@ -66,9 +71,10 @@ export async function handleRun(args: string[]): Promise<void> {
     process.exit(0);
   }
 
-  let title: string | undefined;
-  const hasWait = args.includes("--wait");
-  const restArgs = args.filter((arg) => arg !== "--wait" && arg !== "--no-wait");
+  const _hasWait = args.includes("--wait");
+  const restArgs = args.filter(
+    (arg) => arg !== "--wait" && arg !== "--no-wait"
+  );
 
   let cmdValue: string | undefined;
   let cmdFileValue: string | undefined;
@@ -81,7 +87,7 @@ export async function handleRun(args: string[]): Promise<void> {
     { name: "live", type: "boolean" as const },
   ];
   const flags = extractFlags(restArgs, knownCliFlags);
-  title = flags.title;
+  const title = flags.title;
   cmdValue = flags.cmd;
   cmdFileValue = flags["cmd-file"];
   const isLive = flags.live === "true";
@@ -92,7 +98,11 @@ export async function handleRun(args: string[]): Promise<void> {
   const firstArgIdx = restArgs.findIndex(
     (arg) => !arg.startsWith("--") || arg === "--"
   );
-  for (let i = 0; i < (firstArgIdx === -1 ? restArgs.length : firstArgIdx); i++) {
+  for (
+    let i = 0;
+    i < (firstArgIdx === -1 ? restArgs.length : firstArgIdx);
+    i++
+  ) {
     const arg = restArgs[i];
     if (arg.startsWith("--") && arg !== "--") {
       const flagName = arg.slice(2).split("=")[0];
@@ -189,7 +199,7 @@ export async function handleRun(args: string[]): Promise<void> {
       process.exit(1);
     }
 
-    let schema;
+    let schema: FormSchema;
     try {
       const parsed = JSON.parse(questionsArg);
       schema = normalizeFormSchema(parsed);
@@ -253,13 +263,8 @@ export async function handleRun(args: string[]): Promise<void> {
         builtinFile
       );
       inkFile = fs.existsSync(distPath) ? distPath : devPath;
-    } else if (
-      !inkFile?.endsWith(".tsx") &&
-      !inkFile?.endsWith(".jsx")
-    ) {
-      console.error(
-        "Usage: termos run <component> or termos run -- <command>"
-      );
+    } else if (!inkFile?.endsWith(".tsx") && !inkFile?.endsWith(".jsx")) {
+      console.error("Usage: termos run <component> or termos run -- <command>");
       console.error("\nBuilt-in components:");
       console.error(
         "  ask, confirm, checklist, code, diff, table, progress, mermaid"
@@ -287,23 +292,26 @@ export async function handleRun(args: string[]): Promise<void> {
       }
     }
     if (titleValue && !("title" in inkArgs)) {
-      inkArgs["title"] = titleValue;
+      inkArgs.title = titleValue;
     }
     if (!Object.keys(inkArgs).length) inkArgs = undefined;
 
     // Normalize common aliases
-    if (inkArgs?.["json"] && !inkArgs["data"]) {
-      inkArgs["data"] = inkArgs["json"];
-      delete inkArgs["json"];
+    if (inkArgs?.json && !inkArgs.data) {
+      inkArgs.data = inkArgs.json;
+      // biome-ignore lint/performance/noDelete: cleaner than undefined assignment
+      delete inkArgs.json;
     }
     if (component === "table" && inkArgs) {
-      if (inkArgs["rows"] && !inkArgs["data"]) {
-        inkArgs["data"] = inkArgs["rows"];
-        delete inkArgs["rows"];
+      if (inkArgs.rows && !inkArgs.data) {
+        inkArgs.data = inkArgs.rows;
+        // biome-ignore lint/performance/noDelete: cleaner than undefined assignment
+        delete inkArgs.rows;
       }
-      if (inkArgs["content"] && !inkArgs["data"]) {
-        inkArgs["data"] = inkArgs["content"];
-        delete inkArgs["content"];
+      if (inkArgs.content && !inkArgs.data) {
+        inkArgs.data = inkArgs.content;
+        // biome-ignore lint/performance/noDelete: cleaner than undefined assignment
+        delete inkArgs.content;
       }
     }
   }
@@ -313,7 +321,10 @@ export async function handleRun(args: string[]): Promise<void> {
     const schema = componentSchemas[component];
     if (schema?.args) {
       for (const [argName, argDef] of Object.entries(schema.args)) {
-        if ((argDef as { required?: boolean }).required && !inkArgs?.[argName]) {
+        if (
+          (argDef as { required?: boolean }).required &&
+          !inkArgs?.[argName]
+        ) {
           return emitRunError(`Missing required argument: --${argName}`);
         }
       }
@@ -321,10 +332,10 @@ export async function handleRun(args: string[]): Promise<void> {
       if (schema.validation?.oneOf) {
         const hasOne = schema.validation.oneOf.some((arg) => inkArgs?.[arg]);
         if (!hasOne) {
-          const opts = schema.validation.oneOf.map((a) => `--${a}`).join(" or ");
-          return emitRunError(
-            `Either ${opts} is required for '${component}'`
-          );
+          const opts = schema.validation.oneOf
+            .map((a) => `--${a}`)
+            .join(" or ");
+          return emitRunError(`Either ${opts} is required for '${component}'`);
         }
       }
 
@@ -350,7 +361,7 @@ export async function handleRun(args: string[]): Promise<void> {
             } catch (e) {
               const value = inkArgs[argName];
               const preview =
-                value.length > 50 ? value.slice(0, 50) + "..." : value;
+                value.length > 50 ? `${value.slice(0, 50)}...` : value;
               const errMsg = e instanceof Error ? e.message : String(e);
               return emitRunError(
                 `Invalid JSON in --${argName}: ${errMsg}\nValue: ${preview}`
@@ -430,38 +441,37 @@ export async function handleRun(args: string[]): Promise<void> {
 
       // For CLI usage, return immediately after outputStartedJson
       return;
-    } else {
-      // Non-live mode: use spawnSync (blocking)
-      const result = spawnSync("sh", ["-c", command], {
-        encoding: "utf-8",
-        maxBuffer: 10 * 1024 * 1024, // 10MB
-        cwd: process.cwd(),
-      });
-
-      const output = (result.stdout || "") + (result.stderr || "");
-
-      writeEvent(sessionName, {
-        type: "created" as const,
-        id,
-        component: "output" as ComponentType,
-        title: titleValue,
-        args: {
-          command,
-          output: output.trim(),
-          exitCode: result.status,
-        },
-        agentSessionId,
-        project: cwdToProject(process.cwd()),
-      });
-
-      // Update idle marker so TUI can detect this session
-      if (agentSessionId) {
-        writeIdleMarker(agentSessionId, process.cwd());
-      }
-
-      outputStartedJson(id, sessionName);
-      return;
     }
+    // Non-live mode: use spawnSync (blocking)
+    const result = spawnSync("sh", ["-c", command], {
+      encoding: "utf-8",
+      maxBuffer: 10 * 1024 * 1024, // 10MB
+      cwd: process.cwd(),
+    });
+
+    const output = (result.stdout || "") + (result.stderr || "");
+
+    writeEvent(sessionName, {
+      type: "created" as const,
+      id,
+      component: "output" as ComponentType,
+      title: titleValue,
+      args: {
+        command,
+        output: output.trim(),
+        exitCode: result.status,
+      },
+      agentSessionId,
+      project: cwdToProject(process.cwd()),
+    });
+
+    // Update idle marker so TUI can detect this session
+    if (agentSessionId) {
+      writeIdleMarker(agentSessionId, process.cwd());
+    }
+
+    outputStartedJson(id, sessionName);
+    return;
   }
 
   // Parse options for select components

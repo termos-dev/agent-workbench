@@ -1,9 +1,14 @@
-import { Box, Text, useInput, useApp } from 'ink';
-import { useState, useEffect, useRef } from 'react';
-import { readFileSync, writeFileSync } from 'fs';
-import { spawn } from 'child_process';
-import * as path from 'path';
-import { useTerminalSize, ScrollBar, useMouseScroll, useFileWatch } from './shared/index.js';
+import { spawn } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import * as path from "node:path";
+import { Box, Text, useApp, useInput } from "ink";
+import { useEffect, useRef, useState } from "react";
+import {
+  ScrollBar,
+  useFileWatch,
+  useMouseScroll,
+  useTerminalSize,
+} from "./shared/index.js";
 
 declare const onComplete: (result: unknown) => void;
 declare const args: {
@@ -14,47 +19,113 @@ declare const args: {
   editor?: string; // e.g. "code --goto", "vim +{line}", "nano" (external/detached mode)
   embeddedEditor?: string; // TUI editor command for in-pane editing, e.g. "nvim +{line}", "hx {file}:{line}"
   actionFile?: string; // temp file path for action (used in embedded mode)
-  'no-header'?: boolean; // Hide header when pane host shows title
+  "no-header"?: boolean; // Hide header when pane host shows title
 };
 
 // Simple syntax highlighting patterns
 const KEYWORDS = new Set([
-  'const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while',
-  'class', 'extends', 'import', 'export', 'from', 'default', 'async', 'await',
-  'try', 'catch', 'throw', 'new', 'this', 'super', 'static', 'get', 'set',
-  'interface', 'type', 'enum', 'implements', 'private', 'public', 'protected',
-  'readonly', 'abstract', 'declare', 'namespace', 'module', 'require',
-  'def', 'elif', 'except', 'finally', 'lambda', 'pass', 'raise', 'with', 'yield',
-  'fn', 'pub', 'mod', 'use', 'impl', 'trait', 'struct', 'match', 'mut', 'ref',
+  "const",
+  "let",
+  "var",
+  "function",
+  "return",
+  "if",
+  "else",
+  "for",
+  "while",
+  "class",
+  "extends",
+  "import",
+  "export",
+  "from",
+  "default",
+  "async",
+  "await",
+  "try",
+  "catch",
+  "throw",
+  "new",
+  "this",
+  "super",
+  "static",
+  "get",
+  "set",
+  "interface",
+  "type",
+  "enum",
+  "implements",
+  "private",
+  "public",
+  "protected",
+  "readonly",
+  "abstract",
+  "declare",
+  "namespace",
+  "module",
+  "require",
+  "def",
+  "elif",
+  "except",
+  "finally",
+  "lambda",
+  "pass",
+  "raise",
+  "with",
+  "yield",
+  "fn",
+  "pub",
+  "mod",
+  "use",
+  "impl",
+  "trait",
+  "struct",
+  "match",
+  "mut",
+  "ref",
 ]);
 
 function getLanguage(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   const langMap: Record<string, string> = {
-    '.ts': 'typescript', '.tsx': 'typescript', '.js': 'javascript', '.jsx': 'javascript',
-    '.py': 'python', '.rs': 'rust', '.go': 'go', '.rb': 'ruby',
-    '.java': 'java', '.c': 'c', '.cpp': 'cpp', '.h': 'c',
-    '.css': 'css', '.scss': 'scss', '.html': 'html', '.json': 'json',
-    '.md': 'markdown', '.yml': 'yaml', '.yaml': 'yaml', '.sh': 'bash',
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".py": "python",
+    ".rs": "rust",
+    ".go": "go",
+    ".rb": "ruby",
+    ".java": "java",
+    ".c": "c",
+    ".cpp": "cpp",
+    ".h": "c",
+    ".css": "css",
+    ".scss": "scss",
+    ".html": "html",
+    ".json": "json",
+    ".md": "markdown",
+    ".yml": "yaml",
+    ".yaml": "yaml",
+    ".sh": "bash",
   };
-  return langMap[ext] || 'text';
+  return langMap[ext] || "text";
 }
 
 // Box Drawing (U+2500-U+257F) and Block Elements (U+2580-U+259F)
 const BOX_DRAWING_REGEX = /[\u2500-\u257F\u2580-\u259F]/;
 const containsBoxDrawing = (line: string) => BOX_DRAWING_REGEX.test(line);
 
-function highlightLine(line: string, lang: string): React.ReactNode[] {
+function highlightLine(line: string, _lang: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   let remaining = line;
   let key = 0;
 
   // Simple tokenization
   const patterns: Array<{ regex: RegExp; color: string }> = [
-    { regex: /^(\s*\/\/.*|#.*)/, color: 'gray' }, // comments
-    { regex: /^(\s*\/\*[\s\S]*?\*\/)/, color: 'gray' }, // block comments
-    { regex: /^("[^"]*"|'[^']*'|`[^`]*`)/, color: 'yellow' }, // strings
-    { regex: /^(\d+\.?\d*)/, color: 'magenta' }, // numbers
+    { regex: /^(\s*\/\/.*|#.*)/, color: "gray" }, // comments
+    { regex: /^(\s*\/\*[\s\S]*?\*\/)/, color: "gray" }, // block comments
+    { regex: /^("[^"]*"|'[^']*'|`[^`]*`)/, color: "yellow" }, // strings
+    { regex: /^(\d+\.?\d*)/, color: "magenta" }, // numbers
   ];
 
   while (remaining.length > 0) {
@@ -63,7 +134,11 @@ function highlightLine(line: string, lang: string): React.ReactNode[] {
     for (const { regex, color } of patterns) {
       const match = remaining.match(regex);
       if (match) {
-        parts.push(<Text key={key++} color={color}>{match[0]}</Text>);
+        parts.push(
+          <Text key={key++} color={color}>
+            {match[0]}
+          </Text>
+        );
         remaining = remaining.slice(match[0].length);
         matched = true;
         break;
@@ -76,7 +151,11 @@ function highlightLine(line: string, lang: string): React.ReactNode[] {
       if (wordMatch) {
         const word = wordMatch[0];
         if (KEYWORDS.has(word)) {
-          parts.push(<Text key={key++} color="blue" bold>{word}</Text>);
+          parts.push(
+            <Text key={key++} color="blue" bold>
+              {word}
+            </Text>
+          );
         } else {
           parts.push(<Text key={key++}>{word}</Text>);
         }
@@ -97,9 +176,9 @@ export default function CodeViewer() {
   const { rows, columns } = useTerminalSize();
 
   const filePath = args?.file;
-  const title = args?.title || (filePath ? path.basename(filePath) : 'Code');
+  const title = args?.title || (filePath ? path.basename(filePath) : "Code");
   const highlightRange = args?.highlight;
-  const jumpLine = args?.line ? parseInt(args.line, 10) : undefined;
+  const jumpLine = args?.line ? Number.parseInt(args.line, 10) : undefined;
 
   const [lines, setLines] = useState<string[]>([]);
   const [scroll, setScroll] = useState(0);
@@ -110,10 +189,13 @@ export default function CodeViewer() {
 
   // Parse highlight range
   const highlightStart = highlightRange
-    ? parseInt(highlightRange.split('-')[0], 10)
+    ? Number.parseInt(highlightRange.split("-")[0], 10)
     : undefined;
   const highlightEnd = highlightRange
-    ? parseInt(highlightRange.split('-')[1] || highlightRange.split('-')[0], 10)
+    ? Number.parseInt(
+        highlightRange.split("-")[1] || highlightRange.split("-")[0],
+        10
+      )
     : highlightStart;
 
   const visibleLines = Math.max(5, rows - 6);
@@ -121,33 +203,36 @@ export default function CodeViewer() {
 
   useFileWatch(filePath, () => {
     if (!filePath) {
-      setError('No file specified. Use --file <path>');
+      setError("No file specified. Use --file <path>");
       return;
     }
 
     try {
-      const content = readFileSync(filePath, 'utf-8');
-      const fileLines = content.split('\n');
+      const content = readFileSync(filePath, "utf-8");
+      const fileLines = content.split("\n");
       setLines(fileLines);
-      setMaxLineLength(Math.max(...fileLines.map(l => l.length)));
+      setMaxLineLength(Math.max(...fileLines.map((l) => l.length)));
       setError(null);
 
       // Jump to line only on first load
       if (isFirstLoad.current) {
         isFirstLoad.current = false;
         if (jumpLine && jumpLine > 0) {
-          const targetScroll = Math.max(0, jumpLine - Math.floor(visibleLines / 2));
+          const targetScroll = Math.max(
+            0,
+            jumpLine - Math.floor(visibleLines / 2)
+          );
           setScroll(targetScroll);
         } else if (highlightStart) {
           const targetScroll = Math.max(0, highlightStart - 3);
           setScroll(targetScroll);
         }
       }
-    } catch (e) {
+    } catch (_e) {
       setError(`Error reading file: ${filePath}`);
     }
   });
-  const lang = filePath ? getLanguage(filePath) : 'text';
+  const lang = filePath ? getLanguage(filePath) : "text";
   const lineNumWidth = String(lines.length).length;
   // Calculate visible columns (account for line numbers, padding, scrollbar)
   // " │ " = 3 chars, paddingX=1 each side = 2 chars, scrollbar = 1 char
@@ -164,9 +249,12 @@ export default function CodeViewer() {
   useInput((input, key) => {
     if (key.escape) {
       const result = {
-        action: 'accept',
+        action: "accept",
         file: filePath,
-        viewedLines: [scroll + 1, Math.min(scroll + visibleLines, lines.length)],
+        viewedLines: [
+          scroll + 1,
+          Math.min(scroll + visibleLines, lines.length),
+        ],
       };
       // In embedded mode, write action to file so shell wrapper knows to exit
       if (args?.embeddedEditor && args?.actionFile) {
@@ -178,13 +266,13 @@ export default function CodeViewer() {
     }
 
     // Edit - embedded mode or external editor
-    if (input === 'e' && filePath) {
+    if (input === "e" && filePath) {
       const currentLine = scroll + 1;
 
       // Embedded mode: write action to temp file, let shell wrapper handle editor
       if (args?.embeddedEditor && args?.actionFile) {
         const actionData = {
-          action: 'edit',
+          action: "edit",
           file: filePath,
           line: currentLine,
           editorCmd: args.embeddedEditor, // pass the editor command to shell wrapper
@@ -198,14 +286,14 @@ export default function CodeViewer() {
       // External editor mode (detached process)
       if (args?.editor) {
         // Replace {line} placeholder with actual line number
-        const editorCmd = args.editor.replace('{line}', String(currentLine));
+        const editorCmd = args.editor.replace("{line}", String(currentLine));
 
         // Build the full command with file:line for VS Code style, or file for others
         let fullCmd: string;
-        if (editorCmd.includes('--goto')) {
+        if (editorCmd.includes("--goto")) {
           // VS Code style: code --goto file:line
           fullCmd = `${editorCmd} "${filePath}:${currentLine}"`;
-        } else if (editorCmd.includes('+')) {
+        } else if (editorCmd.includes("+")) {
           // Already has line number from {line} placeholder (vim +{line})
           fullCmd = `${editorCmd} "${filePath}"`;
         } else {
@@ -217,12 +305,12 @@ export default function CodeViewer() {
         const child = spawn(fullCmd, [], {
           shell: true,
           detached: true,
-          stdio: 'ignore',
+          stdio: "ignore",
         });
         child.unref();
 
         onComplete({
-          action: 'edit',
+          action: "edit",
           file: filePath,
           line: currentLine,
           editor: fullCmd,
@@ -232,34 +320,34 @@ export default function CodeViewer() {
       }
     }
 
-    if (key.upArrow || input === 'k') {
-      setScroll(s => Math.max(0, s - 1));
+    if (key.upArrow) {
+      setScroll((s) => Math.max(0, s - 1));
     }
-    if (key.downArrow || input === 'j') {
-      setScroll(s => Math.min(maxScroll, s + 1));
+    if (key.downArrow) {
+      setScroll((s) => Math.min(maxScroll, s + 1));
     }
     if (key.pageUp) {
-      setScroll(s => Math.max(0, s - visibleLines));
+      setScroll((s) => Math.max(0, s - visibleLines));
     }
     if (key.pageDown) {
-      setScroll(s => Math.min(maxScroll, s + visibleLines));
+      setScroll((s) => Math.min(maxScroll, s + visibleLines));
     }
 
     // Go to top/bottom
-    if (input === 'g') {
+    if (input === "g") {
       setScroll(0);
     }
-    if (input === 'G') {
+    if (input === "G") {
       setScroll(maxScroll);
     }
 
     // Horizontal scroll
     const maxHorizontalScroll = Math.max(0, maxLineLength - visibleCols);
-    if (key.leftArrow || input === 'h') {
-      setHorizontalScroll(s => Math.max(0, s - 5));
+    if (key.leftArrow || input === "h") {
+      setHorizontalScroll((s) => Math.max(0, s - 5));
     }
-    if (key.rightArrow || input === 'l') {
-      setHorizontalScroll(s => Math.min(maxHorizontalScroll, s + 5));
+    if (key.rightArrow || input === "l") {
+      setHorizontalScroll((s) => Math.min(maxHorizontalScroll, s + 5));
     }
   });
 
@@ -278,12 +366,18 @@ export default function CodeViewer() {
 
   return (
     <Box flexDirection="column">
-      {!args?.['no-header'] && (
+      {!args?.["no-header"] && (
         <Box paddingX={1}>
-          <Text bold color="cyan">{title}</Text>
+          <Text bold color="cyan">
+            {title}
+          </Text>
           <Text dimColor> [{lang}]</Text>
           {showScrollBar && (
-            <Text dimColor> ({scroll + 1}-{Math.min(scroll + visibleLines, lines.length)}/{lines.length})</Text>
+            <Text dimColor>
+              {" "}
+              ({scroll + 1}-{Math.min(scroll + visibleLines, lines.length)}/
+              {lines.length})
+            </Text>
           )}
         </Box>
       )}
@@ -292,7 +386,8 @@ export default function CodeViewer() {
         <Box flexDirection="column" paddingX={1} flexGrow={1}>
           {displayLines.map((line, displayIdx) => {
             const lineNum = scroll + displayIdx + 1;
-            const isHighlighted = highlightStart !== undefined &&
+            const isHighlighted =
+              highlightStart !== undefined &&
               lineNum >= highlightStart &&
               lineNum <= (highlightEnd || highlightStart);
 
@@ -303,9 +398,10 @@ export default function CodeViewer() {
             const scrolledLine = line.slice(horizontalScroll);
 
             // Truncate to visible width
-            const truncatedLine = visibleCols > 0 && scrolledLine.length > visibleCols
-              ? scrolledLine.slice(0, visibleCols - 1) + '→'
-              : scrolledLine;
+            const truncatedLine =
+              visibleCols > 0 && scrolledLine.length > visibleCols
+                ? `${scrolledLine.slice(0, visibleCols - 1)}→`
+                : scrolledLine;
 
             // Skip syntax highlighting for ASCII art lines (box-drawing characters)
             const lineContent = hasBoxDrawing
@@ -314,8 +410,13 @@ export default function CodeViewer() {
 
             return (
               <Box key={displayIdx}>
-                <Text color="gray">{String(lineNum).padStart(lineNumWidth, ' ')} │ </Text>
-                <Text inverse={isHighlighted} color={isHighlighted ? 'yellow' : undefined}>
+                <Text color="gray">
+                  {String(lineNum).padStart(lineNumWidth, " ")} │{" "}
+                </Text>
+                <Text
+                  inverse={isHighlighted}
+                  color={isHighlighted ? "yellow" : undefined}
+                >
                   {lineContent}
                 </Text>
               </Box>
@@ -329,9 +430,13 @@ export default function CodeViewer() {
       </Box>
 
       <Box paddingX={1}>
-        <Text dimColor>↑↓/jk=scroll  ←→/hl=pan  g/G=top/bottom  PgUp/PgDn  Esc=close</Text>
-        {(args?.editor || args?.embeddedEditor) && <Text dimColor>  e=edit</Text>}
-        {showScrollBar && <Text dimColor>  mouse=scroll</Text>}
+        <Text dimColor>
+          ↑↓=scroll ←→/hl=pan g/G=top/bottom PgUp/PgDn Esc=close
+        </Text>
+        {(args?.editor || args?.embeddedEditor) && (
+          <Text dimColor> e=edit</Text>
+        )}
+        {showScrollBar && <Text dimColor> mouse=scroll</Text>}
       </Box>
     </Box>
   );

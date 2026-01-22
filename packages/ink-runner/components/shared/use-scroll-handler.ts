@@ -1,7 +1,7 @@
 /**
  * Unified scroll handler hook that combines:
  * - Scroll state management
- * - Keyboard input handling (↑↓/jk, PgUp/PgDn, g/G)
+ * - Keyboard input handling (↑↓, PgUp/PgDn, g/G)
  * - Mouse scroll support
  *
  * Usage:
@@ -18,9 +18,9 @@
  * ```
  */
 
-import { useState, useCallback } from 'react';
-import type { Key } from 'ink';
-import { useMouseScroll } from './use-mouse-scroll.js';
+import type { Key } from "ink";
+import { useCallback, useState } from "react";
+import { useMouseScroll } from "./use-mouse-scroll.js";
 
 export interface UseScrollHandlerOptions {
   /** Total number of items (e.g., lines.length) */
@@ -65,7 +65,9 @@ export interface UseScrollHandlerResult {
   goToBottom: () => void;
 }
 
-export function useScrollHandler(options: UseScrollHandlerOptions): UseScrollHandlerResult {
+export function useScrollHandler(
+  options: UseScrollHandlerOptions
+): UseScrollHandlerResult {
   const {
     totalItems,
     visibleItems,
@@ -86,19 +88,19 @@ export function useScrollHandler(options: UseScrollHandlerOptions): UseScrollHan
   }
 
   const scrollUp = useCallback(() => {
-    setScroll(s => Math.max(0, s - 1));
+    setScroll((s) => Math.max(0, s - 1));
   }, []);
 
   const scrollDown = useCallback(() => {
-    setScroll(s => Math.min(maxScroll, s + 1));
+    setScroll((s) => Math.min(maxScroll, s + 1));
   }, [maxScroll]);
 
   const pageUp = useCallback(() => {
-    setScroll(s => Math.max(0, s - visibleItems));
+    setScroll((s) => Math.max(0, s - visibleItems));
   }, [visibleItems]);
 
   const pageDown = useCallback(() => {
-    setScroll(s => Math.min(maxScroll, s + visibleItems));
+    setScroll((s) => Math.min(maxScroll, s + visibleItems));
   }, [maxScroll, visibleItems]);
 
   const goToTop = useCallback(() => {
@@ -114,45 +116,56 @@ export function useScrollHandler(options: UseScrollHandlerOptions): UseScrollHan
     useMouseScroll({ scroll, maxScroll, setScroll });
   }
 
-  const handleScrollInput = useCallback((input: string, key: Key): boolean => {
-    // Up arrow or 'k'
-    if (key.upArrow || input === 'k') {
-      scrollUp();
-      return true;
-    }
-
-    // Down arrow or 'j'
-    if (key.downArrow || input === 'j') {
-      scrollDown();
-      return true;
-    }
-
-    // Page up
-    if (key.pageUp) {
-      pageUp();
-      return true;
-    }
-
-    // Page down
-    if (key.pageDown) {
-      pageDown();
-      return true;
-    }
-
-    // g = go to top, G = go to bottom
-    if (enableGotoKeys) {
-      if (input === 'g') {
-        goToTop();
+  const handleScrollInput = useCallback(
+    (input: string, key: Key): boolean => {
+      // Up arrow or 'k'
+      if (key.upArrow) {
+        scrollUp();
         return true;
       }
-      if (input === 'G') {
-        goToBottom();
+
+      // Down arrow or 'j'
+      if (key.downArrow) {
+        scrollDown();
         return true;
       }
-    }
 
-    return false;
-  }, [scrollUp, scrollDown, pageUp, pageDown, goToTop, goToBottom, enableGotoKeys]);
+      // Page up
+      if (key.pageUp) {
+        pageUp();
+        return true;
+      }
+
+      // Page down
+      if (key.pageDown) {
+        pageDown();
+        return true;
+      }
+
+      // g = go to top, G = go to bottom
+      if (enableGotoKeys) {
+        if (input === "g") {
+          goToTop();
+          return true;
+        }
+        if (input === "G") {
+          goToBottom();
+          return true;
+        }
+      }
+
+      return false;
+    },
+    [
+      scrollUp,
+      scrollDown,
+      pageUp,
+      pageDown,
+      goToTop,
+      goToBottom,
+      enableGotoKeys,
+    ]
+  );
 
   return {
     scroll,

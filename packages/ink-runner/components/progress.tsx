@@ -1,40 +1,48 @@
-import { Box, Text, useInput, useApp } from 'ink';
-import { useState, useEffect } from 'react';
-import { readFileSync, existsSync } from 'fs';
-import { useFileWatch } from './shared/index.js';
+import { existsSync, readFileSync } from "node:fs";
+import { Box, Text, useApp, useInput } from "ink";
+import { useEffect, useState } from "react";
+import { useFileWatch } from "./shared/index.js";
 
 declare const onComplete: (result: unknown) => void;
 declare const args: {
   title?: string;
-  steps?: string;      // comma-separated step names
-  tasks?: string;      // alias for steps
-  items?: string;      // alias for steps
-  step?: string;       // current step (1-indexed)
-  status?: string;     // status message
-  stateFile?: string;  // file to watch for state updates
-  'no-header'?: boolean; // Hide header when pane host shows title
+  steps?: string; // comma-separated step names
+  tasks?: string; // alias for steps
+  items?: string; // alias for steps
+  step?: string; // current step (1-indexed)
+  status?: string; // status message
+  stateFile?: string; // file to watch for state updates
+  "no-header"?: boolean; // Hide header when pane host shows title
 };
 
 interface StepState {
   name: string;
-  status: 'pending' | 'running' | 'done' | 'error';
+  status: "pending" | "running" | "done" | "error";
   message?: string;
 }
 
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 export default function Progress() {
   const { exit } = useApp();
 
-  const title = args?.title || 'Progress';
-  const stepNames = (args?.steps || args?.tasks || args?.items)?.split(',').map(s => s.trim()).filter(Boolean) || ['Step 1', 'Step 2', 'Step 3'];
-  const initialStep = args?.step ? parseInt(args.step, 10) : 1;
-  const initialStatus = args?.status || '';
+  const title = args?.title || "Progress";
+  const stepNames = (args?.steps || args?.tasks || args?.items)
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean) || ["Step 1", "Step 2", "Step 3"];
+  const initialStep = args?.step ? Number.parseInt(args.step, 10) : 1;
+  const initialStatus = args?.status || "";
 
   const [steps, setSteps] = useState<StepState[]>(
     stepNames.map((name, i) => ({
       name,
-      status: i < initialStep - 1 ? 'done' : i === initialStep - 1 ? 'running' : 'pending',
+      status:
+        i < initialStep - 1
+          ? "done"
+          : i === initialStep - 1
+            ? "running"
+            : "pending",
     }))
   );
   const [currentMessage, setCurrentMessage] = useState(initialStatus);
@@ -43,57 +51,75 @@ export default function Progress() {
   // Spinner animation
   useEffect(() => {
     const interval = setInterval(() => {
-      setSpinnerFrame(f => (f + 1) % SPINNER_FRAMES.length);
+      setSpinnerFrame((f) => (f + 1) % SPINNER_FRAMES.length);
     }, 80);
     return () => clearInterval(interval);
   }, []);
 
   // Watch state file for updates
-  const stateFile = args?.stateFile && existsSync(args.stateFile) ? args.stateFile : undefined;
-  useFileWatch(stateFile, () => {
-    if (!args?.stateFile) return;
+  const stateFile =
+    args?.stateFile && existsSync(args.stateFile) ? args.stateFile : undefined;
+  useFileWatch(
+    stateFile,
+    () => {
+      if (!args?.stateFile) return;
 
-    try {
-      const content = readFileSync(args.stateFile, 'utf-8');
-      const state = JSON.parse(content);
+      try {
+        const content = readFileSync(args.stateFile, "utf-8");
+        const state = JSON.parse(content);
 
-      if (state.step !== undefined) {
-        setSteps(prev => prev.map((s, i) => ({
-          ...s,
-          status: i < state.step - 1 ? 'done' : i === state.step - 1 ? 'running' : 'pending',
-        })));
+        if (state.step !== undefined) {
+          setSteps((prev) =>
+            prev.map((s, i) => ({
+              ...s,
+              status:
+                i < state.step - 1
+                  ? "done"
+                  : i === state.step - 1
+                    ? "running"
+                    : "pending",
+            }))
+          );
+        }
+        if (state.status) {
+          setCurrentMessage(state.status);
+        }
+        if (state.done) {
+          setSteps((prev) => prev.map((s) => ({ ...s, status: "done" })));
+          onComplete({
+            action: "accept",
+            completed: stepNames,
+            current: null,
+          });
+          exit();
+        }
+        if (state.error) {
+          const errorStep = state.step
+            ? state.step - 1
+            : steps.findIndex((s) => s.status === "running");
+          setSteps((prev) =>
+            prev.map((s, i) => ({
+              ...s,
+              status: i === errorStep ? "error" : s.status,
+            }))
+          );
+          setCurrentMessage(state.error);
+        }
+      } catch {
+        // Ignore parse errors
       }
-      if (state.status) {
-        setCurrentMessage(state.status);
-      }
-      if (state.done) {
-        setSteps(prev => prev.map(s => ({ ...s, status: 'done' })));
-        onComplete({
-          action: 'accept',
-          completed: stepNames,
-          current: null,
-        });
-        exit();
-      }
-      if (state.error) {
-        const errorStep = state.step ? state.step - 1 : steps.findIndex(s => s.status === 'running');
-        setSteps(prev => prev.map((s, i) => ({
-          ...s,
-          status: i === errorStep ? 'error' : s.status,
-        })));
-        setCurrentMessage(state.error);
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }, { interval: 500 });
+    },
+    { interval: 500 }
+  );
 
-  useInput((input, key) => {
+  useInput((_input, key) => {
     if (key.escape) {
-      const completed = steps.filter(s => s.status === 'done').map(s => s.name);
-      const current = steps.find(s => s.status === 'running')?.name || null;
+      const completed = steps
+        .filter((s) => s.status === "done")
+        .map((s) => s.name);
+      const current = steps.find((s) => s.status === "running")?.name || null;
       onComplete({
-        action: 'cancel',
+        action: "cancel",
         completed,
         current,
       });
@@ -102,24 +128,31 @@ export default function Progress() {
     }
   });
 
-  const completedCount = steps.filter(s => s.status === 'done').length;
+  const completedCount = steps.filter((s) => s.status === "done").length;
   const progress = Math.round((completedCount / steps.length) * 100);
   const progressBarWidth = 20;
-  const filledWidth = Math.round((completedCount / steps.length) * progressBarWidth);
+  const filledWidth = Math.round(
+    (completedCount / steps.length) * progressBarWidth
+  );
 
   return (
     <Box flexDirection="column" paddingX={1}>
-      {!args?.['no-header'] && (
+      {!args?.["no-header"] && (
         <Box marginBottom={1}>
-          <Text bold color="cyan">{title}</Text>
-          <Text dimColor> ({completedCount}/{steps.length})</Text>
+          <Text bold color="cyan">
+            {title}
+          </Text>
+          <Text dimColor>
+            {" "}
+            ({completedCount}/{steps.length})
+          </Text>
         </Box>
       )}
 
       {/* Progress bar */}
       <Box marginBottom={1}>
-        <Text color="green">{'█'.repeat(filledWidth)}</Text>
-        <Text dimColor>{'░'.repeat(progressBarWidth - filledWidth)}</Text>
+        <Text color="green">{"█".repeat(filledWidth)}</Text>
+        <Text dimColor>{"░".repeat(progressBarWidth - filledWidth)}</Text>
         <Text> {progress}%</Text>
       </Box>
 
@@ -130,27 +163,27 @@ export default function Progress() {
           let color: string | undefined;
 
           switch (step.status) {
-            case 'done':
-              icon = '✓';
-              color = 'green';
+            case "done":
+              icon = "✓";
+              color = "green";
               break;
-            case 'running':
+            case "running":
               icon = SPINNER_FRAMES[spinnerFrame];
-              color = 'cyan';
+              color = "cyan";
               break;
-            case 'error':
-              icon = '✗';
-              color = 'red';
+            case "error":
+              icon = "✗";
+              color = "red";
               break;
             default:
-              icon = '○';
-              color = 'gray';
+              icon = "○";
+              color = "gray";
           }
 
           return (
             <Box key={idx}>
               <Text color={color}>{icon} </Text>
-              <Text color={step.status === 'pending' ? 'gray' : undefined}>
+              <Text color={step.status === "pending" ? "gray" : undefined}>
                 {step.name}
               </Text>
             </Box>

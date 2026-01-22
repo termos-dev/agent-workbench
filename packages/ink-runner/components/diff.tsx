@@ -1,22 +1,27 @@
-import { Box, Text, useInput, useApp } from 'ink';
-import { useState } from 'react';
-import { execFileSync } from 'child_process';
-import { readFileSync } from 'fs';
-import * as path from 'path';
-import { useTerminalSize, ScrollBar, useMouseScroll, useMultiFileWatch } from './shared/index.js';
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import * as path from "node:path";
+import { Box, Text, useApp, useInput } from "ink";
+import { useState } from "react";
+import {
+  ScrollBar,
+  useMouseScroll,
+  useMultiFileWatch,
+  useTerminalSize,
+} from "./shared/index.js";
 
 declare const onComplete: (result: unknown) => void;
 declare const args: {
-  file?: string;     // single file git diff
-  staged?: string;   // "true" for staged changes
-  before?: string;   // compare two files
+  file?: string; // single file git diff
+  staged?: string; // "true" for staged changes
+  before?: string; // compare two files
   after?: string;
   title?: string;
-  'no-header'?: boolean; // Hide header when pane host shows title
+  "no-header"?: boolean; // Hide header when pane host shows title
 };
 
 interface DiffLine {
-  type: 'header' | 'add' | 'remove' | 'context' | 'info';
+  type: "header" | "add" | "remove" | "context" | "info";
   content: string;
   oldNum?: number;
   newNum?: number;
@@ -27,28 +32,37 @@ function parseDiff(diffText: string): DiffLine[] {
   let oldNum = 0;
   let newNum = 0;
 
-  for (const line of diffText.split('\n')) {
-    if (line.startsWith('diff --git') || line.startsWith('index ') ||
-        line.startsWith('---') || line.startsWith('+++')) {
-      lines.push({ type: 'header', content: line });
-    } else if (line.startsWith('@@')) {
-      lines.push({ type: 'info', content: line });
+  for (const line of diffText.split("\n")) {
+    if (
+      line.startsWith("diff --git") ||
+      line.startsWith("index ") ||
+      line.startsWith("---") ||
+      line.startsWith("+++")
+    ) {
+      lines.push({ type: "header", content: line });
+    } else if (line.startsWith("@@")) {
+      lines.push({ type: "info", content: line });
       // Parse line numbers from @@ -start,count +start,count @@
       const match = line.match(/@@ -(\d+),?\d* \+(\d+),?\d* @@/);
       if (match) {
-        oldNum = parseInt(match[1], 10) - 1;
-        newNum = parseInt(match[2], 10) - 1;
+        oldNum = Number.parseInt(match[1], 10) - 1;
+        newNum = Number.parseInt(match[2], 10) - 1;
       }
-    } else if (line.startsWith('+')) {
+    } else if (line.startsWith("+")) {
       newNum++;
-      lines.push({ type: 'add', content: line.slice(1), newNum });
-    } else if (line.startsWith('-')) {
+      lines.push({ type: "add", content: line.slice(1), newNum });
+    } else if (line.startsWith("-")) {
       oldNum++;
-      lines.push({ type: 'remove', content: line.slice(1), oldNum });
+      lines.push({ type: "remove", content: line.slice(1), oldNum });
     } else {
       oldNum++;
       newNum++;
-      lines.push({ type: 'context', content: line.slice(1) || '', oldNum, newNum });
+      lines.push({
+        type: "context",
+        content: line.slice(1) || "",
+        oldNum,
+        newNum,
+      });
     }
   }
 
@@ -56,10 +70,10 @@ function parseDiff(diffText: string): DiffLine[] {
 }
 
 function computeSimpleDiff(before: string, after: string): string {
-  const beforeLines = before.split('\n');
-  const afterLines = after.split('\n');
+  const beforeLines = before.split("\n");
+  const afterLines = after.split("\n");
 
-  const result: string[] = ['--- a/file', '+++ b/file', '@@ -1 +1 @@'];
+  const result: string[] = ["--- a/file", "+++ b/file", "@@ -1 +1 @@"];
 
   // Simple line-by-line diff (not optimal but works for display)
   const maxLen = Math.max(beforeLines.length, afterLines.length);
@@ -80,31 +94,31 @@ function computeSimpleDiff(before: string, after: string): string {
     }
   }
 
-  return result.join('\n');
+  return result.join("\n");
 }
 
 function runGitDiff(file: string, staged: boolean): string {
   // Use execFileSync with array args to prevent injection
-  const gitArgs = ['diff'];
+  const gitArgs = ["diff"];
   if (staged) {
-    gitArgs.push('--staged');
+    gitArgs.push("--staged");
   }
-  gitArgs.push('--', file);
+  gitArgs.push("--", file);
 
   try {
-    return execFileSync('git', gitArgs, {
-      encoding: 'utf-8',
+    return execFileSync("git", gitArgs, {
+      encoding: "utf-8",
       maxBuffer: 10 * 1024 * 1024,
     });
   } catch {
     // Try with HEAD if simple diff fails
-    const headArgs = ['diff'];
+    const headArgs = ["diff"];
     if (staged) {
-      headArgs.push('--staged');
+      headArgs.push("--staged");
     }
-    headArgs.push('HEAD', '--', file);
-    return execFileSync('git', headArgs, {
-      encoding: 'utf-8',
+    headArgs.push("HEAD", "--", file);
+    return execFileSync("git", headArgs, {
+      encoding: "utf-8",
       maxBuffer: 10 * 1024 * 1024,
     });
   }
@@ -119,30 +133,30 @@ export default function DiffViewer() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ additions: 0, deletions: 0 });
 
-  const title = args?.title || (args?.file ? path.basename(args.file) : 'Diff');
+  const title = args?.title || (args?.file ? path.basename(args.file) : "Diff");
   const visibleLines = Math.max(5, rows - 6);
 
   // Watch files for changes (only for file comparison mode)
   useMultiFileWatch([args?.before, args?.after], () => {
     try {
-      let diffText = '';
+      let diffText = "";
 
       if (args?.before && args?.after) {
         // Compare two files
-        const beforeContent = readFileSync(args.before, 'utf-8');
-        const afterContent = readFileSync(args.after, 'utf-8');
+        const beforeContent = readFileSync(args.before, "utf-8");
+        const afterContent = readFileSync(args.after, "utf-8");
         diffText = computeSimpleDiff(beforeContent, afterContent);
       } else if (args?.file) {
         // Git diff for single file
-        const staged = args?.staged === 'true';
+        const staged = args?.staged === "true";
         diffText = runGitDiff(args.file, staged);
       } else {
-        setError('No file specified. Use --file <path> or --before/--after');
+        setError("No file specified. Use --file <path> or --before/--after");
         return;
       }
 
       if (!diffText.trim()) {
-        setError('No changes detected');
+        setError("No changes detected");
         return;
       }
 
@@ -151,11 +165,13 @@ export default function DiffViewer() {
       setError(null);
 
       // Calculate stats
-      const additions = parsed.filter(l => l.type === 'add').length;
-      const deletions = parsed.filter(l => l.type === 'remove').length;
+      const additions = parsed.filter((l) => l.type === "add").length;
+      const deletions = parsed.filter((l) => l.type === "remove").length;
       setStats({ additions, deletions });
     } catch (e) {
-      setError(`Error getting diff: ${e instanceof Error ? e.message : String(e)}`);
+      setError(
+        `Error getting diff: ${e instanceof Error ? e.message : String(e)}`
+      );
     }
   });
 
@@ -168,7 +184,7 @@ export default function DiffViewer() {
   useInput((input, key) => {
     if (key.escape) {
       onComplete({
-        action: 'accept',
+        action: "accept",
         file: args?.file,
         additions: stats.additions,
         deletions: stats.deletions,
@@ -177,22 +193,22 @@ export default function DiffViewer() {
       return;
     }
 
-    if (key.upArrow || input === 'k') {
-      setScroll(s => Math.max(0, s - 1));
+    if (key.upArrow) {
+      setScroll((s) => Math.max(0, s - 1));
     }
-    if (key.downArrow || input === 'j') {
-      setScroll(s => Math.min(maxScroll, s + 1));
+    if (key.downArrow) {
+      setScroll((s) => Math.min(maxScroll, s + 1));
     }
     if (key.pageUp) {
-      setScroll(s => Math.max(0, s - visibleLines));
+      setScroll((s) => Math.max(0, s - visibleLines));
     }
     if (key.pageDown) {
-      setScroll(s => Math.min(maxScroll, s + visibleLines));
+      setScroll((s) => Math.min(maxScroll, s + visibleLines));
     }
-    if (input === 'g') {
+    if (input === "g") {
       setScroll(0);
     }
-    if (input === 'G') {
+    if (input === "G") {
       setScroll(maxScroll);
     }
   });
@@ -211,13 +227,19 @@ export default function DiffViewer() {
 
   return (
     <Box flexDirection="column">
-      {!args?.['no-header'] && (
+      {!args?.["no-header"] && (
         <Box paddingX={1}>
-          <Text bold color="cyan">{title}</Text>
+          <Text bold color="cyan">
+            {title}
+          </Text>
           <Text color="green"> +{stats.additions}</Text>
           <Text color="red"> -{stats.deletions}</Text>
           {showScrollBar && (
-            <Text dimColor> ({scroll + 1}-{Math.min(scroll + visibleLines, lines.length)}/{lines.length})</Text>
+            <Text dimColor>
+              {" "}
+              ({scroll + 1}-{Math.min(scroll + visibleLines, lines.length)}/
+              {lines.length})
+            </Text>
           )}
         </Box>
       )}
@@ -226,32 +248,33 @@ export default function DiffViewer() {
         <Box flexDirection="column" paddingX={1} flexGrow={1}>
           {displayLines.map((line, idx) => {
             let color: string | undefined;
-            let prefix = ' ';
+            let prefix = " ";
 
             switch (line.type) {
-              case 'add':
-                color = 'green';
-                prefix = '+';
+              case "add":
+                color = "green";
+                prefix = "+";
                 break;
-              case 'remove':
-                color = 'red';
-                prefix = '-';
+              case "remove":
+                color = "red";
+                prefix = "-";
                 break;
-              case 'header':
-                color = 'yellow';
+              case "header":
+                color = "yellow";
                 break;
-              case 'info':
-                color = 'cyan';
+              case "info":
+                color = "cyan";
                 break;
             }
 
             return (
               <Box key={idx}>
                 <Text color={color}>
-                  {line.type === 'context' || line.type === 'add' || line.type === 'remove'
+                  {line.type === "context" ||
+                  line.type === "add" ||
+                  line.type === "remove"
                     ? `${prefix} ${line.content}`
-                    : line.content
-                  }
+                    : line.content}
                 </Text>
               </Box>
             );
@@ -264,8 +287,8 @@ export default function DiffViewer() {
       </Box>
 
       <Box paddingX={1}>
-        <Text dimColor>↑↓/jk=scroll  g/G=top/bottom  PgUp/PgDn  q=close</Text>
-        {showScrollBar && <Text dimColor>  mouse=scroll</Text>}
+        <Text dimColor>↑↓=scroll g/G=top/bottom PgUp/PgDn q=close</Text>
+        {showScrollBar && <Text dimColor> mouse=scroll</Text>}
       </Box>
     </Box>
   );

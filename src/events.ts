@@ -1,21 +1,39 @@
-import * as fs from "fs";
-import { getEventsFilePath } from "./runtime.js";
+import * as fs from "node:fs";
 import { THINKING_GRACE_PERIOD_MS } from "./constants.js";
+import { getEventsFilePath } from "./runtime.js";
 
 /**
  * Component types supported by termos
  */
 export type ComponentType =
-  | "confirm" | "select" | "checklist" | "ask" | "card"  // Interactive
-  | "code" | "diff" | "markdown" | "mermaid"    // Display
-  | "table" | "tree" | "json" | "chart" | "gauge" | "progress"  // Data display
-  | "output" | "editor"  // Command output and file editor
-  | "message";  // User message to agent
+  | "confirm"
+  | "select"
+  | "checklist"
+  | "ask"
+  | "card" // Interactive
+  | "code"
+  | "diff"
+  | "markdown"
+  | "mermaid" // Display
+  | "table"
+  | "tree"
+  | "json"
+  | "chart"
+  | "gauge"
+  | "progress" // Data display
+  | "output"
+  | "editor" // Command output and file editor
+  | "message"; // User message to agent
 
 /**
  * Event types for the termos events file
  */
-type TermosEventType = "created" | "result" | "tool_start" | "tool_end" | "stop";
+type TermosEventType =
+  | "created"
+  | "result"
+  | "tool_start"
+  | "tool_end"
+  | "stop";
 
 export interface TermosEventBase {
   ts: number;
@@ -47,7 +65,7 @@ export interface ResultEvent extends TermosEventBase {
   action: "accept" | "decline" | "cancel" | "timeout";
   answers?: Record<string, string | string[]>;
   result?: unknown;
-  feedback?: string;  // User feedback text for display components
+  feedback?: string; // User feedback text for display components
 }
 
 /**
@@ -76,12 +94,17 @@ export interface StopEvent extends TermosEventBase {
   sessionId: string;
 }
 
-export type TermosEvent = CreatedEvent | ResultEvent | ToolStartEvent | ToolEndEvent | StopEvent;
+export type TermosEvent =
+  | CreatedEvent
+  | ResultEvent
+  | ToolStartEvent
+  | ToolEndEvent
+  | StopEvent;
 
 /**
  * Agent state based on event stream analysis
  */
-export type AgentState = 'working' | 'thinking' | 'idle';
+export type AgentState = "working" | "thinking" | "idle";
 
 /**
  * Get the current state of an agent based on event stream analysis.
@@ -91,7 +114,10 @@ export type AgentState = 'working' | 'thinking' | 'idle';
  * - thinking: Tool just finished, waiting to see if more tools follow (grace period)
  * - idle: Agent has stopped and grace period has passed
  */
-export function getAgentState(sessionName: string): { state: AgentState; lastActivity: number } {
+export function getAgentState(sessionName: string): {
+  state: AgentState;
+  lastActivity: number;
+} {
   const events = readEvents(sessionName);
 
   let lastToolStart: number | null = null;
@@ -99,7 +125,7 @@ export function getAgentState(sessionName: string): { state: AgentState; lastAct
   let lastStop: number | null = null;
 
   // Track tool execution state per session
-  const toolStack: number[] = [];  // Timestamps of unfinished tool_start events
+  const toolStack: number[] = []; // Timestamps of unfinished tool_start events
 
   // Scan events to build state
   for (const event of events) {
@@ -115,18 +141,22 @@ export function getAgentState(sessionName: string): { state: AgentState; lastAct
   }
 
   const now = Date.now();
-  const lastActivity = Math.max(lastToolStart || 0, lastToolEnd || 0, lastStop || 0);
+  const lastActivity = Math.max(
+    lastToolStart || 0,
+    lastToolEnd || 0,
+    lastStop || 0
+  );
 
   // If tools are still running, we're working
   if (toolStack.length > 0) {
-    return { state: 'working', lastActivity };
+    return { state: "working", lastActivity };
   }
 
   // If we have a tool_end but no stop (or stop is older), we're potentially thinking
   if (lastToolEnd && (!lastStop || lastToolEnd > lastStop)) {
     const timeSinceToolEnd = now - lastToolEnd;
     if (timeSinceToolEnd < THINKING_GRACE_PERIOD_MS) {
-      return { state: 'thinking', lastActivity };
+      return { state: "thinking", lastActivity };
     }
   }
 
@@ -134,14 +164,18 @@ export function getAgentState(sessionName: string): { state: AgentState; lastAct
   if (lastStop) {
     const timeSinceStop = now - lastStop;
     // If stop happened recently after tool activity, might be thinking
-    if (lastToolEnd && lastStop >= lastToolEnd && timeSinceStop < THINKING_GRACE_PERIOD_MS) {
-      return { state: 'thinking', lastActivity };
+    if (
+      lastToolEnd &&
+      lastStop >= lastToolEnd &&
+      timeSinceStop < THINKING_GRACE_PERIOD_MS
+    ) {
+      return { state: "thinking", lastActivity };
     }
-    return { state: 'idle', lastActivity };
+    return { state: "idle", lastActivity };
   }
 
   // No events = idle
-  return { state: 'idle', lastActivity: 0 };
+  return { state: "idle", lastActivity: 0 };
 }
 /** Read all events from the events file */
 export function readEvents(sessionName: string): TermosEvent[] {
@@ -149,17 +183,28 @@ export function readEvents(sessionName: string): TermosEvent[] {
   try {
     if (!fs.existsSync(filePath)) return [];
     const content = fs.readFileSync(filePath, "utf-8");
-    return content.trim().split("\n").filter(Boolean).map(line => {
-      try { return JSON.parse(line) as TermosEvent; }
-      catch { return null; }
-    }).filter((e): e is TermosEvent => e !== null);
+    return content
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        try {
+          return JSON.parse(line) as TermosEvent;
+        } catch {
+          return null;
+        }
+      })
+      .filter((e): e is TermosEvent => e !== null);
   } catch {
     return [];
   }
 }
 
 /** Find the most recent result event for an interaction ID */
-export function findResultEvent(sessionName: string, interactionId: string): ResultEvent | null {
+export function findResultEvent(
+  sessionName: string,
+  interactionId: string
+): ResultEvent | null {
   const events = readEvents(sessionName);
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i];
@@ -180,12 +225,17 @@ export function clearEvents(sessionName: string): void {
 /** Write an event to the events file */
 export function writeEvent(
   sessionName: string,
-  event: Omit<CreatedEvent, "ts"> | Omit<ResultEvent, "ts"> | Omit<ToolStartEvent, "ts"> | Omit<ToolEndEvent, "ts"> | Omit<StopEvent, "ts">
+  event:
+    | Omit<CreatedEvent, "ts">
+    | Omit<ResultEvent, "ts">
+    | Omit<ToolStartEvent, "ts">
+    | Omit<ToolEndEvent, "ts">
+    | Omit<StopEvent, "ts">
 ): void {
   const filePath = getEventsFilePath(sessionName);
   const eventWithTs = { ...event, ts: Date.now() };
   try {
-    fs.appendFileSync(filePath, JSON.stringify(eventWithTs) + "\n");
+    fs.appendFileSync(filePath, `${JSON.stringify(eventWithTs)}\n`);
   } catch {
     // Ignore
   }
@@ -249,17 +299,20 @@ export function countPendingMessages(sessionName: string): number {
 }
 
 /** Mark messages as read by writing result events */
-export function markMessagesAsRead(sessionName: string, messages: CreatedEvent[]): void {
+export function markMessagesAsRead(
+  sessionName: string,
+  messages: CreatedEvent[]
+): void {
   const eventsFile = getEventsFilePath(sessionName);
   for (const msg of messages) {
     fs.appendFileSync(
       eventsFile,
-      JSON.stringify({
+      `${JSON.stringify({
         type: "result",
         id: msg.id,
         action: "accept",
         ts: Date.now(),
-      }) + "\n"
+      })}\n`
     );
   }
 }

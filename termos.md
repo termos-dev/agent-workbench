@@ -75,10 +75,18 @@ termos run --title "Git Status" --cmd "git status"
 | Component | Use Case |
 |-----------|----------|
 | confirm | Before destructive actions |
+| ask | Quick questions/check-ins (1-4) |
+| checklist | Interactive task lists |
+| select | Single-item picker |
 | progress | Multi-step operations |
 | diff | Code review before commits |
+| code | Display file contents (press 'e' to edit) |
 | table | Structured data display |
-| ask | Quick questions/check-ins |
-| plan-viewer | Plan mode display |
-| code | Display file contents |
 | json | API responses, configs |
+| markdown | Render markdown content |
+| chart | Terminal charts (bar, sparkline, line) |
+| gauge | Visual meter/progress |
+| tree | Directory tree viewer |
+| mermaid | ASCII diagrams |
+| card | Markdown with action buttons |
+| plan-viewer | Plan mode display |

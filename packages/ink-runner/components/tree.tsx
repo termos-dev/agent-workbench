@@ -1,24 +1,29 @@
-import { Box, Text, useInput, useApp } from 'ink';
-import { useState, useMemo } from 'react';
-import { readFileSync, readdirSync, statSync } from 'fs';
-import { join, basename } from 'path';
-import { useTerminalSize, ScrollBar, useMouseScroll, useFileWatch } from './shared/index.js';
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { basename, join } from "node:path";
+import { Box, Text, useApp, useInput } from "ink";
+import { useMemo, useState } from "react";
+import {
+  ScrollBar,
+  useFileWatch,
+  useMouseScroll,
+  useTerminalSize,
+} from "./shared/index.js";
 
 declare const onComplete: (result: unknown) => void;
 declare const args: {
-  path?: string;        // Directory path to show
-  dir?: string;         // alias for path
-  file?: string;        // JSON file with tree structure
-  data?: string;        // JSON tree data inline
-  depth?: string;       // Max depth to show
-  showHidden?: string;  // "true" to show hidden files
+  path?: string; // Directory path to show
+  dir?: string; // alias for path
+  file?: string; // JSON file with tree structure
+  data?: string; // JSON tree data inline
+  depth?: string; // Max depth to show
+  showHidden?: string; // "true" to show hidden files
   title?: string;
 };
 
 interface TreeNode {
   name: string;
   path?: string;
-  type: 'file' | 'directory';
+  type: "file" | "directory";
   children?: TreeNode[];
   expanded?: boolean;
 }
@@ -29,12 +34,17 @@ interface FlatNode {
   isLast: boolean[];
 }
 
-function readDirectory(dirPath: string, maxDepth: number, showHidden: boolean, currentDepth = 0): TreeNode {
+function readDirectory(
+  dirPath: string,
+  maxDepth: number,
+  showHidden: boolean,
+  currentDepth = 0
+): TreeNode {
   const name = basename(dirPath) || dirPath;
   const node: TreeNode = {
     name,
     path: dirPath,
-    type: 'directory',
+    type: "directory",
     children: [],
     expanded: currentDepth < 2, // Auto-expand first 2 levels
   };
@@ -45,7 +55,9 @@ function readDirectory(dirPath: string, maxDepth: number, showHidden: boolean, c
 
   try {
     const entries = readdirSync(dirPath);
-    const filtered = showHidden ? entries : entries.filter(e => !e.startsWith('.'));
+    const filtered = showHidden
+      ? entries
+      : entries.filter((e) => !e.startsWith("."));
     const sorted = filtered.sort((a, b) => {
       const aIsDir = statSync(join(dirPath, a)).isDirectory();
       const bIsDir = statSync(join(dirPath, b)).isDirectory();
@@ -59,12 +71,14 @@ function readDirectory(dirPath: string, maxDepth: number, showHidden: boolean, c
       try {
         const stat = statSync(fullPath);
         if (stat.isDirectory()) {
-          node.children!.push(readDirectory(fullPath, maxDepth, showHidden, currentDepth + 1));
+          node.children?.push(
+            readDirectory(fullPath, maxDepth, showHidden, currentDepth + 1)
+          );
         } else {
-          node.children!.push({
+          node.children?.push({
             name: entry,
             path: fullPath,
-            type: 'file',
+            type: "file",
           });
         }
       } catch {
@@ -79,28 +93,34 @@ function readDirectory(dirPath: string, maxDepth: number, showHidden: boolean, c
 }
 
 function parseTreeData(data: unknown): TreeNode {
-  if (typeof data !== 'object' || data === null) {
-    return { name: 'root', type: 'directory', children: [] };
+  if (typeof data !== "object" || data === null) {
+    return { name: "root", type: "directory", children: [] };
   }
 
   const obj = data as Record<string, unknown>;
   return {
-    name: String(obj.name || obj.label || 'root'),
+    name: String(obj.name || obj.label || "root"),
     path: obj.path as string | undefined,
-    type: (obj.type as 'file' | 'directory') || (obj.children ? 'directory' : 'file'),
+    type:
+      (obj.type as "file" | "directory") ||
+      (obj.children ? "directory" : "file"),
     children: Array.isArray(obj.children)
-      ? obj.children.map(c => parseTreeData(c))
+      ? obj.children.map((c) => parseTreeData(c))
       : undefined,
-    expanded: obj.expanded as boolean | undefined ?? true,
+    expanded: (obj.expanded as boolean | undefined) ?? true,
   };
 }
 
-function flattenTree(node: TreeNode, depth: number, isLast: boolean[]): FlatNode[] {
+function flattenTree(
+  node: TreeNode,
+  depth: number,
+  isLast: boolean[]
+): FlatNode[] {
   const result: FlatNode[] = [{ node, depth, isLast: [...isLast] }];
 
   if (node.expanded && node.children) {
     node.children.forEach((child, idx) => {
-      const childIsLast = idx === node.children!.length - 1;
+      const childIsLast = idx === node.children?.length - 1;
       result.push(...flattenTree(child, depth + 1, [...isLast, childIsLast]));
     });
   }
@@ -109,13 +129,13 @@ function flattenTree(node: TreeNode, depth: number, isLast: boolean[]): FlatNode
 }
 
 function getTreePrefix(isLast: boolean[]): string {
-  if (isLast.length === 0) return '';
+  if (isLast.length === 0) return "";
 
-  let prefix = '';
+  let prefix = "";
   for (let i = 0; i < isLast.length - 1; i++) {
-    prefix += isLast[i] ? '    ' : '│   ';
+    prefix += isLast[i] ? "    " : "│   ";
   }
-  prefix += isLast[isLast.length - 1] ? '└── ' : '├── ';
+  prefix += isLast[isLast.length - 1] ? "└── " : "├── ";
   return prefix;
 }
 
@@ -128,9 +148,9 @@ export default function Tree() {
   const [scroll, setScroll] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const title = args?.title || 'Tree';
-  const maxDepth = parseInt(args?.depth || '5', 10);
-  const showHidden = args?.showHidden === 'true';
+  const _title = args?.title || "Tree";
+  const maxDepth = Number.parseInt(args?.depth || "5", 10);
+  const showHidden = args?.showHidden === "true";
   const visibleRows = Math.max(3, rows - 6);
 
   useFileWatch(args?.file, () => {
@@ -141,7 +161,7 @@ export default function Tree() {
       if (dirPath) {
         tree = readDirectory(dirPath, maxDepth, showHidden);
       } else if (args?.file) {
-        const content = readFileSync(args.file, 'utf-8');
+        const content = readFileSync(args.file, "utf-8");
         tree = parseTreeData(JSON.parse(content));
       } else if (args?.data) {
         tree = parseTreeData(JSON.parse(args.data));
@@ -170,10 +190,10 @@ export default function Tree() {
 
   const toggleExpand = (idx: number) => {
     const flatNode = flatNodes[idx];
-    if (flatNode.node.type === 'directory' && flatNode.node.children) {
+    if (flatNode.node.type === "directory" && flatNode.node.children) {
       flatNode.node.expanded = !flatNode.node.expanded;
       // Force re-render
-      setRoot(r => r ? { ...r } : null);
+      setRoot((r) => (r ? { ...r } : null));
     }
   };
 
@@ -181,7 +201,7 @@ export default function Tree() {
     if (key.escape) {
       const selected = flatNodes[selectedIdx]?.node;
       onComplete({
-        action: 'cancel',
+        action: "cancel",
         selected: selected?.path ?? selected?.name ?? null,
       });
       exit();
@@ -190,11 +210,11 @@ export default function Tree() {
 
     if (key.return) {
       const selected = flatNodes[selectedIdx]?.node;
-      if (selected?.type === 'directory') {
+      if (selected?.type === "directory") {
         toggleExpand(selectedIdx);
       } else {
         onComplete({
-          action: 'accept',
+          action: "accept",
           selected: selected?.path ?? selected?.name ?? null,
           type: selected?.type,
         });
@@ -204,38 +224,42 @@ export default function Tree() {
     }
 
     // Space to toggle expand
-    if (input === ' ') {
+    if (input === " ") {
       toggleExpand(selectedIdx);
       return;
     }
 
     // Left arrow to collapse
-    if (key.leftArrow || input === 'h') {
+    if (key.leftArrow || input === "h") {
       const node = flatNodes[selectedIdx]?.node;
-      if (node?.type === 'directory' && node.expanded) {
+      if (node?.type === "directory" && node.expanded) {
         node.expanded = false;
-        setRoot(r => r ? { ...r } : null);
+        setRoot((r) => (r ? { ...r } : null));
       }
       return;
     }
 
     // Right arrow to expand
-    if (key.rightArrow || input === 'l') {
+    if (key.rightArrow || input === "l") {
       const node = flatNodes[selectedIdx]?.node;
-      if (node?.type === 'directory' && !node.expanded && node.children?.length) {
+      if (
+        node?.type === "directory" &&
+        !node.expanded &&
+        node.children?.length
+      ) {
         node.expanded = true;
-        setRoot(r => r ? { ...r } : null);
+        setRoot((r) => (r ? { ...r } : null));
       }
       return;
     }
 
-    if (key.upArrow || input === 'k') {
+    if (key.upArrow) {
       const newIdx = Math.max(0, selectedIdx - 1);
       setSelectedIdx(newIdx);
       if (newIdx < scroll) setScroll(newIdx);
     }
 
-    if (key.downArrow || input === 'j') {
+    if (key.downArrow) {
       const newIdx = Math.min(flatNodes.length - 1, selectedIdx + 1);
       setSelectedIdx(newIdx);
       if (newIdx >= scroll + visibleRows) {
@@ -286,18 +310,25 @@ export default function Tree() {
             const { node, isLast } = flatNode;
             const prefix = getTreePrefix(isLast);
 
-            const icon = node.type === 'directory'
-              ? (node.expanded ? '\uD83D\uDCC2' : '\uD83D\uDCC1')
-              : '\uD83D\uDCC4';
+            const icon =
+              node.type === "directory"
+                ? node.expanded
+                  ? "\uD83D\uDCC2"
+                  : "\uD83D\uDCC1"
+                : "\uD83D\uDCC4";
 
             return (
               <Box key={actualIdx}>
                 <Text dimColor>{prefix}</Text>
                 <Text inverse={isSelected}>
-                  {icon} <Text bold={isSelected} color={node.type === 'directory' ? 'cyan' : undefined}>
+                  {icon}{" "}
+                  <Text
+                    bold={isSelected}
+                    color={node.type === "directory" ? "cyan" : undefined}
+                  >
                     {node.name}
                   </Text>
-                  {node.type === 'directory' && node.children && (
+                  {node.type === "directory" && node.children && (
                     <Text dimColor> ({node.children.length})</Text>
                   )}
                 </Text>
@@ -313,8 +344,8 @@ export default function Tree() {
 
       <Box marginTop={1}>
         <Text dimColor>
-          ↑↓=navigate  ←→/Space=expand/collapse  Enter=select  q=close
-          {showScrollBar ? '  mouse=scroll' : ''}
+          ↑↓=navigate ←→/Space=expand/collapse Enter=select q=close
+          {showScrollBar ? "  mouse=scroll" : ""}
         </Text>
       </Box>
     </Box>

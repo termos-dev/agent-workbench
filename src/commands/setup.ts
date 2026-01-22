@@ -2,9 +2,9 @@
  * Setup command handler - installs the termos plugin for Claude Code.
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import { fileURLToPath } from "url";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * Recursively copy directory.
@@ -29,7 +29,7 @@ function copyDirSync(src: string, dest: string): void {
  * Install/setup termos plugin for Claude Code.
  */
 export async function handleSetup(): Promise<void> {
-  const os = await import("os");
+  const os = await import("node:os");
   const homedir = os.default.homedir();
   const pluginDir = path.join(homedir, ".claude", "plugins", "termos");
 

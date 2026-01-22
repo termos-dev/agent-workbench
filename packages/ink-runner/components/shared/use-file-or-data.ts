@@ -19,9 +19,9 @@
  * ```
  */
 
-import { useState, useEffect } from 'react';
-import { readFileSync } from 'fs';
-import { useFileWatch } from './use-file-watch.js';
+import { readFileSync } from "node:fs";
+import { useEffect, useState } from "react";
+import { useFileWatch } from "./use-file-watch.js";
 
 export interface UseFileOrDataOptions<T = string> {
   /** File path to read from */
@@ -54,10 +54,10 @@ export function useFileOrData<T = string>(
     file,
     data,
     parseJson = false,
-    noDataError = 'No data specified. Use --file <path> or --data <content>',
+    noDataError = "No data specified. Use --file <path> or --data <content>",
   } = options;
 
-  const [content, setContent] = useState<string>('');
+  const [content, setContent] = useState<string>("");
   const [lines, setLines] = useState<string[]>([]);
   const [parsedData, setParsedData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,20 +69,24 @@ export function useFileOrData<T = string>(
       try {
         if (parseJson) {
           // Data might already be parsed or be a string
-          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+          const parsed = typeof data === "string" ? JSON.parse(data) : data;
           setParsedData(parsed as T);
-          const jsonStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+          const jsonStr =
+            typeof data === "string" ? data : JSON.stringify(data, null, 2);
           setContent(jsonStr);
-          setLines(jsonStr.split('\n'));
+          setLines(jsonStr.split("\n"));
         } else {
-          const strData = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+          const strData =
+            typeof data === "string" ? data : JSON.stringify(data, null, 2);
           setContent(strData);
-          setLines(strData.split('\n'));
+          setLines(strData.split("\n"));
         }
         setError(null);
         setLoading(false);
       } catch (e) {
-        setError(`Failed to parse data: ${e instanceof Error ? e.message : String(e)}`);
+        setError(
+          `Failed to parse data: ${e instanceof Error ? e.message : String(e)}`
+        );
         setLoading(false);
       }
     }
@@ -99,7 +103,7 @@ export function useFileOrData<T = string>(
     }
 
     try {
-      const text = readFileSync(file, 'utf-8');
+      const text = readFileSync(file, "utf-8");
 
       if (parseJson) {
         const parsed = JSON.parse(text);
@@ -107,7 +111,7 @@ export function useFileOrData<T = string>(
       }
 
       setContent(text);
-      setLines(text.split('\n'));
+      setLines(text.split("\n"));
       setError(null);
       setLoading(false);
     } catch (e) {

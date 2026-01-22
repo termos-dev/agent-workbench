@@ -1,6 +1,6 @@
-import * as fs from "fs";
+import * as fsp from "node:fs/promises";
+import { type CreatedEvent, getPendingInteractions } from "./events.js";
 import { getRuntimeRoot, sessionNameToProject } from "./runtime.js";
-import { getPendingInteractions, type CreatedEvent } from "./events.js";
 
 /**
  * Interaction with project info for dashboard display
@@ -23,20 +23,17 @@ export interface ProjectInteractions {
 /**
  * Discover all session directories
  */
-export function discoverSessionDirs(): string[] {
+export async function discoverSessionDirs(): Promise<string[]> {
   const sessionsRoot = getRuntimeRoot();
 
-  if (!fs.existsSync(sessionsRoot)) {
-    return [];
-  }
-
   try {
-    const entries = fs.readdirSync(sessionsRoot, { withFileTypes: true });
+    const entries = await fsp.readdir(sessionsRoot, { withFileTypes: true });
     return entries
       .filter((entry) => entry.isDirectory())
       .filter((entry) => !entry.name.startsWith(".")) // Skip hidden dirs like .dashboard
       .map((entry) => entry.name);
   } catch {
+    // Directory doesn't exist or read failed
     return [];
   }
 }
@@ -45,7 +42,7 @@ export function discoverSessionDirs(): string[] {
  * Scan all sessions and return pending interactions grouped by project
  */
 export async function scanAllSessions(): Promise<ProjectInteractions[]> {
-  const sessionNames = discoverSessionDirs();
+  const sessionNames = await discoverSessionDirs();
   const projectsMap = new Map<string, ProjectInteractions>();
 
   for (const sessionName of sessionNames) {

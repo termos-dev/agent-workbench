@@ -1,4 +1,4 @@
-declare module 'node-notifier' {
+declare module "node-notifier" {
   interface Notification {
     title?: string;
     message?: string;

@@ -1,14 +1,12 @@
 #!/usr/bin/env node
-
-import React from "react";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { render } from "ink";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import notifier from "node-notifier";
 import { SchemaForm } from "./components/SchemaForm.js";
-import { emitResult, parseFormSchema, getSchemaHelp } from "./types.js";
 import { runFromFile } from "./file-runner.js";
+import { emitResult, getSchemaHelp, parseFormSchema } from "./types.js";
 import type { FormSchema } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -19,8 +17,8 @@ interface CliArgs {
   title?: string;
   help?: boolean;
   noSandbox?: boolean;
-  noHeader?: boolean;  // Hide component header (when pane host shows title)
-  args?: string;  // JSON string of args to pass to component
+  noHeader?: boolean; // Hide component header (when pane host shows title)
+  args?: string; // JSON string of args to pass to component
 }
 
 function parseArgs(): CliArgs {
@@ -117,18 +115,18 @@ function registerCancelHandlers(): void {
 
 function notifyUser(title?: string): void {
   // Ring terminal bell - cross-platform
-  process.stdout.write('\x07');
+  process.stdout.write("\x07");
 
   // Find icon relative to this file (works in dev and dist)
-  const iconPath = path.resolve(__dirname, 'assets', 'icon.png');
+  const iconPath = path.resolve(__dirname, "assets", "icon.png");
   const hasIcon = fs.existsSync(iconPath);
 
   // Send native notification (cross-platform via node-notifier)
   // Wrapped in try-catch for headless systems or missing notification support
   try {
     notifier.notify({
-      title: 'Termos',
-      message: title || 'Interaction waiting',
+      title: "Termos",
+      message: title || "Interaction waiting",
       icon: hasIcon ? iconPath : undefined,
       sound: true,
       wait: false,
@@ -168,9 +166,10 @@ async function main(): Promise<void> {
     const fileName = args.file.split("/").pop();
     if (fileName === "ask-user-question.tsx" && componentArgs.schema) {
       try {
-        const rawSchema = typeof componentArgs.schema === "string"
-          ? JSON.parse(componentArgs.schema)
-          : componentArgs.schema;
+        const rawSchema =
+          typeof componentArgs.schema === "string"
+            ? JSON.parse(componentArgs.schema)
+            : componentArgs.schema;
         const schema = parseFormSchema(rawSchema);
         const { waitUntilExit } = render(
           <SchemaForm schema={schema} title={args.title} />
@@ -186,10 +185,11 @@ async function main(): Promise<void> {
     }
 
     // Sandbox disabled by default on Linux due to Node.js permission assertion bug
-    const defaultSandboxEnabled = process.platform !== "linux" && !args.noSandbox;
+    const defaultSandboxEnabled =
+      process.platform !== "linux" && !args.noSandbox;
     // Add noHeader to componentArgs if set
     if (args.noHeader) {
-      componentArgs['no-header'] = true;
+      componentArgs["no-header"] = true;
     }
     await runFromFile({
       filePath: args.file,

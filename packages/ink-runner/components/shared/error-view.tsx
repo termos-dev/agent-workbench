@@ -14,8 +14,8 @@
  * ```
  */
 
-import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text } from "ink";
+import type React from "react";
 
 export interface ErrorViewProps {
   /** The error message to display */
@@ -26,7 +26,11 @@ export interface ErrorViewProps {
   children?: React.ReactNode;
 }
 
-export function ErrorView({ error, hint = 'Press Esc to close', children }: ErrorViewProps) {
+export function ErrorView({
+  error,
+  hint = "Press Esc to close",
+  children,
+}: ErrorViewProps) {
   return (
     <Box flexDirection="column" paddingX={1}>
       <Text color="red">{error}</Text>

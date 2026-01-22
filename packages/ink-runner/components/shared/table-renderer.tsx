@@ -1,5 +1,4 @@
-import { Box, Text } from 'ink';
-import React from 'react';
+import { Box, Text } from "ink";
 
 export type TableRow = Record<string, unknown>;
 
@@ -23,60 +22,65 @@ export function parseTableData(
   try {
     let rows: TableRow[];
 
-    if (typeof input === 'string') {
+    if (typeof input === "string") {
       const parsed = JSON.parse(input);
       rows = normalizeToRows(parsed);
     } else if (Array.isArray(input)) {
       rows = normalizeToRows(input);
-    } else if (typeof input === 'object' && input !== null) {
+    } else if (typeof input === "object" && input !== null) {
       rows = normalizeToRows(input);
     } else {
-      return { error: { message: 'Invalid input: expected JSON string, array, or object' } };
+      return {
+        error: {
+          message: "Invalid input: expected JSON string, array, or object",
+        },
+      };
     }
 
     if (rows.length === 0) {
-      return { error: { message: 'No data to display' } };
+      return { error: { message: "No data to display" } };
     }
 
     // Determine columns
     let columns: string[];
     if (columnOverride) {
-      columns = columnOverride.split(',').map(c => c.trim());
+      columns = columnOverride.split(",").map((c) => c.trim());
     } else {
       columns = Object.keys(rows[0]);
     }
 
     if (columns.length === 0) {
-      return { error: { message: 'No columns found in data' } };
+      return { error: { message: "No columns found in data" } };
     }
 
     return { data: { rows, columns } };
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
-    const context = typeof input === 'string' ? getJsonErrorContext(input, err) : undefined;
+    const context =
+      typeof input === "string" ? getJsonErrorContext(input, err) : undefined;
     return { error: { message: err.message, context } };
   }
 }
 
 function normalizeToRows(data: unknown): TableRow[] {
   if (Array.isArray(data)) {
-    return data.map(item => {
-      if (typeof item === 'object' && item !== null) {
+    return data.map((item) => {
+      if (typeof item === "object" && item !== null) {
         return item as TableRow;
       }
       return { value: item };
     });
   }
 
-  if (typeof data === 'object' && data !== null) {
+  if (typeof data === "object" && data !== null) {
     const obj = data as Record<string, unknown>;
     // Support {headers, rows} format
     if (Array.isArray(obj.headers) && Array.isArray(obj.rows)) {
       const headers = obj.headers as string[];
-      return (obj.rows as unknown[][]).map(row => {
+      return (obj.rows as unknown[][]).map((row) => {
         const result: TableRow = {};
         headers.forEach((h, i) => {
-          result[h] = row[i] ?? '';
+          result[h] = row[i] ?? "";
         });
         return result;
       });
@@ -92,23 +96,23 @@ function getJsonErrorContext(content: string, error: Error): string {
   const msg = error.message;
   const posMatch = msg.match(/position\s+(\d+)/i);
   if (posMatch) {
-    const pos = parseInt(posMatch[1], 10);
+    const pos = Number.parseInt(posMatch[1], 10);
     const start = Math.max(0, pos - 20);
     const end = Math.min(content.length, pos + 20);
     const snippet = content.slice(start, end);
-    const pointer = ' '.repeat(Math.min(20, pos - start)) + '^';
+    const pointer = `${" ".repeat(Math.min(20, pos - start))}^`;
     return `...${snippet}...\n${pointer}`;
   }
   const lineMatch = msg.match(/line\s+(\d+)/i);
   if (lineMatch) {
-    const lineNum = parseInt(lineMatch[1], 10);
-    const lines = content.split('\n');
+    const lineNum = Number.parseInt(lineMatch[1], 10);
+    const lines = content.split("\n");
     if (lineNum > 0 && lineNum <= lines.length) {
       const line = lines[lineNum - 1];
-      return `Line ${lineNum}: ${line.length > 60 ? line.slice(0, 60) + '...' : line}`;
+      return `Line ${lineNum}: ${line.length > 60 ? `${line.slice(0, 60)}...` : line}`;
     }
   }
-  return content.length > 80 ? content.slice(0, 80) + '...' : content;
+  return content.length > 80 ? `${content.slice(0, 80)}...` : content;
 }
 
 /**
@@ -119,10 +123,10 @@ export function getColumnWidths(
   columns: string[],
   maxWidth: number
 ): number[] {
-  return columns.map(col => {
+  return columns.map((col) => {
     const headerLen = col.length;
     const maxDataLen = rows.reduce((max, row) => {
-      const val = String(row[col] ?? '');
+      const val = String(row[col] ?? "");
       return Math.max(max, val.length);
     }, 0);
     return Math.min(Math.max(headerLen, maxDataLen, 3), maxWidth);
@@ -134,22 +138,22 @@ export function getColumnWidths(
  */
 export function truncateCell(str: string, len: number): string {
   if (str.length <= len) return str.padEnd(len);
-  return str.slice(0, len - 1) + '…';
+  return `${str.slice(0, len - 1)}…`;
 }
 
 // Box drawing characters
 const BOX = {
-  topLeft: '┌',
-  topRight: '┐',
-  bottomLeft: '└',
-  bottomRight: '┘',
-  horizontal: '─',
-  vertical: '│',
-  teeDown: '┬',
-  teeUp: '┴',
-  teeRight: '├',
-  teeLeft: '┤',
-  cross: '┼',
+  topLeft: "┌",
+  topRight: "┐",
+  bottomLeft: "└",
+  bottomRight: "┘",
+  horizontal: "─",
+  vertical: "│",
+  teeDown: "┬",
+  teeUp: "┴",
+  teeRight: "├",
+  teeLeft: "┤",
+  cross: "┼",
 };
 
 export interface TableRendererProps {
@@ -176,16 +180,28 @@ export function TableRenderer({
 
   // Calculate column widths
   const padding = columns.length * 3 + 4; // borders + spacing
-  const maxColWidth = Math.max(8, Math.floor((width - padding) / columns.length));
+  const maxColWidth = Math.max(
+    8,
+    Math.floor((width - padding) / columns.length)
+  );
   const colWidths = getColumnWidths(rows, columns, maxColWidth);
 
   // Slice rows for display
   const displayRows = maxRows ? rows.slice(scroll, scroll + maxRows) : rows;
 
   // Build borders
-  const topBorder = BOX.topLeft + colWidths.map(w => BOX.horizontal.repeat(w + 2)).join(BOX.teeDown) + BOX.topRight;
-  const headerSep = BOX.teeRight + colWidths.map(w => BOX.horizontal.repeat(w + 2)).join(BOX.cross) + BOX.teeLeft;
-  const bottomBorder = BOX.bottomLeft + colWidths.map(w => BOX.horizontal.repeat(w + 2)).join(BOX.teeUp) + BOX.bottomRight;
+  const topBorder =
+    BOX.topLeft +
+    colWidths.map((w) => BOX.horizontal.repeat(w + 2)).join(BOX.teeDown) +
+    BOX.topRight;
+  const headerSep =
+    BOX.teeRight +
+    colWidths.map((w) => BOX.horizontal.repeat(w + 2)).join(BOX.cross) +
+    BOX.teeLeft;
+  const bottomBorder =
+    BOX.bottomLeft +
+    colWidths.map((w) => BOX.horizontal.repeat(w + 2)).join(BOX.teeUp) +
+    BOX.bottomRight;
 
   if (compact) {
     // Compact mode: no borders, just aligned columns
@@ -195,7 +211,8 @@ export function TableRenderer({
         <Text>
           {columns.map((col, i) => (
             <Text key={col} bold color="cyan">
-              {truncateCell(col, colWidths[i])}{i < columns.length - 1 ? '  ' : ''}
+              {truncateCell(col, colWidths[i])}
+              {i < columns.length - 1 ? "  " : ""}
             </Text>
           ))}
         </Text>
@@ -207,7 +224,8 @@ export function TableRenderer({
             <Text key={actualIdx} inverse={isSelected}>
               {columns.map((col, i) => (
                 <Text key={col}>
-                  {truncateCell(String(row[col] ?? ''), colWidths[i])}{i < columns.length - 1 ? '  ' : ''}
+                  {truncateCell(String(row[col] ?? ""), colWidths[i])}
+                  {i < columns.length - 1 ? "  " : ""}
                 </Text>
               ))}
             </Text>
@@ -227,7 +245,10 @@ export function TableRenderer({
         <Text dimColor>{BOX.vertical}</Text>
         {columns.map((col, i) => (
           <Text key={col}>
-            <Text bold color="cyan"> {truncateCell(col, colWidths[i])} </Text>
+            <Text bold color="cyan">
+              {" "}
+              {truncateCell(col, colWidths[i])}{" "}
+            </Text>
             <Text dimColor>{BOX.vertical}</Text>
           </Text>
         ))}
@@ -246,7 +267,10 @@ export function TableRenderer({
             <Text dimColor>{BOX.vertical}</Text>
             {columns.map((col, i) => (
               <Text key={col}>
-                <Text> {truncateCell(String(row[col] ?? ''), colWidths[i])} </Text>
+                <Text>
+                  {" "}
+                  {truncateCell(String(row[col] ?? ""), colWidths[i])}{" "}
+                </Text>
                 <Text dimColor>{BOX.vertical}</Text>
               </Text>
             ))}

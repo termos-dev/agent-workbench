@@ -1,6 +1,5 @@
-import React from 'react';
-import { Box, Text } from 'ink';
-import type { AgentDisplayStatus } from './use-agents.js';
+import { Box, Text } from "ink";
+import type { AgentDisplayStatus } from "./use-agents.js";
 
 interface AgentCardProps {
   agent: AgentDisplayStatus;
@@ -9,17 +8,16 @@ interface AgentCardProps {
 /**
  * Get border color based on agent status
  */
-function getStatusColor(status: AgentDisplayStatus['displayStatus']): string {
+function getStatusColor(status: AgentDisplayStatus["displayStatus"]): string {
   switch (status) {
-    case 'running':
-      return 'cyan';
-    case 'thinking':
-      return 'magenta';
-    case 'waiting':
-      return 'yellow';
-    case 'idle':
+    case "running":
+      return "cyan";
+    case "thinking":
+      return "magenta";
+    case "waiting":
+      return "yellow";
     default:
-      return 'gray';
+      return "gray";
   }
 }
 
@@ -28,15 +26,14 @@ function getStatusColor(status: AgentDisplayStatus['displayStatus']): string {
  */
 function getStatusBadge(agent: AgentDisplayStatus): string {
   switch (agent.displayStatus) {
-    case 'running':
-      return 'running';
-    case 'thinking':
-      return 'thinking';
-    case 'waiting':
-      return 'WAITING';
-    case 'idle':
+    case "running":
+      return "running";
+    case "thinking":
+      return "thinking";
+    case "waiting":
+      return "WAITING";
     default:
-      return 'idle';
+      return "idle";
   }
 }
 
@@ -46,8 +43,8 @@ function getStatusBadge(agent: AgentDisplayStatus): string {
 function AgentCard({ agent }: AgentCardProps) {
   const borderColor = getStatusColor(agent.displayStatus);
   const badge = getStatusBadge(agent);
-  const isWaiting = agent.displayStatus === 'waiting';
-  const isIdle = agent.displayStatus === 'idle';
+  const isWaiting = agent.displayStatus === "waiting";
+  const isIdle = agent.displayStatus === "idle";
 
   return (
     <Box
@@ -59,12 +56,10 @@ function AgentCard({ agent }: AgentCardProps) {
     >
       {/* Agent ID and project */}
       <Box>
-        <Text bold color={isIdle ? 'gray' : undefined}>
+        <Text bold color={isIdle ? "gray" : undefined}>
           {agent.id}
         </Text>
-        {agent.gitBranch && (
-          <Text dimColor> ({agent.gitBranch})</Text>
-        )}
+        {agent.gitBranch && <Text dimColor> ({agent.gitBranch})</Text>}
       </Box>
       <Box>
         <Text dimColor>{agent.project}</Text>
@@ -74,7 +69,8 @@ function AgentCard({ agent }: AgentCardProps) {
       <Box marginTop={1}>
         {isWaiting ? (
           <Text color="yellow" bold>
-            {'! '}{badge}
+            {"! "}
+            {badge}
           </Text>
         ) : (
           <Text color={borderColor} dimColor={isIdle}>

@@ -12,10 +12,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
-      include: [
-        "src/**/*.ts",
-        "packages/ink-runner/components/**/*.ts",
-      ],
+      include: ["src/**/*.ts", "packages/ink-runner/components/**/*.ts"],
       exclude: [
         "src/**/*.test.ts",
         "src/**/*.d.ts",

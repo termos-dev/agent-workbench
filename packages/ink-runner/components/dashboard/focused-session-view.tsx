@@ -1,32 +1,43 @@
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
-import TextInput from 'ink-text-input';
-import { formatDistanceToNow } from 'date-fns';
-import { useTerminalSize } from '../shared/index.js';
-import { PlanPane } from './plan-pane.js';
-import type { AgentDisplayStatus } from './use-agents.js';
-import type { DashboardInteraction } from './types.js';
-import type { InteractionResponse } from './use-dashboard-data.js';
+import { formatDistanceToNow } from "date-fns";
+import { Box, Text, useInput } from "ink";
+import TextInput from "ink-text-input";
+import React, { useState } from "react";
+import { useTerminalSize } from "../shared/index.js";
+import { PlanPane } from "./plan-pane.js";
+import type { DashboardInteraction } from "./types.js";
+import type { AgentDisplayStatus } from "./use-agents.js";
+import type { InteractionResponse } from "./use-dashboard-data.js";
 
 // Interactive components that need user response
-const INTERACTIVE = new Set(['confirm', 'select', 'checklist', 'ask', 'input', 'card']);
+const INTERACTIVE = new Set([
+  "confirm",
+  "select",
+  "checklist",
+  "ask",
+  "input",
+  "card",
+]);
 const isInteractive = (c: string) => INTERACTIVE.has(c);
 
 interface FocusedSessionViewProps {
   agent: AgentDisplayStatus;
   interactions: DashboardInteraction[];
-  onRespond: (sessionName: string, interactionId: string, response: InteractionResponse) => void;
+  onRespond: (
+    sessionName: string,
+    interactionId: string,
+    response: InteractionResponse
+  ) => void;
   onBack: () => void;
   onSendMessage?: (text: string) => void;
 }
 
-type FocusedPane = 'plan' | 'interactions';
+type FocusedPane = "plan" | "interactions";
 
 // Compact interaction display for the interactions pane
 function InteractionItem({
   interaction,
   isSelected,
-  width
+  width,
 }: {
   interaction: DashboardInteraction;
   isSelected: boolean;
@@ -34,16 +45,23 @@ function InteractionItem({
 }) {
   const interactive = isInteractive(interaction.component);
   const maxTitleLen = Math.max(20, width - 30);
-  const title = (interaction.title || 'Untitled').slice(0, maxTitleLen);
+  const title = (interaction.title || "Untitled").slice(0, maxTitleLen);
 
   return (
     <Box flexDirection="column">
       <Box>
-        <Text color={isSelected ? 'cyan' : 'white'}>{isSelected ? '> ' : '  '}</Text>
-        <Text color={interactive ? 'yellow' : 'blue'}>{interactive ? '? ' : '# '}</Text>
+        <Text color={isSelected ? "cyan" : "white"}>
+          {isSelected ? "> " : "  "}
+        </Text>
+        <Text color={interactive ? "yellow" : "blue"}>
+          {interactive ? "? " : "# "}
+        </Text>
         <Text bold>{interaction.component}</Text>
         <Text>: {title}</Text>
-        <Text dimColor> ({formatDistanceToNow(interaction.ts, { addSuffix: true })})</Text>
+        <Text dimColor>
+          {" "}
+          ({formatDistanceToNow(interaction.ts, { addSuffix: true })})
+        </Text>
       </Box>
       {interaction.prompt && isSelected && (
         <Box marginLeft={4}>
@@ -57,9 +75,9 @@ function InteractionItem({
 export function FocusedSessionView({
   agent,
   interactions,
-  onRespond,
+  onRespond: _onRespond,
   onBack,
-  onSendMessage
+  onSendMessage,
 }: FocusedSessionViewProps) {
   const { rows, columns } = useTerminalSize();
 
@@ -67,7 +85,7 @@ export function FocusedSessionView({
 
   // Focused pane: plan or interactions (only plan if we have a plan file)
   const [focusedPane, setFocusedPane] = useState<FocusedPane>(
-    hasPlanFile ? 'plan' : 'interactions'
+    hasPlanFile ? "plan" : "interactions"
   );
 
   // Selected interaction index within the interactions pane
@@ -75,7 +93,7 @@ export function FocusedSessionView({
 
   // Message input state
   const [messageExpanded, setMessageExpanded] = useState(false);
-  const [messageText, setMessageText] = useState('');
+  const [messageText, setMessageText] = useState("");
 
   // Determine layout: side-by-side (>100 cols) or stacked (<100 cols)
   const isWide = columns >= 100;
@@ -87,8 +105,10 @@ export function FocusedSessionView({
   const availableWidth = columns - 2; // Padding
 
   // If no plan file, interactions take full width/height
-  let planWidth: number, planHeight: number;
-  let interactionsWidth: number, interactionsHeight: number;
+  let planWidth: number;
+  let planHeight: number;
+  let interactionsWidth: number;
+  let interactionsHeight: number;
 
   if (!hasPlanFile) {
     // No plan file - interactions only, full space
@@ -127,12 +147,12 @@ export function FocusedSessionView({
     if (messageExpanded) {
       if (key.escape) {
         setMessageExpanded(false);
-        setMessageText('');
+        setMessageText("");
         return;
       }
       if (key.return && messageText.trim() && onSendMessage) {
         onSendMessage(messageText.trim());
-        setMessageText('');
+        setMessageText("");
         setMessageExpanded(false);
         return;
       }
@@ -147,42 +167,45 @@ export function FocusedSessionView({
     }
 
     // 'm' opens message input
-    if (input === 'm' && onSendMessage) {
+    if (input === "m" && onSendMessage) {
       setMessageExpanded(true);
       return;
     }
 
     // Tab switches focus between panes (only if we have a plan file)
     if (key.tab && hasPlanFile) {
-      setFocusedPane(p => p === 'plan' ? 'interactions' : 'plan');
+      setFocusedPane((p) => (p === "plan" ? "interactions" : "plan"));
       return;
     }
 
     // Only handle interactions pane navigation when it's focused (or no plan file)
-    if (focusedPane === 'interactions' || !hasPlanFile) {
-      // j/k or arrows navigate interactions
-      if ((key.upArrow || input === 'k') && !isInteractive(selectedInteraction?.component || '')) {
-        setSelectedIdx(i => Math.max(0, i - 1));
+    if (focusedPane === "interactions" || !hasPlanFile) {
+      // ↑↓ or arrows navigate interactions
+      if (key.upArrow && !isInteractive(selectedInteraction?.component || "")) {
+        setSelectedIdx((i) => Math.max(0, i - 1));
         return;
       }
-      if ((key.downArrow || input === 'j') && !isInteractive(selectedInteraction?.component || '')) {
-        setSelectedIdx(i => Math.min(maxIdx, i + 1));
+      if (
+        key.downArrow &&
+        !isInteractive(selectedInteraction?.component || "")
+      ) {
+        setSelectedIdx((i) => Math.min(maxIdx, i + 1));
         return;
       }
 
       // Number keys 1-9 jump to interaction
-      const num = parseInt(input, 10);
+      const num = Number.parseInt(input, 10);
       if (num >= 1 && num <= 9 && num <= interactions.length) {
         setSelectedIdx(num - 1);
         return;
       }
 
       // g = first, G = last
-      if (input === 'g') {
+      if (input === "g") {
         setSelectedIdx(0);
         return;
       }
-      if (input === 'G') {
+      if (input === "G") {
         setSelectedIdx(maxIdx);
         return;
       }
@@ -190,31 +213,41 @@ export function FocusedSessionView({
   });
 
   // Status color
-  const statusColor = agent.displayStatus === 'running' ? 'cyan'
-    : agent.displayStatus === 'thinking' ? 'magenta'
-    : agent.displayStatus === 'waiting' ? 'yellow'
-    : 'gray';
+  const statusColor =
+    agent.displayStatus === "running"
+      ? "cyan"
+      : agent.displayStatus === "thinking"
+        ? "magenta"
+        : agent.displayStatus === "waiting"
+          ? "yellow"
+          : "gray";
 
   // Interactions pane content (reused in multiple layouts)
   const interactionsContent = (
     <Box flexDirection="column" paddingX={1} overflow="hidden">
       <Box>
-        <Text bold color="yellow">Interactions ({interactions.length})</Text>
+        <Text bold color="yellow">
+          Interactions ({interactions.length})
+        </Text>
       </Box>
       {interactions.length === 0 ? (
         <Text dimColor>No pending interactions</Text>
       ) : (
-        interactions.slice(0, Math.max(1, interactionsHeight - 2)).map((int, idx) => (
-          <InteractionItem
-            key={int.id}
-            interaction={int}
-            isSelected={idx === selectedIdx}
-            width={interactionsWidth - 2}
-          />
-        ))
+        interactions
+          .slice(0, Math.max(1, interactionsHeight - 2))
+          .map((int, idx) => (
+            <InteractionItem
+              key={int.id}
+              interaction={int}
+              isSelected={idx === selectedIdx}
+              width={interactionsWidth - 2}
+            />
+          ))
       )}
       {interactions.length > interactionsHeight - 2 && (
-        <Text dimColor>+{interactions.length - (interactionsHeight - 2)} more</Text>
+        <Text dimColor>
+          +{interactions.length - (interactionsHeight - 2)} more
+        </Text>
       )}
     </Box>
   );
@@ -231,7 +264,15 @@ export function FocusedSessionView({
           <Text dimColor> • {agent.id}</Text>
         </Box>
         {agent.title && (
-          <Text dimColor italic>{agent.title}</Text>
+          <Text dimColor italic>
+            {agent.title}
+          </Text>
+        )}
+        {agent.firstPrompt && agent.firstPrompt !== "No prompt" && (
+          <Box>
+            <Text dimColor>User: </Text>
+            <Text>{agent.firstPrompt}</Text>
+          </Box>
         )}
       </Box>
 
@@ -248,7 +289,7 @@ export function FocusedSessionView({
           <Box width={planWidth}>
             <PlanPane
               planFile={agent.planFile}
-              isActive={focusedPane === 'plan'}
+              isActive={focusedPane === "plan"}
               height={planHeight}
               width={planWidth}
             />
@@ -257,7 +298,9 @@ export function FocusedSessionView({
           {/* Divider */}
           <Box width={1} flexDirection="column">
             {Array.from({ length: availableHeight }).map((_, i) => (
-              <Text key={i} dimColor>│</Text>
+              <Text key={i} dimColor>
+                │
+              </Text>
             ))}
           </Box>
 
@@ -273,7 +316,7 @@ export function FocusedSessionView({
           <Box height={planHeight}>
             <PlanPane
               planFile={agent.planFile}
-              isActive={focusedPane === 'plan'}
+              isActive={focusedPane === "plan"}
               height={planHeight}
               width={planWidth}
             />
@@ -281,7 +324,7 @@ export function FocusedSessionView({
 
           {/* Divider */}
           <Box>
-            <Text dimColor>{'─'.repeat(availableWidth)}</Text>
+            <Text dimColor>{"─".repeat(availableWidth)}</Text>
           </Box>
 
           {/* Interactions pane (bottom) */}
@@ -297,17 +340,23 @@ export function FocusedSessionView({
           <Box flexDirection="column">
             <Box>
               <Text color="cyan">Message: </Text>
-              <TextInput value={messageText} onChange={setMessageText} focus={true} placeholder="Type message for agent..." />
+              <TextInput
+                value={messageText}
+                onChange={setMessageText}
+                focus={true}
+                placeholder="Type message for agent..."
+              />
             </Box>
-            <Text dimColor>Enter send  Esc cancel</Text>
+            <Text dimColor>Enter send Esc cancel</Text>
           </Box>
         ) : (
           <Text dimColor>
             Esc back
-            {onSendMessage && '  m message'}
-            {hasPlanFile && '  Tab switch pane'}
-            {hasPlanFile && focusedPane === 'plan' && '  j/k scroll  e edit'}
-            {(focusedPane === 'interactions' || !hasPlanFile) && '  j/k navigate'}
+            {onSendMessage && "  m message"}
+            {hasPlanFile && "  Tab switch pane"}
+            {hasPlanFile && focusedPane === "plan" && "  ↑↓ scroll  e edit"}
+            {(focusedPane === "interactions" || !hasPlanFile) &&
+              "  ↑↓ navigate"}
           </Text>
         )}
       </Box>

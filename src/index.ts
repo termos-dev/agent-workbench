@@ -7,13 +7,13 @@
  */
 
 import {
-  handleRun,
-  handleWait,
-  handleListen,
-  handleSetup,
   handleDashboard,
-  handleSetTitle,
   handleEvent,
+  handleListen,
+  handleRun,
+  handleSetTitle,
+  handleSetup,
+  handleWait,
 } from "./commands/index.js";
 import { loadMergedInstructions } from "./instructions-loader.js";
 
@@ -107,7 +107,7 @@ function suggestCommand(input: string): string | null {
   };
 
   let best: string | null = null;
-  let bestDist = Infinity;
+  let bestDist = Number.POSITIVE_INFINITY;
 
   for (const cmd of commands) {
     const d = distance(input.toLowerCase(), cmd);
@@ -151,6 +151,7 @@ async function main() {
     case "run":
       await handleRun(args.slice(1));
       process.exit(0);
+      return;
 
     case "wait":
       await handleWait(args.slice(1));
@@ -164,7 +165,7 @@ async function main() {
       handleEvent(args.slice(1));
       return;
 
-    default:
+    default: {
       // Unknown command - suggest closest match
       const suggestion = suggestCommand(cmd);
       if (suggestion) {
@@ -175,6 +176,7 @@ async function main() {
         console.error(`Run 'termos help' for usage`);
       }
       process.exit(1);
+    }
   }
 }
 

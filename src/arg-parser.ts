@@ -20,7 +20,9 @@ export interface FlagSpec {
  */
 export function extractFlags(args: string[], specs: FlagSpec[]): ParsedFlags {
   const result: ParsedFlags = {};
-  const booleanFlags = new Set(specs.filter(s => s.type === 'boolean').map(s => s.name));
+  const booleanFlags = new Set(
+    specs.filter((s) => s.type === "boolean").map((s) => s.name)
+  );
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -38,14 +40,14 @@ export function extractFlags(args: string[], specs: FlagSpec[]): ParsedFlags {
         break;
       }
       // String flag with value: --flag value
-      else if (arg === flagName && args[i + 1] && !args[i + 1].startsWith("--")) {
+      if (arg === flagName && args[i + 1] && !args[i + 1].startsWith("--")) {
         result[spec.name] = args[i + 1];
         args.splice(i, 2);
         i--;
         break;
       }
       // Flag with = syntax: --flag=value
-      else if (arg.startsWith(eqPrefix)) {
+      if (arg.startsWith(eqPrefix)) {
         result[spec.name] = arg.slice(eqPrefix.length);
         args.splice(i, 1);
         i--;
@@ -63,7 +65,7 @@ export function extractFlags(args: string[], specs: FlagSpec[]): ParsedFlags {
  */
 export function extractComponentArgs(
   args: string[],
-  startIndex: number = 1
+  startIndex = 1
 ): Record<string, string> {
   const result: Record<string, string> = {};
 

@@ -2,9 +2,9 @@
  * Event command handler - writes tool events for agent state tracking.
  */
 
-import { getAgentSessionId } from "../session-utils.js";
-import { pathToSessionName, ensureEventsFile } from "../runtime.js";
 import { writeEvent } from "../events.js";
+import { ensureEventsFile, pathToSessionName } from "../runtime.js";
+import { getAgentSessionId } from "../session-utils.js";
 
 /**
  * Write a tool event for the current session.

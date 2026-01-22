@@ -1,8 +1,20 @@
 # Termos
 
-Keep Claude Code interactive while it works.
+Your Command Center for Claude Code.
 
 https://github.com/user-attachments/assets/724385fc-6f1e-4983-b7fc-04801b41a703
+
+## Agent Inbox
+
+Running multiple Claude sessions? Termos gives you a single dashboard to monitor them all. See which agents are running, thinking, waiting, or idle. Respond to interactions when you're ready—agents wait patiently.
+
+```bash
+termos tui
+```
+
+- **One place for all sessions** - See every Claude instance at a glance
+- **Never miss a request** - Interactions queue up until you respond
+- **Stay in the loop** - Know what each agent is doing in real-time
 
 ## The Problem
 
@@ -37,7 +49,7 @@ Then run `/termos:init` in Claude to configure.
 ## Usage
 
 ```bash
-# Launch the TUI to respond to interactions
+# Launch the TUI to monitor and respond
 termos tui
 
 # Show help
@@ -46,7 +58,7 @@ termos
 
 ## Components
 
-`confirm` `ask` `checklist` `select` `diff` `code` `table` `json` `markdown` `progress` `chart` `gauge` `tree` `mermaid` `plan-viewer`
+`confirm` `ask` `checklist` `select` `progress` `diff` `code` `table` `json` `markdown` `chart` `gauge` `tree` `mermaid` `card` `plan-viewer`
 
 Drop custom `.tsx` files in `.termos/interactive/` for your own Ink components.
 

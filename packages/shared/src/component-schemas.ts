@@ -16,7 +16,7 @@ export interface ComponentSchema {
   returns: Record<string, string>;
   examples?: string[];
   validation?: {
-    oneOf?: string[];  // At least one of these args must be provided
+    oneOf?: string[]; // At least one of these args must be provided
   };
 }
 
@@ -39,7 +39,11 @@ Question schema:
 
 Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`,
     args: {
-      questions: { type: "json", required: true, description: "JSON array of question objects (1-4 questions)" },
+      questions: {
+        type: "json",
+        required: true,
+        description: "JSON array of question objects (1-4 questions)",
+      },
     },
     returns: {
       action: "accept | cancel",
@@ -57,7 +61,11 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     name: "confirm",
     description: "Yes/No confirmation dialog",
     args: {
-      prompt: { type: "string", required: true, description: "Question to ask" },
+      prompt: {
+        type: "string",
+        required: true,
+        description: "Question to ask",
+      },
       yes: { type: "string", default: "Yes", description: "Yes button label" },
       no: { type: "string", default: "No", description: "No button label" },
     },
@@ -75,9 +83,16 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     name: "checklist",
     description: "Interactive checklist with toggleable items",
     args: {
-      items: { type: "string", required: true, description: "Comma-separated list of items" },
+      items: {
+        type: "string",
+        required: true,
+        description: "Comma-separated list of items",
+      },
       title: { type: "string", description: "Title above checklist" },
-      checked: { type: "string", description: "Pre-checked indices (comma-separated)" },
+      checked: {
+        type: "string",
+        description: "Pre-checked indices (comma-separated)",
+      },
     },
     returns: {
       action: "accept | cancel",
@@ -94,11 +109,26 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     name: "code",
     description: "Syntax-highlighted code viewer with embedded editing",
     args: {
-      file: { type: "string", required: true, description: "Path to source file" },
-      highlight: { type: "string", description: "Line range to highlight (e.g. '10-20')" },
+      file: {
+        type: "string",
+        required: true,
+        description: "Path to source file",
+      },
+      highlight: {
+        type: "string",
+        description: "Line range to highlight (e.g. '10-20')",
+      },
       line: { type: "number", description: "Scroll to line number" },
-      editor: { type: "string", description: "External editor command (e.g. 'code --goto', 'vim +{line}')" },
-      embeddedEditor: { type: "string", description: "TUI editor command for in-pane editing (e.g. 'nvim +{line}', 'hx {file}:{line}')" },
+      editor: {
+        type: "string",
+        description:
+          "External editor command (e.g. 'code --goto', 'vim +{line}')",
+      },
+      embeddedEditor: {
+        type: "string",
+        description:
+          "TUI editor command for in-pane editing (e.g. 'nvim +{line}', 'hx {file}:{line}')",
+      },
     },
     returns: {
       action: "accept | edit",
@@ -109,24 +139,6 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
       'termos run --title "Code" code --file src/index.ts',
       'termos run --title "Code" code --file src/app.tsx --highlight "15-25" --line 15',
       'termos run --title "Code" code --file src/index.ts --embeddedEditor "nvim +{line}"',
-    ],
-  },
-
-  edit: {
-    name: "edit",
-    description: "Open file in TUI editor (embedded in pane)",
-    args: {
-      file: { type: "string", required: true, description: "Path to file to edit" },
-      line: { type: "number", description: "Line number to jump to" },
-      editor: { type: "string", required: true, description: "TUI editor command (e.g. 'nvim +{line}', 'hx {file}:{line}', 'vim +{line}')" },
-    },
-    returns: {
-      action: "accept",
-      file: "string - path to file",
-    },
-    examples: [
-      'termos run --title "Edit" edit --file src/index.ts --editor "nvim +{line}"',
-      'termos run --title "Edit" edit --file src/app.tsx --line 42 --editor "vim +{line}"',
     ],
   },
 
@@ -155,7 +167,10 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     args: {
       file: { type: "string", description: "Path to JSON or CSV file" },
       data: { type: "json", description: "Inline JSON array of objects" },
-      columns: { type: "string", description: "Columns to display (comma-separated)" },
+      columns: {
+        type: "string",
+        description: "Columns to display (comma-separated)",
+      },
       select: { type: "boolean", description: "Enable row selection mode" },
     },
     validation: {
@@ -177,7 +192,22 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     name: "progress",
     description: "Progress indicator with steps",
     args: {
-      steps: { type: "string", required: true, description: "Comma-separated list of steps" },
+      steps: {
+        type: "string",
+        required: true,
+        description: "Comma-separated list of steps",
+      },
+      tasks: { type: "string", description: "Alias for steps" },
+      items: { type: "string", description: "Alias for steps" },
+      step: { type: "string", description: "Current step number (1-indexed)" },
+      status: {
+        type: "string",
+        description: "Status message for current step",
+      },
+      stateFile: {
+        type: "string",
+        description: "File to watch for state updates (JSON)",
+      },
       title: { type: "string", description: "Progress title" },
     },
     returns: {
@@ -185,18 +215,22 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     },
     examples: [
       'termos run --title "Progress" progress --steps "Build,Test,Deploy"',
-      'termos run --title "Progress" progress --steps "Step 1,Step 2"',
+      'termos run --title "Progress" progress --steps "Step 1,Step 2" --step 2',
     ],
   },
 
   mermaid: {
     name: "mermaid",
-    description: "Render Mermaid diagrams as ASCII art. SUPPORTED: flowchart/graph, sequenceDiagram, classDiagram, stateDiagram (renders as ASCII boxes/arrows). NOT SUPPORTED (shows source only): erDiagram, pie, gantt, journey, gitGraph, mindmap, timeline, quadrantChart, xychart, sankey, packet, block. Accepts raw mermaid or markdown with code fences.",
+    description:
+      "Render Mermaid diagrams as ASCII art. SUPPORTED: flowchart/graph, sequenceDiagram, classDiagram, stateDiagram (renders as ASCII boxes/arrows). NOT SUPPORTED (shows source only): erDiagram, pie, gantt, journey, gitGraph, mindmap, timeline, quadrantChart, xychart, sankey, packet, block. Accepts raw mermaid or markdown with code fences.",
     args: {
       file: { type: "string", description: "Path to .mmd or .md file" },
       code: { type: "string", description: "Inline mermaid code" },
       title: { type: "string", description: "Title above diagram" },
-      editor: { type: "string", description: "Editor command to open file (e.g. 'code', 'vim')" },
+      editor: {
+        type: "string",
+        description: "Editor command to open file (e.g. 'code', 'vim')",
+      },
     },
     validation: {
       oneOf: ["file", "code"],
@@ -239,15 +273,17 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     name: "plan-viewer",
     description: "Review a plan file with approve/reject controls",
     args: {
-      file: { type: "string", required: true, description: "Path to plan file" },
+      file: {
+        type: "string",
+        required: true,
+        description: "Path to plan file",
+      },
     },
     returns: {
       action: "accept | cancel",
       result: "{ approved: boolean, file?: string }",
     },
-    examples: [
-      'termos run --title "Plan" plan-viewer --file /path/to/plan.md',
-    ],
+    examples: ['termos run --title "Plan" plan-viewer --file /path/to/plan.md'],
   },
 
   chart: {
@@ -256,11 +292,27 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     args: {
       file: { type: "string", description: "Path to JSON or CSV data file" },
       data: { type: "json", description: "Inline JSON data array" },
-      type: { type: "string", default: "bar", description: "Chart type: bar | sparkline | line | stacked" },
+      type: {
+        type: "string",
+        default: "bar",
+        description: "Chart type: bar | sparkline | line | stacked",
+      },
       title: { type: "string", description: "Chart title" },
-      height: { type: "number", default: "8", description: "Chart height in rows (for line graphs)" },
-      sort: { type: "string", default: "none", description: "Sort order: none | asc | desc (for bar charts)" },
-      showValues: { type: "boolean", default: "true", description: "Show values next to bars" },
+      height: {
+        type: "number",
+        default: "8",
+        description: "Chart height in rows (for line graphs)",
+      },
+      sort: {
+        type: "string",
+        default: "none",
+        description: "Sort order: none | asc | desc (for bar charts)",
+      },
+      showValues: {
+        type: "boolean",
+        default: "true",
+        description: "Show values next to bars",
+      },
     },
     validation: {
       oneOf: ["file", "data"],
@@ -281,9 +333,17 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     name: "select",
     description: "Single-item picker with optional fuzzy search",
     args: {
-      items: { type: "string", required: true, description: "Comma-separated items or JSON array" },
+      items: {
+        type: "string",
+        required: true,
+        description: "Comma-separated items or JSON array",
+      },
       title: { type: "string", description: "Title above list" },
-      search: { type: "boolean", default: "false", description: "Enable fuzzy search filtering" },
+      search: {
+        type: "boolean",
+        default: "false",
+        description: "Enable fuzzy search filtering",
+      },
       file: { type: "string", description: "JSON file with items array" },
     },
     returns: {
@@ -303,10 +363,17 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     name: "tree",
     description: "Directory/hierarchy tree viewer with expand/collapse",
     args: {
-      path: { type: "string", description: "Directory path to display (default: cwd)" },
+      path: {
+        type: "string",
+        description: "Directory path to display (default: cwd)",
+      },
       file: { type: "string", description: "JSON file with tree structure" },
       depth: { type: "number", default: "5", description: "Max depth to show" },
-      showHidden: { type: "boolean", default: "false", description: "Show hidden files" },
+      showHidden: {
+        type: "boolean",
+        default: "false",
+        description: "Show hidden files",
+      },
       title: { type: "string", description: "Title above tree" },
     },
     returns: {
@@ -328,7 +395,11 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
       file: { type: "string", description: "Path to JSON file" },
       data: { type: "json", description: "Inline JSON data" },
       title: { type: "string", description: "Title above viewer" },
-      expandDepth: { type: "number", default: "2", description: "Initial expand depth" },
+      expandDepth: {
+        type: "number",
+        default: "2",
+        description: "Initial expand depth",
+      },
     },
     validation: {
       oneOf: ["file", "data"],
@@ -351,11 +422,33 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
       min: { type: "number", default: "0", description: "Minimum value" },
       max: { type: "number", default: "100", description: "Maximum value" },
       label: { type: "string", description: "Gauge label" },
-      unit: { type: "string", default: "%", description: "Unit suffix (%, MB, °C, etc.)" },
-      style: { type: "string", default: "bar", description: "Style: bar | arc | blocks | dots" },
-      thresholds: { type: "json", description: 'Color thresholds: {"warning":70,"danger":90}' },
-      file: { type: "string", description: "JSON file to watch for value updates" },
-      data: { type: "json", description: "JSON with single or multiple gauges" },
+      unit: {
+        type: "string",
+        default: "%",
+        description: "Unit suffix (%, MB, °C, etc.)",
+      },
+      style: {
+        type: "string",
+        default: "bar",
+        description: "Style: bar | arc | blocks | dots",
+      },
+      color: {
+        type: "string",
+        description: "Bar color (or 'auto' for threshold-based)",
+      },
+      thresholds: {
+        type: "json",
+        description: 'Color thresholds: {"warning":70,"danger":90}',
+      },
+      file: {
+        type: "string",
+        description: "JSON file to watch for value updates",
+      },
+      data: {
+        type: "json",
+        description: "JSON with single or multiple gauges",
+      },
+      width: { type: "number", default: "30", description: "Gauge bar width" },
       title: { type: "string", description: "Title above gauge" },
     },
     returns: {
@@ -374,10 +467,20 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     name: "card",
     description: "Display markdown content with custom action buttons",
     args: {
-      content: { type: "string", description: "Markdown/text content to display" },
+      content: {
+        type: "string",
+        description: "Markdown/text content to display",
+      },
       file: { type: "string", description: "Path to markdown file" },
-      actions: { type: "json", description: 'Action buttons: [{"label":"Ok","key":"o","value":"ok"}]' },
-      layout: { type: "string", default: "auto", description: "Button layout: horizontal | vertical | auto" },
+      actions: {
+        type: "json",
+        description: 'Action buttons: [{"label":"Ok","key":"o","value":"ok"}]',
+      },
+      layout: {
+        type: "string",
+        default: "auto",
+        description: "Button layout: horizontal | vertical | auto",
+      },
     },
     validation: {
       oneOf: ["content", "file"],
@@ -424,52 +527,56 @@ export function generateComponentHelp(schema: ComponentSchema): string {
   const lines: string[] = [];
 
   lines.push(`${schema.name} - ${schema.description}`);
-  lines.push('');
+  lines.push("");
 
   // Usage
   const requiredArgs = Object.entries(schema.args)
     .filter(([_, arg]) => arg.required)
     .map(([name, _]) => `--${name} <value>`)
-    .join(' ');
+    .join(" ");
   const oneOfHint = schema.validation?.oneOf
-    ? `<${schema.validation.oneOf.map(a => `--${a}`).join(' | ')}>`
-    : '';
-  lines.push(`  Usage: termos run --title "<text>" ${schema.name} ${requiredArgs} ${oneOfHint}`.trimEnd());
-  lines.push('');
+    ? `<${schema.validation.oneOf.map((a) => `--${a}`).join(" | ")}>`
+    : "";
+  lines.push(
+    `  Usage: termos run --title "<text>" ${schema.name} ${requiredArgs} ${oneOfHint}`.trimEnd()
+  );
+  lines.push("");
 
   // oneOf validation note
   if (schema.validation?.oneOf) {
-    const opts = schema.validation.oneOf.map(a => `--${a}`).join(' or ');
+    const opts = schema.validation.oneOf.map((a) => `--${a}`).join(" or ");
     lines.push(`  Note: Either ${opts} is required`);
-    lines.push('');
+    lines.push("");
   }
 
   // Options
-  lines.push('  Options:');
+  lines.push("  Options:");
   for (const [name, arg] of Object.entries(schema.args)) {
-    const req = arg.required ? '(required)' : '';
-    const oneOf = schema.validation?.oneOf?.includes(name) ? '(oneOf)' : '';
-    const def = arg.default ? `(default: ${arg.default})` : '';
-    lines.push(`    --${name.padEnd(12)} ${arg.description} ${req} ${oneOf} ${def}`.trimEnd());
+    const req = arg.required ? "(required)" : "";
+    const oneOf = schema.validation?.oneOf?.includes(name) ? "(oneOf)" : "";
+    const def = arg.default ? `(default: ${arg.default})` : "";
+    lines.push(
+      `    --${name.padEnd(12)} ${arg.description} ${req} ${oneOf} ${def}`.trimEnd()
+    );
   }
-  lines.push('');
+  lines.push("");
 
   // Returns
-  lines.push('  Returns:');
+  lines.push("  Returns:");
   for (const [name, desc] of Object.entries(schema.returns)) {
     lines.push(`    ${name}: ${desc}`);
   }
 
   // Examples
   if (schema.examples?.length) {
-    lines.push('');
-    lines.push('  Examples:');
+    lines.push("");
+    lines.push("  Examples:");
     for (const ex of schema.examples) {
       lines.push(`    ${ex}`);
     }
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -478,10 +585,10 @@ export function generateComponentHelp(schema: ComponentSchema): string {
 function generateGlobalOptionsHelp(): string {
   const lines: string[] = [];
   for (const [name, arg] of Object.entries(globalOptionsSchema)) {
-    const req = arg.required ? '(required)' : '';
+    const req = arg.required ? "(required)" : "";
     lines.push(`  --${name.padEnd(20)} ${arg.description} ${req}`.trimEnd());
   }
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -513,14 +620,14 @@ ${generateGlobalOptionsHelp()}
 `);
 
   for (const schema of Object.values(componentSchemas)) {
-    sections.push('━'.repeat(80));
-    sections.push('');
+    sections.push("━".repeat(80));
+    sections.push("");
     sections.push(generateComponentHelp(schema));
-    sections.push('');
+    sections.push("");
   }
 
-  sections.push('━'.repeat(80));
-  sections.push('');
+  sections.push("━".repeat(80));
+  sections.push("");
   sections.push(`Custom Components:
 
   Usage: termos run --title "<text>" ./my-component.tsx [--key value]
@@ -530,5 +637,5 @@ ${generateGlobalOptionsHelp()}
   Pass arguments via --key value flags.
 `);
 
-  return sections.join('\n');
+  return sections.join("\n");
 }

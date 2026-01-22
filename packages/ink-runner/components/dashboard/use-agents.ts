@@ -1,22 +1,22 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import type { DashboardInteraction } from './types.js';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { DashboardInteraction } from "./types.js";
 
 /**
  * Agent display status for dashboard
  */
 export interface AgentDisplayStatus {
-  id: string;              // Short ID (first 8 chars)
-  sessionId: string;       // Full session ID
-  project: string;         // Project name
-  projectPath: string;     // Full project path
-  displayStatus: 'running' | 'idle' | 'thinking' | 'waiting';
-  modified: string;        // Last activity timestamp
+  id: string; // Short ID (first 8 chars)
+  sessionId: string; // Full session ID
+  project: string; // Project name
+  projectPath: string; // Full project path
+  displayStatus: "running" | "idle" | "thinking" | "waiting";
+  modified: string; // Last activity timestamp
   messageCount: number;
   gitBranch?: string;
-  title?: string;          // Short title (set via termos set-title)
-  firstPrompt?: string;    // User's initial prompt for this session
-  source: 'index' | 'marker' | 'both';
-  planFile?: string;       // Associated plan file path (from session transcript)
+  title?: string; // Short title (set via termos set-title)
+  firstPrompt?: string; // User's initial prompt for this session
+  source: "index" | "marker" | "both";
+  planFile?: string; // Associated plan file path (from session transcript)
 }
 
 interface UseAgentsOptions {
@@ -33,20 +33,25 @@ interface UseAgentsResult {
 
 // Type for dynamic import
 type RuntimeModule = {
-  getActiveSessions: (thresholdMs?: number) => Array<{
-    sessionId: string;
-    projectPath: string;
-    project: string;
-    modified: string;
-    messageCount: number;
-    gitBranch?: string;
-    title?: string;
-    firstPrompt?: string;
-    status: 'running' | 'idle' | 'thinking';
-    source: 'index' | 'marker' | 'both';
-  }>;
+  getActiveSessions: (thresholdMs?: number) => Promise<
+    Array<{
+      sessionId: string;
+      projectPath: string;
+      project: string;
+      modified: string;
+      messageCount: number;
+      gitBranch?: string;
+      title?: string;
+      firstPrompt?: string;
+      status: "running" | "idle" | "thinking";
+      source: "index" | "marker" | "both";
+    }>
+  >;
   pathToSessionName: (cwd: string) => string;
-  getPlanFileForSession: (sessionId: string, projectPath: string) => string | undefined;
+  getPlanFileForSession: (
+    sessionId: string,
+    projectPath: string
+  ) => Promise<string | undefined>;
 };
 
 /**
@@ -68,11 +73,15 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
     if (runtimeRef.current) return runtimeRef.current;
 
     try {
-      const runtime = await import('../../../../src/runtime.js') as RuntimeModule;
+      const runtime = (await import(
+        "../../../../src/runtime.js"
+      )) as RuntimeModule;
       runtimeRef.current = runtime;
       return runtime;
     } catch (err) {
-      setError(`Failed to load runtime: ${err instanceof Error ? err.message : String(err)}`);
+      setError(
+        `Failed to load runtime: ${err instanceof Error ? err.message : String(err)}`
+      );
       return null;
     }
   }, []);
@@ -82,31 +91,35 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
     if (!runtime) return;
 
     try {
-      const sessions = runtime.getActiveSessions();
-      const agentStatuses: AgentDisplayStatus[] = [];
+      const sessions = await runtime.getActiveSessions();
 
-      for (const session of sessions) {
-        const sessionName = session.projectPath !== 'unknown'
-          ? runtime.pathToSessionName(session.projectPath)
-          : session.sessionId;
+      // Process sessions in parallel for plan file loading
+      const agentStatusPromises = sessions.map(async (session) => {
+        const sessionName =
+          session.projectPath !== "unknown"
+            ? runtime.pathToSessionName(session.projectPath)
+            : session.sessionId;
 
         // Check for pending interactions (waiting state)
         const hasWaiting = interactionsRef.current.some(
-          i => i.sessionName === sessionName || i.project === session.project
+          (i) => i.sessionName === sessionName || i.project === session.project
         );
 
         // Load plan file for this session (if available)
         let planFile: string | undefined;
-        if (session.projectPath && session.projectPath !== 'unknown') {
-          planFile = runtime.getPlanFileForSession(session.sessionId, session.projectPath);
+        if (session.projectPath && session.projectPath !== "unknown") {
+          planFile = await runtime.getPlanFileForSession(
+            session.sessionId,
+            session.projectPath
+          );
         }
 
-        agentStatuses.push({
+        return {
           id: session.sessionId.substring(0, 8),
           sessionId: session.sessionId,
           project: session.project,
           projectPath: session.projectPath,
-          displayStatus: hasWaiting ? 'waiting' : session.status,
+          displayStatus: hasWaiting ? "waiting" : session.status,
           modified: session.modified,
           messageCount: session.messageCount,
           gitBranch: session.gitBranch,
@@ -114,8 +127,10 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
           firstPrompt: session.firstPrompt,
           source: session.source,
           planFile,
-        });
-      }
+        } as AgentDisplayStatus;
+      });
+
+      const agentStatuses = await Promise.all(agentStatusPromises);
 
       // Sort by project name
       agentStatuses.sort((a, b) => a.project.localeCompare(b.project));
@@ -123,7 +138,9 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
       setAgents(agentStatuses);
       setError(null);
     } catch (err) {
-      setError(`Failed to read sessions: ${err instanceof Error ? err.message : String(err)}`);
+      setError(
+        `Failed to read sessions: ${err instanceof Error ? err.message : String(err)}`
+      );
     } finally {
       setLoading(false);
     }

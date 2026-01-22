@@ -1,16 +1,21 @@
-import { Box, Text, useInput, useApp } from 'ink';
-import { useState, useMemo } from 'react';
-import { readFileSync } from 'fs';
-import { useTerminalSize, ScrollBar, useMouseScroll, useFileWatch } from './shared/index.js';
+import { readFileSync } from "node:fs";
+import { Box, Text, useApp, useInput } from "ink";
+import { useMemo, useState } from "react";
+import {
+  ScrollBar,
+  useFileWatch,
+  useMouseScroll,
+  useTerminalSize,
+} from "./shared/index.js";
 
 declare const onComplete: (result: unknown) => void;
 declare const args: {
-  items?: string;       // comma-separated or JSON array
-  options?: string;     // alias for items
-  file?: string;        // JSON file with items
+  items?: string; // comma-separated or JSON array
+  options?: string; // alias for items
+  file?: string; // JSON file with items
   title?: string;
   placeholder?: string;
-  search?: string;      // "true" to enable fuzzy search
+  search?: string; // "true" to enable fuzzy search
 };
 
 interface SelectItem {
@@ -20,9 +25,9 @@ interface SelectItem {
 }
 
 function normalizeItems(data: unknown): SelectItem[] {
-  if (typeof data === 'string') {
+  if (typeof data === "string") {
     // Comma-separated string
-    return data.split(',').map(s => {
+    return data.split(",").map((s) => {
       const trimmed = s.trim();
       return { label: trimmed, value: trimmed };
     });
@@ -30,7 +35,7 @@ function normalizeItems(data: unknown): SelectItem[] {
 
   if (Array.isArray(data)) {
     return data.map((item, i) => {
-      if (typeof item === 'string') {
+      if (typeof item === "string") {
         return { label: item, value: item };
       }
       const obj = item as Record<string, unknown>;
@@ -65,12 +70,12 @@ export default function Select() {
   const [items, setItems] = useState<SelectItem[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [scroll, setScroll] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const searchEnabled = args?.search === 'true';
-  const title = args?.title || 'Select';
-  const placeholder = args?.placeholder || 'Type to search...';
+  const searchEnabled = args?.search === "true";
+  const _title = args?.title || "Select";
+  const placeholder = args?.placeholder || "Type to search...";
   const visibleRows = Math.max(3, rows - 8);
 
   useFileWatch(args?.file, () => {
@@ -78,10 +83,10 @@ export default function Select() {
       let data: unknown;
 
       if (args?.file) {
-        const content = readFileSync(args.file, 'utf-8');
+        const content = readFileSync(args.file, "utf-8");
         data = JSON.parse(content);
       } else if (args?.items || args?.options) {
-        const raw = args.items || args.options || '';
+        const raw = args.items || args.options || "";
         // Try JSON parse first
         try {
           data = JSON.parse(raw);
@@ -95,7 +100,7 @@ export default function Select() {
 
       const normalized = normalizeItems(data);
       if (normalized.length === 0) {
-        setError('No items to display');
+        setError("No items to display");
         return;
       }
 
@@ -108,9 +113,10 @@ export default function Select() {
 
   const filteredItems = useMemo(() => {
     if (!searchQuery) return items;
-    return items.filter(item =>
-      fuzzyMatch(item.label, searchQuery) ||
-      (item.description && fuzzyMatch(item.description, searchQuery))
+    return items.filter(
+      (item) =>
+        fuzzyMatch(item.label, searchQuery) ||
+        (item.description && fuzzyMatch(item.description, searchQuery))
     );
   }, [items, searchQuery]);
 
@@ -122,7 +128,7 @@ export default function Select() {
 
   useInput((input, key) => {
     if (key.escape) {
-      onComplete({ action: 'cancel', selected: null });
+      onComplete({ action: "cancel", selected: null });
       exit();
       return;
     }
@@ -130,7 +136,7 @@ export default function Select() {
     if (key.return) {
       const selected = filteredItems[selectedIdx];
       onComplete({
-        action: 'accept',
+        action: "accept",
         selected: selected?.value ?? null,
         selectedLabel: selected?.label ?? null,
         selectedIndex: selectedIdx,
@@ -140,26 +146,32 @@ export default function Select() {
     }
 
     // Search input
-    if (searchEnabled && input && !key.upArrow && !key.downArrow && !key.return) {
+    if (
+      searchEnabled &&
+      input &&
+      !key.upArrow &&
+      !key.downArrow &&
+      !key.return
+    ) {
       if (key.backspace || key.delete) {
-        setSearchQuery(q => q.slice(0, -1));
+        setSearchQuery((q) => q.slice(0, -1));
         setSelectedIdx(0);
         setScroll(0);
       } else if (input.length === 1 && input.charCodeAt(0) >= 32) {
-        setSearchQuery(q => q + input);
+        setSearchQuery((q) => q + input);
         setSelectedIdx(0);
         setScroll(0);
       }
       return;
     }
 
-    if (key.upArrow || input === 'k') {
+    if (key.upArrow) {
       const newIdx = Math.max(0, selectedIdx - 1);
       setSelectedIdx(newIdx);
       if (newIdx < scroll) setScroll(newIdx);
     }
 
-    if (key.downArrow || input === 'j') {
+    if (key.downArrow) {
       const newIdx = Math.min(filteredItems.length - 1, selectedIdx + 1);
       setSelectedIdx(newIdx);
       if (newIdx >= scroll + visibleRows) {
@@ -174,7 +186,10 @@ export default function Select() {
     }
 
     if (key.pageDown) {
-      const newIdx = Math.min(filteredItems.length - 1, selectedIdx + visibleRows);
+      const newIdx = Math.min(
+        filteredItems.length - 1,
+        selectedIdx + visibleRows
+      );
       setSelectedIdx(newIdx);
       setScroll(Math.min(maxScroll, scroll + visibleRows));
     }
@@ -210,8 +225,8 @@ export default function Select() {
 
             return (
               <Box key={actualIdx}>
-                <Text color={isSelected ? 'cyan' : undefined}>
-                  {isSelected ? '\u276F ' : '  '}
+                <Text color={isSelected ? "cyan" : undefined}>
+                  {isSelected ? "\u276F " : "  "}
                 </Text>
                 <Text bold={isSelected} inverse={isSelected}>
                   {item.label}
@@ -235,9 +250,9 @@ export default function Select() {
 
       <Box marginTop={1}>
         <Text dimColor>
-          ↑↓=navigate  Enter=select  Esc=cancel
-          {searchEnabled ? '  Type to filter' : ''}
-          {showScrollBar ? '  mouse=scroll' : ''}
+          ↑↓=navigate Enter=select Esc=cancel
+          {searchEnabled ? "  Type to filter" : ""}
+          {showScrollBar ? "  mouse=scroll" : ""}
         </Text>
       </Box>
     </Box>

@@ -1,18 +1,18 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  readEvents,
-  findResultEvent,
+  type CreatedEvent,
+  type ResultEvent,
   clearEvents,
-  writeEvent,
+  countPendingMessages,
+  findResultEvent,
+  getAgentState,
   getPendingInteractions,
   getPendingMessages,
-  countPendingMessages,
-  getAgentState,
-  type ResultEvent,
-  type CreatedEvent,
+  readEvents,
+  writeEvent,
 } from "./events.js";
 import { getEventsFilePath } from "./runtime.js";
 
@@ -23,8 +23,14 @@ function emitResultEvent(
   answers?: Record<string, string | string[]>
 ): void {
   const filePath = getEventsFilePath(configDir);
-  const event = { ts: Date.now(), type: "result", id, action, ...(answers && { answers }) };
-  fs.appendFileSync(filePath, JSON.stringify(event) + "\n");
+  const event = {
+    ts: Date.now(),
+    type: "result",
+    id,
+    action,
+    ...(answers && { answers }),
+  };
+  fs.appendFileSync(filePath, `${JSON.stringify(event)}\n`);
 }
 
 describe("events", () => {
@@ -46,7 +52,7 @@ describe("events", () => {
       // Ignore
     }
     if (originalRuntimeDir === undefined) {
-      delete process.env.TERMOS_RUNTIME_DIR;
+      process.env.TERMOS_RUNTIME_DIR = undefined;
     } else {
       process.env.TERMOS_RUNTIME_DIR = originalRuntimeDir;
     }
@@ -266,24 +272,33 @@ describe("events", () => {
     it("should sort messages by timestamp", () => {
       // Write messages with explicit timestamps via raw file access
       const filePath = getEventsFilePath(sessionName);
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: 3000,
-        type: "created",
-        id: "msg-3",
-        component: "message",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: 1000,
-        type: "created",
-        id: "msg-1",
-        component: "message",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: 2000,
-        type: "created",
-        id: "msg-2",
-        component: "message",
-      }) + "\n");
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: 3000,
+          type: "created",
+          id: "msg-3",
+          component: "message",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: 1000,
+          type: "created",
+          id: "msg-1",
+          component: "message",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: 2000,
+          type: "created",
+          id: "msg-2",
+          component: "message",
+        })}\n`
+      );
 
       const pending = getPendingMessages(sessionName);
       expect(pending).toHaveLength(3);
@@ -342,9 +357,15 @@ describe("events", () => {
   describe("readEvents edge cases", () => {
     it("should handle malformed JSON lines gracefully", () => {
       const filePath = getEventsFilePath(sessionName);
-      fs.appendFileSync(filePath, '{"type":"result","id":"1","action":"accept"}\n');
-      fs.appendFileSync(filePath, 'not valid json\n');
-      fs.appendFileSync(filePath, '{"type":"result","id":"2","action":"decline"}\n');
+      fs.appendFileSync(
+        filePath,
+        '{"type":"result","id":"1","action":"accept"}\n'
+      );
+      fs.appendFileSync(filePath, "not valid json\n");
+      fs.appendFileSync(
+        filePath,
+        '{"type":"result","id":"2","action":"decline"}\n'
+      );
 
       const events = readEvents(sessionName);
       expect(events).toHaveLength(2);
@@ -381,18 +402,24 @@ describe("events", () => {
       const filePath = getEventsFilePath(sessionName);
 
       // Write tool_start and tool_end with recent timestamp
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 1000,
-        type: "tool_start",
-        sessionId: "test-session",
-        tool: "Bash",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 500,  // 500ms ago - within 3s grace period
-        type: "tool_end",
-        sessionId: "test-session",
-        tool: "Bash",
-      }) + "\n");
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 1000,
+          type: "tool_start",
+          sessionId: "test-session",
+          tool: "Bash",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 500, // 500ms ago - within 3s grace period
+          type: "tool_end",
+          sessionId: "test-session",
+          tool: "Bash",
+        })}\n`
+      );
 
       const { state } = getAgentState(sessionName);
       expect(state).toBe("thinking");
@@ -403,18 +430,24 @@ describe("events", () => {
       const filePath = getEventsFilePath(sessionName);
 
       // Write tool_start and tool_end with old timestamp
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 10000,
-        type: "tool_start",
-        sessionId: "test-session",
-        tool: "Bash",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 5000,  // 5 seconds ago - past 3s grace period
-        type: "tool_end",
-        sessionId: "test-session",
-        tool: "Bash",
-      }) + "\n");
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 10000,
+          type: "tool_start",
+          sessionId: "test-session",
+          tool: "Bash",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 5000, // 5 seconds ago - past 3s grace period
+          type: "tool_end",
+          sessionId: "test-session",
+          tool: "Bash",
+        })}\n`
+      );
 
       const { state } = getAgentState(sessionName);
       expect(state).toBe("idle");
@@ -424,23 +457,32 @@ describe("events", () => {
       const now = Date.now();
       const filePath = getEventsFilePath(sessionName);
 
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 2000,
-        type: "tool_start",
-        sessionId: "test-session",
-        tool: "Read",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 1500,
-        type: "tool_end",
-        sessionId: "test-session",
-        tool: "Read",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 1000,  // Stop 1s ago, after tool_end - within grace period
-        type: "stop",
-        sessionId: "test-session",
-      }) + "\n");
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 2000,
+          type: "tool_start",
+          sessionId: "test-session",
+          tool: "Read",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 1500,
+          type: "tool_end",
+          sessionId: "test-session",
+          tool: "Read",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 1000, // Stop 1s ago, after tool_end - within grace period
+          type: "stop",
+          sessionId: "test-session",
+        })}\n`
+      );
 
       const { state } = getAgentState(sessionName);
       expect(state).toBe("thinking");
@@ -450,23 +492,32 @@ describe("events", () => {
       const now = Date.now();
       const filePath = getEventsFilePath(sessionName);
 
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 10000,
-        type: "tool_start",
-        sessionId: "test-session",
-        tool: "Read",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 9000,
-        type: "tool_end",
-        sessionId: "test-session",
-        tool: "Read",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 8000,  // Stop 8s ago - past grace period
-        type: "stop",
-        sessionId: "test-session",
-      }) + "\n");
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 10000,
+          type: "tool_start",
+          sessionId: "test-session",
+          tool: "Read",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 9000,
+          type: "tool_end",
+          sessionId: "test-session",
+          tool: "Read",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 8000, // Stop 8s ago - past grace period
+          type: "stop",
+          sessionId: "test-session",
+        })}\n`
+      );
 
       const { state } = getAgentState(sessionName);
       expect(state).toBe("idle");
@@ -477,26 +528,35 @@ describe("events", () => {
       const filePath = getEventsFilePath(sessionName);
 
       // First tool cycle (old)
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 10000,
-        type: "tool_start",
-        sessionId: "test-session",
-        tool: "Bash",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 9000,
-        type: "tool_end",
-        sessionId: "test-session",
-        tool: "Bash",
-      }) + "\n");
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 10000,
+          type: "tool_start",
+          sessionId: "test-session",
+          tool: "Bash",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 9000,
+          type: "tool_end",
+          sessionId: "test-session",
+          tool: "Bash",
+        })}\n`
+      );
 
       // Second tool cycle (recent, still running)
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: now - 100,
-        type: "tool_start",
-        sessionId: "test-session",
-        tool: "Read",
-      }) + "\n");
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: now - 100,
+          type: "tool_start",
+          sessionId: "test-session",
+          tool: "Read",
+        })}\n`
+      );
 
       const { state } = getAgentState(sessionName);
       expect(state).toBe("working");
@@ -509,18 +569,24 @@ describe("events", () => {
       const toolStartTs = now - 2000;
       const toolEndTs = now - 1000;
 
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: toolStartTs,
-        type: "tool_start",
-        sessionId: "test-session",
-        tool: "Bash",
-      }) + "\n");
-      fs.appendFileSync(filePath, JSON.stringify({
-        ts: toolEndTs,
-        type: "tool_end",
-        sessionId: "test-session",
-        tool: "Bash",
-      }) + "\n");
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: toolStartTs,
+          type: "tool_start",
+          sessionId: "test-session",
+          tool: "Bash",
+        })}\n`
+      );
+      fs.appendFileSync(
+        filePath,
+        `${JSON.stringify({
+          ts: toolEndTs,
+          type: "tool_end",
+          sessionId: "test-session",
+          tool: "Bash",
+        })}\n`
+      );
 
       const { lastActivity } = getAgentState(sessionName);
       expect(lastActivity).toBe(toolEndTs);

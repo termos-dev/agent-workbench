@@ -2,10 +2,10 @@
  * Dashboard command handler - launches the interactive TUI.
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import { spawnSync } from "child_process";
-import { fileURLToPath } from "url";
+import { spawnSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * Launch the dashboard TUI.

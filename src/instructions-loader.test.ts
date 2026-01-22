@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import * as fs from "fs";
-import * as os from "os";
+import * as fs from "node:fs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock os.homedir BEFORE importing the module
 vi.mock("os", () => ({
@@ -11,7 +10,10 @@ vi.mock("os", () => ({
 vi.mock("fs");
 
 // Import after mocks are set up
-import { loadMergedInstructions, loadTuiEditorConfig } from "./instructions-loader.js";
+import {
+  loadMergedInstructions,
+  loadTuiEditorConfig,
+} from "./instructions-loader.js";
 
 describe("instructions-loader", () => {
   beforeEach(() => {
@@ -115,7 +117,9 @@ describe("instructions-loader", () => {
 
     it("returns null when no TUI Editor section exists", () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readFileSync).mockReturnValue("# Some other content\n\nNo editor config here.");
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        "# Some other content\n\nNo editor config here."
+      );
 
       const result = loadTuiEditorConfig("/test/project");
       expect(result).toBeNull();

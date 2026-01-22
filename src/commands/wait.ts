@@ -2,10 +2,10 @@
  * Wait command handler - waits for an interaction result.
  */
 
-import * as fs from "fs";
-import { pathToSessionName, getEventsFilePath } from "../runtime.js";
-import { getPendingMessages, markMessagesAsRead } from "../events.js";
+import * as fs from "node:fs";
 import { POLL_INTERVAL_MS } from "../constants.js";
+import { getPendingMessages, markMessagesAsRead } from "../events.js";
+import { getEventsFilePath, pathToSessionName } from "../runtime.js";
 
 /**
  * Wait for an interaction result (blocking) or get all results (--all).

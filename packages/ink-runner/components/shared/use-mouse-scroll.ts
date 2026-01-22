@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from 'react';
-import { useStdin } from 'ink';
+import { useStdin } from "ink";
+import { useCallback, useEffect } from "react";
 
 interface UseMouseScrollOptions {
   /** Current scroll position */
@@ -17,27 +17,30 @@ interface UseMouseScrollOptions {
  * Uses SGR 1006 and legacy mouse modes for broad compatibility
  */
 export function useMouseScroll({
-  scroll,
+  scroll: _scroll,
   maxScroll,
   scrollStep = 3,
   setScroll,
 }: UseMouseScrollOptions): void {
   const { stdin } = useStdin();
 
-  const handleScroll = useCallback((direction: 'up' | 'down') => {
-    setScroll(s => {
-      if (direction === 'up') return Math.max(0, s - scrollStep);
-      return Math.min(maxScroll, s + scrollStep);
-    });
-  }, [maxScroll, scrollStep, setScroll]);
+  const handleScroll = useCallback(
+    (direction: "up" | "down") => {
+      setScroll((s) => {
+        if (direction === "up") return Math.max(0, s - scrollStep);
+        return Math.min(maxScroll, s + scrollStep);
+      });
+    },
+    [maxScroll, scrollStep, setScroll]
+  );
 
   useEffect(() => {
     if (!stdin) return;
 
     try {
       // Enable mouse tracking (SGR 1006 mode for better compatibility)
-      process.stdout.write('\x1b[?1000h'); // Enable mouse click tracking
-      process.stdout.write('\x1b[?1006h'); // Enable SGR extended mode
+      process.stdout.write("\x1b[?1000h"); // Enable mouse click tracking
+      process.stdout.write("\x1b[?1006h"); // Enable SGR extended mode
     } catch {
       // Ignore stdout write errors
       return;
@@ -51,34 +54,34 @@ export function useMouseScroll({
         // Button 64 = scroll up, 65 = scroll down
         const sgrMatch = str.match(/\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
         if (sgrMatch) {
-          const button = parseInt(sgrMatch[1], 10);
-          if (button === 64) handleScroll('up');
-          else if (button === 65) handleScroll('down');
+          const button = Number.parseInt(sgrMatch[1], 10);
+          if (button === 64) handleScroll("up");
+          else if (button === 65) handleScroll("down");
           return;
         }
 
         // Parse legacy mouse sequences: \x1b[M followed by 3 bytes
-        if (str.startsWith('\x1b[M') && str.length >= 6) {
+        if (str.startsWith("\x1b[M") && str.length >= 6) {
           const button = str.charCodeAt(3) - 32;
-          if (button === 64) handleScroll('up');
-          else if (button === 65) handleScroll('down');
+          if (button === 64) handleScroll("up");
+          else if (button === 65) handleScroll("down");
         }
       } catch {
         // Ignore parse errors
       }
     };
 
-    stdin.on('data', handleData);
+    stdin.on("data", handleData);
 
     return () => {
       try {
         // Disable mouse tracking on cleanup
-        process.stdout.write('\x1b[?1006l');
-        process.stdout.write('\x1b[?1000l');
+        process.stdout.write("\x1b[?1006l");
+        process.stdout.write("\x1b[?1000l");
       } catch {
         // Ignore stdout write errors
       }
-      stdin.off('data', handleData);
+      stdin.off("data", handleData);
     };
   }, [stdin, handleScroll]);
 }

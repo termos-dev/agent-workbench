@@ -1,7 +1,7 @@
-import { Box, Text, useInput, useApp, useStdout } from 'ink';
-import { useState } from 'react';
-import { readFileSync } from 'fs';
-import { useFileWatch } from './shared/index.js';
+import { readFileSync } from "node:fs";
+import { Box, Text, useApp, useInput, useStdout } from "ink";
+import { useState } from "react";
+import { useFileWatch } from "./shared/index.js";
 
 /**
  * Calculate ideal height (in rows) based on component args
@@ -22,18 +22,18 @@ export function calculateHeight(args: Record<string, string>): number {
 
 declare const onComplete: (result: unknown) => void;
 declare const args: {
-  value?: string;         // Current value (0-100 or custom range)
-  min?: string;           // Min value (default: 0)
-  max?: string;           // Max value (default: 100)
-  label?: string;         // Label to display
-  title?: string;         // Title above gauge
-  unit?: string;          // Unit suffix (e.g., "%", "MB", "°C")
-  style?: string;         // bar | arc | blocks | dots
-  color?: string;         // Color or "auto" for threshold-based
-  thresholds?: string;    // JSON: {"warning": 70, "danger": 90}
-  file?: string;          // Watch a file for value updates
-  data?: string;          // JSON with multiple gauges
-  width?: string;         // Gauge width
+  value?: string; // Current value (0-100 or custom range)
+  min?: string; // Min value (default: 0)
+  max?: string; // Max value (default: 100)
+  label?: string; // Label to display
+  title?: string; // Title above gauge
+  unit?: string; // Unit suffix (e.g., "%", "MB", "°C")
+  style?: string; // bar | arc | blocks | dots
+  color?: string; // Color or "auto" for threshold-based
+  thresholds?: string; // JSON: {"warning": 70, "danger": 90}
+  file?: string; // Watch a file for value updates
+  data?: string; // JSON with multiple gauges
+  width?: string; // Gauge width
 };
 
 interface GaugeData {
@@ -50,19 +50,25 @@ interface Thresholds {
   danger?: number;
 }
 
-const BLOCK_CHARS = ['░', '▒', '▓', '█'];
-const BAR_EMPTY = '░';
-const BAR_FILLED = '█';
-const ARC_CHARS = ['○', '◔', '◑', '◕', '●'];
+const BLOCK_CHARS = ["░", "▒", "▓", "█"];
+const BAR_EMPTY = "░";
+const BAR_FILLED = "█";
+const ARC_CHARS = ["○", "◔", "◑", "◕", "●"];
 
 function getThresholdColor(percent: number, thresholds: Thresholds): string {
-  if (thresholds.danger !== undefined && percent >= thresholds.danger) return 'red';
-  if (thresholds.warning !== undefined && percent >= thresholds.warning) return 'yellow';
-  return 'green';
+  if (thresholds.danger !== undefined && percent >= thresholds.danger)
+    return "red";
+  if (thresholds.warning !== undefined && percent >= thresholds.warning)
+    return "yellow";
+  return "green";
 }
 
-function renderBarGauge(percent: number, width: number, color: string): string {
-  const filled = Math.round(percent * width / 100);
+function renderBarGauge(
+  percent: number,
+  width: number,
+  _color: string
+): string {
+  const filled = Math.round((percent * width) / 100);
   const empty = width - filled;
   return BAR_FILLED.repeat(filled) + BAR_EMPTY.repeat(empty);
 }
@@ -92,38 +98,47 @@ function renderBlocksGauge(percent: number, width: number): string {
     }
   }
 
-  return blocks.join('');
+  return blocks.join("");
 }
 
 function renderDotsGauge(percent: number, width: number): string {
-  const dots = Math.round(percent * width / 100);
-  return '●'.repeat(dots) + '○'.repeat(width - dots);
+  const dots = Math.round((percent * width) / 100);
+  return "●".repeat(dots) + "○".repeat(width - dots);
 }
 
-function GaugeDisplay({ gauge, style, thresholds, width }: {
+function GaugeDisplay({
+  gauge,
+  style,
+  thresholds,
+  width,
+}: {
   gauge: GaugeData;
   style: string;
   thresholds: Thresholds;
   width: number;
 }) {
   const { value, min, max, label, unit, color } = gauge;
-  const percent = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
-  const displayColor = color || (thresholds.warning || thresholds.danger
-    ? getThresholdColor(percent, thresholds)
-    : 'cyan');
+  const percent = Math.max(
+    0,
+    Math.min(100, ((value - min) / (max - min)) * 100)
+  );
+  const displayColor =
+    color ||
+    (thresholds.warning || thresholds.danger
+      ? getThresholdColor(percent, thresholds)
+      : "cyan");
 
   let gaugeVisual: string;
   switch (style) {
-    case 'arc':
+    case "arc":
       gaugeVisual = renderArcGauge(percent);
       break;
-    case 'blocks':
+    case "blocks":
       gaugeVisual = renderBlocksGauge(percent, width);
       break;
-    case 'dots':
+    case "dots":
       gaugeVisual = renderDotsGauge(percent, width);
       break;
-    case 'bar':
     default:
       gaugeVisual = renderBarGauge(percent, width, displayColor);
   }
@@ -136,7 +151,7 @@ function GaugeDisplay({ gauge, style, thresholds, width }: {
         </Box>
       )}
       <Box>
-        {style === 'arc' ? (
+        {style === "arc" ? (
           <Box>
             <Text color={displayColor} bold>
               {gaugeVisual}
@@ -155,11 +170,21 @@ function GaugeDisplay({ gauge, style, thresholds, width }: {
           </>
         )}
       </Box>
-      {style !== 'arc' && (
+      {style !== "arc" && (
         <Box>
-          <Text dimColor>{min}{unit}</Text>
-          <Text dimColor>{' '.repeat(Math.max(1, width - String(min).length - String(max).length - 2))}</Text>
-          <Text dimColor>{max}{unit}</Text>
+          <Text dimColor>
+            {min}
+            {unit}
+          </Text>
+          <Text dimColor>
+            {" ".repeat(
+              Math.max(1, width - String(min).length - String(max).length - 2)
+            )}
+          </Text>
+          <Text dimColor>
+            {max}
+            {unit}
+          </Text>
         </Box>
       )}
     </Box>
@@ -173,9 +198,9 @@ export default function Gauge() {
   const [gauges, setGauges] = useState<GaugeData[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const title = args?.title || 'Gauge';
-  const style = args?.style || 'bar';
-  const defaultWidth = parseInt(args?.width || '30', 10);
+  const _title = args?.title || "Gauge";
+  const style = args?.style || "bar";
+  const defaultWidth = Number.parseInt(args?.width || "30", 10);
   const termWidth = stdout?.columns || 80;
   const gaugeWidth = Math.min(defaultWidth, termWidth - 20);
 
@@ -183,80 +208,90 @@ export default function Gauge() {
     ? JSON.parse(args.thresholds)
     : {};
 
-  useFileWatch(args?.file, () => {
-    try {
-      let data: GaugeData[];
+  useFileWatch(
+    args?.file,
+    () => {
+      try {
+        let data: GaugeData[];
 
-      if (args?.data) {
-        const parsed = JSON.parse(args.data);
-        data = Array.isArray(parsed)
-          ? parsed.map(g => ({
-              value: Number(g.value ?? 0),
-              min: Number(g.min ?? 0),
-              max: Number(g.max ?? 100),
-              label: String(g.label || ''),
-              unit: String(g.unit || '%'),
-              color: g.color as string | undefined,
-            }))
-          : [{
-              value: Number(parsed.value ?? 0),
-              min: Number(parsed.min ?? 0),
-              max: Number(parsed.max ?? 100),
-              label: String(parsed.label || ''),
-              unit: String(parsed.unit || '%'),
-              color: parsed.color as string | undefined,
-            }];
-      } else if (args?.file) {
-        let content: string;
-        try {
-          content = readFileSync(args.file, 'utf-8');
-        } catch (readErr) {
-          // File might be temporarily unavailable during write, skip this update
+        if (args?.data) {
+          const parsed = JSON.parse(args.data);
+          data = Array.isArray(parsed)
+            ? parsed.map((g) => ({
+                value: Number(g.value ?? 0),
+                min: Number(g.min ?? 0),
+                max: Number(g.max ?? 100),
+                label: String(g.label || ""),
+                unit: String(g.unit || "%"),
+                color: g.color as string | undefined,
+              }))
+            : [
+                {
+                  value: Number(parsed.value ?? 0),
+                  min: Number(parsed.min ?? 0),
+                  max: Number(parsed.max ?? 100),
+                  label: String(parsed.label || ""),
+                  unit: String(parsed.unit || "%"),
+                  color: parsed.color as string | undefined,
+                },
+              ];
+        } else if (args?.file) {
+          let content: string;
+          try {
+            content = readFileSync(args.file, "utf-8");
+          } catch (_readErr) {
+            // File might be temporarily unavailable during write, skip this update
+            return;
+          }
+          const parsed = JSON.parse(content);
+          data = Array.isArray(parsed)
+            ? parsed.map((g) => ({
+                value: Number(g.value ?? 0),
+                min: Number(g.min ?? 0),
+                max: Number(g.max ?? 100),
+                label: String(g.label || ""),
+                unit: String(g.unit || "%"),
+                color: g.color as string | undefined,
+              }))
+            : [
+                {
+                  value: Number(parsed.value ?? 0),
+                  min: Number(parsed.min ?? 0),
+                  max: Number(parsed.max ?? 100),
+                  label: String(parsed.label || ""),
+                  unit: String(parsed.unit || "%"),
+                  color: parsed.color as string | undefined,
+                },
+              ];
+        } else if (args?.value !== undefined) {
+          data = [
+            {
+              value: Number.parseFloat(args.value),
+              min: Number.parseFloat(args.min || "0"),
+              max: Number.parseFloat(args.max || "100"),
+              label: args.label || "",
+              unit: args.unit || "%",
+              color: args.color,
+            },
+          ];
+        } else {
+          setError("No data. Use --value <n>, --file <path>, or --data <json>");
           return;
         }
-        const parsed = JSON.parse(content);
-        data = Array.isArray(parsed)
-          ? parsed.map(g => ({
-              value: Number(g.value ?? 0),
-              min: Number(g.min ?? 0),
-              max: Number(g.max ?? 100),
-              label: String(g.label || ''),
-              unit: String(g.unit || '%'),
-              color: g.color as string | undefined,
-            }))
-          : [{
-              value: Number(parsed.value ?? 0),
-              min: Number(parsed.min ?? 0),
-              max: Number(parsed.max ?? 100),
-              label: String(parsed.label || ''),
-              unit: String(parsed.unit || '%'),
-              color: parsed.color as string | undefined,
-            }];
-      } else if (args?.value !== undefined) {
-        data = [{
-          value: parseFloat(args.value),
-          min: parseFloat(args.min || '0'),
-          max: parseFloat(args.max || '100'),
-          label: args.label || '',
-          unit: args.unit || '%',
-          color: args.color,
-        }];
-      } else {
-        setError('No data. Use --value <n>, --file <path>, or --data <json>');
-        return;
+
+        setGauges(data);
+      } catch (e) {
+        setError(`Error: ${e instanceof Error ? e.message : String(e)}`);
       }
+    },
+    { interval: 500 }
+  );
 
-      setGauges(data);
-    } catch (e) {
-      setError(`Error: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }, { interval: 500 });
-
-  useInput((input, key) => {
+  useInput((_input, key) => {
     if (key.escape || key.return) {
       onComplete({
-        action: 'accept',
-        gauges: gauges.map(g => ({ value: g.value, label: g.label })),
+        action: "accept",
+        gauges: gauges.map((g) => ({ value: g.value, label: g.label })),
       });
       exit();
     }

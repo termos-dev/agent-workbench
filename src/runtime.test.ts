@@ -1,20 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  pathToSessionName,
-  getEventsFilePath,
-  ensureEventsFile,
   cwdToProject,
-  sessionNameToProject,
+  ensureEventsFile,
+  getActiveSessions,
+  getEventsFilePath,
+  getIdleMarkerTimestamp,
   getRuntimeRoot,
   getSessionRuntimeDir,
-  writeIdleMarker,
-  getIdleMarkerTimestamp,
-  isSessionEnded,
   isAgentIdle,
-  getActiveSessions,
+  isSessionEnded,
+  pathToSessionName,
+  sessionNameToProject,
+  writeIdleMarker,
 } from "./runtime.js";
 
 describe("runtime", () => {
@@ -36,12 +36,12 @@ describe("runtime", () => {
       // Ignore
     }
     if (originalRuntimeDir === undefined) {
-      delete process.env.TERMOS_RUNTIME_DIR;
+      process.env.TERMOS_RUNTIME_DIR = undefined;
     } else {
       process.env.TERMOS_RUNTIME_DIR = originalRuntimeDir;
     }
     if (originalHome === undefined) {
-      delete process.env.HOME;
+      process.env.HOME = undefined;
     } else {
       process.env.HOME = originalHome;
     }
@@ -101,7 +101,7 @@ describe("runtime", () => {
     });
 
     it("should fall back to ~/.termos/sessions", () => {
-      delete process.env.TERMOS_RUNTIME_DIR;
+      process.env.TERMOS_RUNTIME_DIR = undefined;
       const result = getRuntimeRoot();
       expect(result).toBe(path.join(testDir, ".termos", "sessions"));
     });
@@ -117,7 +117,9 @@ describe("runtime", () => {
   describe("getEventsFilePath", () => {
     it("should return events.jsonl path in session dir", () => {
       const result = getEventsFilePath("test-session");
-      expect(result).toBe(path.join(testDir, "sessions", "test-session", "events.jsonl"));
+      expect(result).toBe(
+        path.join(testDir, "sessions", "test-session", "events.jsonl")
+      );
     });
   });
 
@@ -141,65 +143,67 @@ describe("runtime", () => {
   });
 
   describe("idle markers", () => {
-    it("should write and read idle marker", () => {
+    it("should write and read idle marker", async () => {
       const sessionId = "test-session-id";
       const cwd = "/test/project";
 
       writeIdleMarker(sessionId, cwd);
 
-      const timestamp = getIdleMarkerTimestamp(sessionId);
+      const timestamp = await getIdleMarkerTimestamp(sessionId);
       expect(timestamp).not.toBeNull();
-      expect(timestamp!.getTime()).toBeCloseTo(Date.now(), -3); // Within 1 second
+      expect(timestamp?.getTime()).toBeCloseTo(Date.now(), -3); // Within 1 second
     });
 
-    it("should return null for non-existent marker", () => {
-      const result = getIdleMarkerTimestamp("nonexistent-session");
+    it("should return null for non-existent marker", async () => {
+      const result = await getIdleMarkerTimestamp("nonexistent-session");
       expect(result).toBeNull();
     });
   });
 
   describe("isSessionEnded", () => {
-    it("should return false when no ended marker exists", () => {
-      expect(isSessionEnded("some-session")).toBe(false);
+    it("should return false when no ended marker exists", async () => {
+      expect(await isSessionEnded("some-session")).toBe(false);
     });
 
-    it("should return true when ended marker exists", () => {
+    it("should return true when ended marker exists", async () => {
       const sessionId = "ended-session";
       const markersDir = path.join(testDir, ".termos", "markers", "ended");
       fs.mkdirSync(markersDir, { recursive: true });
       fs.writeFileSync(path.join(markersDir, sessionId), "");
 
-      expect(isSessionEnded(sessionId)).toBe(true);
+      expect(await isSessionEnded(sessionId)).toBe(true);
     });
   });
 
   describe("isAgentIdle", () => {
-    it("should return false when no idle marker exists", () => {
-      expect(isAgentIdle("some-session", new Date().toISOString())).toBe(false);
+    it("should return false when no idle marker exists", async () => {
+      expect(await isAgentIdle("some-session", new Date().toISOString())).toBe(
+        false
+      );
     });
 
-    it("should return true when idle marker is recent relative to session modified", () => {
+    it("should return true when idle marker is recent relative to session modified", async () => {
       const sessionId = "idle-session";
       writeIdleMarker(sessionId, "/test");
 
       // Use a modified time slightly before now
       const modified = new Date(Date.now() - 1000).toISOString();
-      expect(isAgentIdle(sessionId, modified)).toBe(true);
+      expect(await isAgentIdle(sessionId, modified)).toBe(true);
     });
 
-    it("should return false when idle marker is older than session modified time", () => {
+    it("should return false when idle marker is older than session modified time", async () => {
       const sessionId = "stale-idle-session";
       writeIdleMarker(sessionId, "/test");
 
       // Use a modified time in the future
       const modified = new Date(Date.now() + 5000).toISOString();
-      expect(isAgentIdle(sessionId, modified)).toBe(false);
+      expect(await isAgentIdle(sessionId, modified)).toBe(false);
     });
   });
 
   describe("getActiveSessions", () => {
-    it("should return empty array when no sessions exist", () => {
-      const sessions = getActiveSessions();
+    it("should return empty array when no sessions exist", async () => {
+      const sessions = await getActiveSessions();
       expect(sessions).toEqual([]);
     });
   });

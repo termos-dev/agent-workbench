@@ -1,4 +1,4 @@
-import { appendFileSync, readFileSync, existsSync } from "fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 
 const ENV_INTERACTION_ID = "MCP_INTERACTION_ID";
 const ENV_EVENTS_FILE = "MCP_EVENTS_FILE";
@@ -52,14 +52,17 @@ export function emitResult(result: FormResult): void {
       ...(result.answers && { answers: result.answers }),
       ...(result.result !== undefined && { result: result.result }),
     };
-    appendFileSync(eventsFile, JSON.stringify(event) + "\n");
+    appendFileSync(eventsFile, `${JSON.stringify(event)}\n`);
   }
 }
 
 /**
  * Build environment variables for running an interaction command
  */
-export function buildInteractionEnv(interactionId: string, eventsFile: string): Record<string, string> {
+export function buildInteractionEnv(
+  interactionId: string,
+  eventsFile: string
+): Record<string, string> {
   return {
     [ENV_INTERACTION_ID]: interactionId,
     [ENV_EVENTS_FILE]: eventsFile,

@@ -1,5 +1,6 @@
 .ap-default-term-ff {
-  --term-font-family: "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace, "Symbols Nerd Font";
+  --term-font-family: "Cascadia Code", "Source Code Pro", Menlo, Consolas,
+    "DejaVu Sans Mono", monospace, "Symbols Nerd Font";
 }
 div.ap-wrapper {
   outline: none;
@@ -183,7 +184,12 @@ div.ap-player div.ap-control-bar {
   opacity: 0;
   transition: opacity 0.15s linear;
   user-select: none;
-  border-top: 2px solid color-mix(in oklab, var(--term-color-background) 80%, var(--term-color-foreground));
+  border-top: 2px solid
+    color-mix(
+      in oklab,
+      var(--term-color-background) 80%,
+      var(--term-color-foreground)
+    );
   z-index: 30;
 }
 div.ap-player div.ap-control-bar * {
@@ -255,7 +261,11 @@ div.ap-control-bar .ap-progressbar .ap-bar .ap-gutter {
   height: 3px;
 }
 div.ap-control-bar .ap-progressbar .ap-bar .ap-gutter-empty {
-  background-color: color-mix(in oklab, var(--term-color-foreground) 20%, var(--term-color-background));
+  background-color: color-mix(
+    in oklab,
+    var(--term-color-foreground) 20%,
+    var(--term-color-background)
+  );
 }
 div.ap-control-bar .ap-progressbar .ap-bar .ap-gutter-full {
   width: 100%;
@@ -337,9 +347,14 @@ span.ap-marker-container span.ap-marker {
   bottom: 12px;
   left: 7px;
   right: 7px;
-  background-color: color-mix(in oklab, var(--term-color-foreground) 33%, var(--term-color-background));
+  background-color: color-mix(
+    in oklab,
+    var(--term-color-foreground) 33%,
+    var(--term-color-background)
+  );
   position: absolute;
-  transition: top 0.1s, bottom 0.1s, left 0.1s, right 0.1s, background-color 0.1s;
+  transition: top 0.1s, bottom 0.1s, left 0.1s, right 0.1s, background-color
+    0.1s;
   border-radius: 50%;
 }
 span.ap-marker-container span.ap-marker.ap-marker-past {
@@ -425,8 +440,28 @@ span.ap-marker-container:hover span.ap-marker {
   display: inline-block;
   position: relative;
   border: 10px solid;
-  border-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.5) rgba(255, 255, 255, 0.7) #ffffff;
-  border-color: color-mix(in srgb, var(--term-color-foreground) 30%, var(--term-color-background)) color-mix(in srgb, var(--term-color-foreground) 50%, var(--term-color-background)) color-mix(in srgb, var(--term-color-foreground) 70%, var(--term-color-background)) color-mix(in srgb, var(--term-color-foreground) 100%, var(--term-color-background));
+  border-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.5)
+    rgba(255, 255, 255, 0.7) #ffffff;
+  border-color: color-mix(
+      in srgb,
+      var(--term-color-foreground) 30%,
+      var(--term-color-background)
+    )
+    color-mix(
+      in srgb,
+      var(--term-color-foreground) 50%,
+      var(--term-color-background)
+    )
+    color-mix(
+      in srgb,
+      var(--term-color-foreground) 70%,
+      var(--term-color-background)
+    )
+    color-mix(
+      in srgb,
+      var(--term-color-foreground) 100%,
+      var(--term-color-background)
+    );
   box-sizing: border-box;
   animation: ap-loader-rotation 1s linear infinite;
 }
@@ -455,7 +490,12 @@ span.ap-marker-container:hover span.ap-marker {
   padding: calc(min(4cqw, 40px));
   font-size: calc(min(1.9cqw, 18px));
   background-color: var(--term-color-background);
-  border: 1px solid color-mix(in oklab, var(--term-color-background) 90%, var(--term-color-foreground));
+  border: 1px solid
+    color-mix(
+      in oklab,
+      var(--term-color-background) 90%,
+      var(--term-color-foreground)
+    );
   border-radius: 6px;
 }
 .ap-player .ap-overlay-help > div div p {
@@ -653,10 +693,18 @@ span.ap-marker-container:hover span.ap-marker {
   --term-color-14: #93a1a1;
   --term-color-15: #fdf6e3;
 }
-.asciinema-player-theme-solarized-light .ap-overlay-start .ap-play-button svg .ap-play-btn-fill {
+.asciinema-player-theme-solarized-light
+  .ap-overlay-start
+  .ap-play-button
+  svg
+  .ap-play-btn-fill {
   fill: var(--term-color-1);
 }
-.asciinema-player-theme-solarized-light .ap-overlay-start .ap-play-button svg .ap-play-btn-stroke {
+.asciinema-player-theme-solarized-light
+  .ap-overlay-start
+  .ap-play-button
+  svg
+  .ap-play-btn-stroke {
   stroke: var(--term-color-1);
 }
 /*

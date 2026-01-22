@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useMemo } from "react";
-import { Box, Text, useInput, useApp } from "ink";
+import { Box, Text, useApp, useInput } from "ink";
 import TextInput from "ink-text-input";
-import type { FormSchema, FormResult, FormOption } from "../types.js";
+import { useCallback, useMemo, useState } from "react";
+import type { FormOption, FormResult, FormSchema } from "../types.js";
 import { emitResult } from "../types.js";
 
 interface Props {
@@ -19,22 +19,25 @@ export function SchemaForm({ schema, title }: Props) {
   const [cursors, setCursors] = useState<number[]>(() =>
     schema.questions.map(() => 0)
   );
-  const [selections, setSelections] = useState<Map<number, Set<string>>>(() =>
-    new Map(schema.questions.map((_, idx) => [idx, new Set<string>()]))
+  const [selections, setSelections] = useState<Map<number, Set<string>>>(
+    () => new Map(schema.questions.map((_, idx) => [idx, new Set<string>()]))
   );
-  const [textInputs, setTextInputs] = useState<Map<number, string>>(() =>
-    new Map(schema.questions.map((_, idx) => [idx, ""]))
+  const [textInputs, setTextInputs] = useState<Map<number, string>>(
+    () => new Map(schema.questions.map((_, idx) => [idx, ""]))
   );
-  const [otherTexts, setOtherTexts] = useState<Map<number, string>>(() =>
-    new Map(schema.questions.map((_, idx) => [idx, ""]))
+  const [otherTexts, setOtherTexts] = useState<Map<number, string>>(
+    () => new Map(schema.questions.map((_, idx) => [idx, ""]))
   );
 
   const OTHER_VALUE = "__other__";
 
-  const handleComplete = useCallback((result: FormResult) => {
-    emitResult(result);
-    exit();
-  }, [exit]);
+  const handleComplete = useCallback(
+    (result: FormResult) => {
+      emitResult(result);
+      exit();
+    },
+    [exit]
+  );
 
   // Build final answers from selections and text inputs
   const buildAnswers = useCallback(() => {
@@ -45,8 +48,8 @@ export function SchemaForm({ schema, title }: Props) {
         const selected = selections.get(idx) || new Set();
         if (question.multiSelect) {
           // For multi-select, replace __other__ with the custom text
-          const result = Array.from(selected).map(item =>
-            item === OTHER_VALUE ? (otherTexts.get(idx) || "") : item
+          const result = Array.from(selected).map((item) =>
+            item === OTHER_VALUE ? otherTexts.get(idx) || "" : item
           );
           answers[key] = result;
         } else {
@@ -78,10 +81,9 @@ export function SchemaForm({ schema, title }: Props) {
           if (otherText.trim().length === 0) return false;
         }
         return true;
-      } else {
-        const text = textInputs.get(idx) || "";
-        return text.trim().length > 0;
       }
+      const text = textInputs.get(idx) || "";
+      return text.trim().length > 0;
     });
   }, [schema.questions, selections, textInputs, otherTexts]);
 
@@ -109,15 +111,16 @@ export function SchemaForm({ schema, title }: Props) {
     // Skip navigation if "Other" is selected and we're typing in the text input
     if (!isTextInput && !isOtherSelected) {
       if (key.upArrow) {
-        setCursors(prev => {
+        setCursors((prev) => {
           const next = [...prev];
-          next[activeQuestion] = (next[activeQuestion] - 1 + totalOptions) % totalOptions;
+          next[activeQuestion] =
+            (next[activeQuestion] - 1 + totalOptions) % totalOptions;
           return next;
         });
         return;
       }
       if (key.downArrow) {
-        setCursors(prev => {
+        setCursors((prev) => {
           const next = [...prev];
           next[activeQuestion] = (next[activeQuestion] + 1) % totalOptions;
           return next;
@@ -135,7 +138,7 @@ export function SchemaForm({ schema, title }: Props) {
         const optionLabel = currentOptions[cursorPos]?.label;
 
         if (optionLabel) {
-          setSelections(prev => {
+          setSelections((prev) => {
             const newMap = new Map(prev);
             const currentSet = new Set(newMap.get(activeQuestion) || []);
 
@@ -157,7 +160,7 @@ export function SchemaForm({ schema, title }: Props) {
           });
           // For single-select, clear Other text when selecting a regular option
           if (!currentQuestion.multiSelect) {
-            setOtherTexts(prev => {
+            setOtherTexts((prev) => {
               const newMap = new Map(prev);
               newMap.set(activeQuestion, "");
               return newMap;
@@ -170,19 +173,23 @@ export function SchemaForm({ schema, title }: Props) {
 
     // Navigate between questions
     if (key.tab && !key.shift) {
-      setActiveQuestion(prev => Math.min(prev + 1, schema.questions.length - 1));
+      setActiveQuestion((prev) =>
+        Math.min(prev + 1, schema.questions.length - 1)
+      );
       return;
     }
     if (key.tab && key.shift) {
-      setActiveQuestion(prev => Math.max(prev - 1, 0));
+      setActiveQuestion((prev) => Math.max(prev - 1, 0));
       return;
     }
     if (key.rightArrow && !isTextInput) {
-      setActiveQuestion(prev => Math.min(prev + 1, schema.questions.length - 1));
+      setActiveQuestion((prev) =>
+        Math.min(prev + 1, schema.questions.length - 1)
+      );
       return;
     }
     if (key.leftArrow && !isTextInput) {
-      setActiveQuestion(prev => Math.max(prev - 1, 0));
+      setActiveQuestion((prev) => Math.max(prev - 1, 0));
       return;
     }
 
@@ -196,43 +203,49 @@ export function SchemaForm({ schema, title }: Props) {
   });
 
   // Handle text input change
-  const handleTextChange = useCallback((value: string) => {
-    setTextInputs(prev => {
-      const newMap = new Map(prev);
-      newMap.set(activeQuestion, value);
-      return newMap;
-    });
-  }, [activeQuestion]);
+  const handleTextChange = useCallback(
+    (value: string) => {
+      setTextInputs((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(activeQuestion, value);
+        return newMap;
+      });
+    },
+    [activeQuestion]
+  );
 
   // Handle "Other" text input change
-  const handleOtherTextChange = useCallback((qIdx: number) => (value: string) => {
-    setOtherTexts(prev => {
-      const newMap = new Map(prev);
-      newMap.set(qIdx, value);
-      return newMap;
-    });
-    // Auto-select Other when typing, clear other selections for single-select
-    const question = schema.questions[qIdx];
-    if (value.trim()) {
-      setSelections(prev => {
+  const handleOtherTextChange = useCallback(
+    (qIdx: number) => (value: string) => {
+      setOtherTexts((prev) => {
         const newMap = new Map(prev);
-        const currentSet = new Set(newMap.get(qIdx) || []);
-        if (!question?.multiSelect) currentSet.clear(); // Single-select: clear others
-        currentSet.add(OTHER_VALUE);
-        newMap.set(qIdx, currentSet);
+        newMap.set(qIdx, value);
         return newMap;
       });
-    } else {
-      // Clear Other selection when text is empty
-      setSelections(prev => {
-        const newMap = new Map(prev);
-        const currentSet = new Set(newMap.get(qIdx) || []);
-        currentSet.delete(OTHER_VALUE);
-        newMap.set(qIdx, currentSet);
-        return newMap;
-      });
-    }
-  }, [schema.questions]);
+      // Auto-select Other when typing, clear other selections for single-select
+      const question = schema.questions[qIdx];
+      if (value.trim()) {
+        setSelections((prev) => {
+          const newMap = new Map(prev);
+          const currentSet = new Set(newMap.get(qIdx) || []);
+          if (!question?.multiSelect) currentSet.clear(); // Single-select: clear others
+          currentSet.add(OTHER_VALUE);
+          newMap.set(qIdx, currentSet);
+          return newMap;
+        });
+      } else {
+        // Clear Other selection when text is empty
+        setSelections((prev) => {
+          const newMap = new Map(prev);
+          const currentSet = new Set(newMap.get(qIdx) || []);
+          currentSet.delete(OTHER_VALUE);
+          newMap.set(qIdx, currentSet);
+          return newMap;
+        });
+      }
+    },
+    [schema.questions]
+  );
 
   // Handle "Other" text input submission
   const handleOtherTextSubmit = useCallback(() => {
@@ -242,36 +255,39 @@ export function SchemaForm({ schema, title }: Props) {
   }, [canSubmit, handleComplete, buildAnswers]);
 
   // Handle text input submission
-  const handleTextSubmit = useCallback((value: string) => {
-    const trimmed = value.replace(/[\r\n]+$/, "");
-    const question = schema.questions[activeQuestion];
+  const handleTextSubmit = useCallback(
+    (value: string) => {
+      const trimmed = value.replace(/[\r\n]+$/, "");
+      const question = schema.questions[activeQuestion];
 
-    if (question.validation) {
-      const regex = new RegExp(question.validation);
-      if (!regex.test(trimmed)) {
-        // TODO: Show validation error
-        return;
+      if (question.validation) {
+        const regex = new RegExp(question.validation);
+        if (!regex.test(trimmed)) {
+          // TODO: Show validation error
+          return;
+        }
       }
-    }
 
-    // Save trimmed value
-    setTextInputs(prev => {
-      const newMap = new Map(prev);
-      newMap.set(activeQuestion, trimmed);
-      return newMap;
-    });
+      // Save trimmed value
+      setTextInputs((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(activeQuestion, trimmed);
+        return newMap;
+      });
 
-    // Move to next question or submit if last
-    if (activeQuestion < schema.questions.length - 1) {
-      setActiveQuestion(activeQuestion + 1);
-    } else {
-      // On last question, check if we can submit
-      const answers = buildAnswers();
-      // Override with trimmed value for current question
-      answers[question.header] = trimmed;
-      handleComplete({ action: "accept", answers });
-    }
-  }, [activeQuestion, schema.questions, buildAnswers, handleComplete]);
+      // Move to next question or submit if last
+      if (activeQuestion < schema.questions.length - 1) {
+        setActiveQuestion(activeQuestion + 1);
+      } else {
+        // On last question, check if we can submit
+        const answers = buildAnswers();
+        // Override with trimmed value for current question
+        answers[question.header] = trimmed;
+        handleComplete({ action: "accept", answers });
+      }
+    },
+    [activeQuestion, schema.questions, buildAnswers, handleComplete]
+  );
 
   if (schema.questions.length === 0) {
     return <Text color="red">No questions in schema</Text>;
@@ -281,7 +297,9 @@ export function SchemaForm({ schema, title }: Props) {
     <Box flexDirection="column" padding={1}>
       {title && (
         <Box marginBottom={1}>
-          <Text bold color="cyan">{title}</Text>
+          <Text bold color="cyan">
+            {title}
+          </Text>
         </Box>
       )}
 
@@ -312,9 +330,7 @@ export function SchemaForm({ schema, title }: Props) {
             )}
 
             {/* Question text */}
-            <Text color={isActive ? "white" : "gray"}>
-              {question.question}
-            </Text>
+            <Text color={isActive ? "white" : "gray"}>{question.question}</Text>
 
             {/* Options or text input */}
             {questionIsTextInput ? (
@@ -329,7 +345,9 @@ export function SchemaForm({ schema, title }: Props) {
                     mask={question.inputType === "password" ? "*" : undefined}
                   />
                 ) : (
-                  <Text dimColor>{textValue || question.placeholder || "Type your answer..."}</Text>
+                  <Text dimColor>
+                    {textValue || question.placeholder || "Type your answer..."}
+                  </Text>
                 )}
               </Box>
             ) : (
@@ -341,14 +359,31 @@ export function SchemaForm({ schema, title }: Props) {
                   return (
                     <Box key={oIdx}>
                       <Text
-                        color={isActive && isCursor ? "cyan" : isSelected ? "green" : isActive ? "white" : "gray"}
+                        color={
+                          isActive && isCursor
+                            ? "cyan"
+                            : isSelected
+                              ? "green"
+                              : isActive
+                                ? "white"
+                                : "gray"
+                        }
                         bold={isActive && isCursor}
                       >
                         {isActive && isCursor ? "> " : "  "}
-                        {question.multiSelect ? (isSelected ? "[x] " : "[ ] ") : (isSelected ? "(●) " : "( ) ")}
+                        {question.multiSelect
+                          ? isSelected
+                            ? "[x] "
+                            : "[ ] "
+                          : isSelected
+                            ? "(●) "
+                            : "( ) "}
                         {opt.label}
                         {opt.description && (
-                          <Text dimColor={!isActive || !isCursor}> - {opt.description}</Text>
+                          <Text dimColor={!isActive || !isCursor}>
+                            {" "}
+                            - {opt.description}
+                          </Text>
                         )}
                       </Text>
                     </Box>
@@ -364,11 +399,25 @@ export function SchemaForm({ schema, title }: Props) {
                   return (
                     <Box>
                       <Text
-                        color={isActive && isCursorOnOther ? "cyan" : hasOtherText ? "green" : isActive ? "white" : "gray"}
+                        color={
+                          isActive && isCursorOnOther
+                            ? "cyan"
+                            : hasOtherText
+                              ? "green"
+                              : isActive
+                                ? "white"
+                                : "gray"
+                        }
                         bold={isActive && isCursorOnOther}
                       >
                         {isActive && isCursorOnOther ? "> " : "  "}
-                        {question.multiSelect ? (hasOtherText ? "[x] " : "[ ] ") : (hasOtherText ? "(●) " : "( ) ")}
+                        {question.multiSelect
+                          ? hasOtherText
+                            ? "[x] "
+                            : "[ ] "
+                          : hasOtherText
+                            ? "(●) "
+                            : "( ) "}
                       </Text>
                       {isActive && isCursorOnOther ? (
                         <TextInput
@@ -378,7 +427,10 @@ export function SchemaForm({ schema, title }: Props) {
                           placeholder="Other..."
                         />
                       ) : (
-                        <Text dimColor={!hasOtherText} color={hasOtherText ? "green" : undefined}>
+                        <Text
+                          dimColor={!hasOtherText}
+                          color={hasOtherText ? "green" : undefined}
+                        >
                           {otherTextValue || "Other..."}
                         </Text>
                       )}
@@ -394,7 +446,8 @@ export function SchemaForm({ schema, title }: Props) {
       {/* Help text */}
       <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
         <Text dimColor>
-          ↑↓ navigate options • Tab/Shift+Tab switch questions • Space toggle • Enter submit • Esc cancel
+          ↑↓ navigate options • Tab/Shift+Tab switch questions • Space toggle •
+          Enter submit • Esc cancel
         </Text>
       </Box>
     </Box>

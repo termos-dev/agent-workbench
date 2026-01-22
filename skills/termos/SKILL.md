@@ -1,13 +1,12 @@
 ---
 name: termos
-description: Run Termos interactive UI inside Zellij for Codex sessions. Use when the user asks for interactive questions, confirmations, checklists, tables, code/diff/markdown/mermaid views, or any Termos UI.
+description: Run Termos interactive UI components. Use when the user asks for interactive questions, confirmations, checklists, tables, code/diff/markdown/mermaid views, or any Termos UI.
 ---
 
 # Termos
 
 ## Quick Start
 
-Run inside a Zellij session (or on macOS without Zellij):
 ```bash
 termos run --title "Confirm" confirm --prompt "Proceed?"
 termos wait <id>  # blocks until user responds
@@ -22,57 +21,22 @@ termos run --help
 
 This prints all component arguments. Do NOT guess argument names.
 
-On macOS without Zellij, Termos will open Ghostty if available, otherwise a Terminal tab for each interaction.
-
 `--title` is required for all `termos run` invocations.
 
-## Background processes (Codex/Claude skills only)
+## Running Commands
 
-- Do not use Codex/Claude background-process tools.
-- Do not use shell backgrounding (`&`) for long-running tasks.
-- All background/long-running processes must be started with `termos run -- <command>` so they live in their own Zellij tab/pane.
+Use `--cmd` or `-- <command>` to run shell commands:
 
-Example:
 ```bash
+# Run a command (blocking, captures output)
+termos run --title "HTTP Server" --cmd "python3 -m http.server 8080"
+
+# Using -- separator
 termos run --title "HTTP Server" -- python3 -m http.server 8080
+
+# Live streaming output (non-blocking)
+termos run --title "Build" --live --cmd "npm run build"
 ```
-
-## Position Presets
-
-Use `--position <preset>` to control where interactions appear:
-
-**Floating (overlay panes):**
-- `floating` - Top-right (default for components)
-- `floating:center` - Centered
-- `floating:top-left` - Top-left corner
-- `floating:top-right` - Top-right corner
-- `floating:bottom-left` - Bottom-left corner
-- `floating:bottom-right` - Bottom-right corner
-
-**Split (Zellij only - integrated into layout):**
-- `split` - Auto-detect direction based on terminal size
-- `split:right` - Side-by-side split
-- `split:down` - Stacked split
-
-**Tab:**
-- `tab` - New tab (default for commands)
-
-Examples:
-```bash
-# Floating (default for components)
-termos run --title "Confirm" confirm --prompt "Proceed?"
-
-# Centered floating pane
-termos run --title "Question" --position floating:center ask --questions '[{"question":"Name?","header":"name"}]'
-
-# Split pane (Zellij only)
-termos run --title "Review" --position split confirm --prompt "Approve changes?"
-
-# Tab (default for commands)
-termos run --title "Server" -- python3 -m http.server 8080
-```
-
-Note: Split positions only work in Zellij. On macOS without Zellij, split falls back to a new window.
 
 ## Async Workflow (IMPORTANT)
 
@@ -81,8 +45,8 @@ Note: Split positions only work in Zellij. On macOS without Zellij, split falls 
 **Correct pattern:**
 ```bash
 # Fire multiple interactions at once
-termos run --title "Q1" --position floating:top-left confirm --prompt "Approve?"
-termos run --title "Q2" --position floating:top-right checklist --items "A,B,C"
+termos run --title "Q1" confirm --prompt "Approve?"
+termos run --title "Q2" checklist --items "A,B,C"
 # Continue working, then wait for results:
 termos wait <id1>
 termos wait <id2>
@@ -114,4 +78,3 @@ Multi-select (checkboxes):
 ```bash
 termos run --title "Features" ask --questions '[{"question":"Select features","header":"features","multiSelect":true,"options":[{"label":"Auth"},{"label":"API"},{"label":"Dashboard"}]}]'
 ```
-

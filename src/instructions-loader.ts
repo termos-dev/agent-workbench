@@ -1,6 +1,6 @@
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 const USER_INSTRUCTIONS_PATH = path.join(os.homedir(), ".termos", "termos.md");
 const PROJECT_INSTRUCTIONS_FILE = "termos.md";
@@ -19,7 +19,11 @@ function loadUserInstructions(): string {
 
 function loadProjectInstructions(cwd: string): string {
   // Check .termos/termos.md first, then termos.md in root
-  const dirPath = path.join(cwd, PROJECT_INSTRUCTIONS_DIR, PROJECT_INSTRUCTIONS_FILE);
+  const dirPath = path.join(
+    cwd,
+    PROJECT_INSTRUCTIONS_DIR,
+    PROJECT_INSTRUCTIONS_FILE
+  );
   const rootPath = path.join(cwd, PROJECT_INSTRUCTIONS_FILE);
 
   try {
@@ -91,7 +95,9 @@ export function loadTuiEditorConfig(cwd: string): TuiEditorConfig | null {
     if (!instructions) continue;
 
     // Look for TUI Editor YAML block
-    const yamlMatch = instructions.match(/## TUI Editor\n```yaml\n([\s\S]*?)```/);
+    const yamlMatch = instructions.match(
+      /## TUI Editor\n```yaml\n([\s\S]*?)```/
+    );
     if (yamlMatch) {
       const config = parseSimpleYaml(yamlMatch[1]);
       if (config) return config;

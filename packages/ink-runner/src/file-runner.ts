@@ -1,10 +1,10 @@
+import { spawn } from "node:child_process";
+import * as fs from "node:fs";
+import { createRequire } from "node:module";
+import * as os from "node:os";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
-import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
-import { spawn } from "child_process";
-import { createRequire } from "module";
-import { fileURLToPath } from "url";
 import { emitResult } from "./types.js";
 
 // ESM compatibility for __dirname
@@ -64,9 +64,10 @@ export async function runFromFile(
   title?: string
 ): Promise<void> {
   // Handle both old and new API
-  const options: RunFromFileOptions = typeof filePathOrOptions === "string"
-    ? { filePath: filePathOrOptions, title }
-    : filePathOrOptions;
+  const options: RunFromFileOptions =
+    typeof filePathOrOptions === "string"
+      ? { filePath: filePathOrOptions, title }
+      : filePathOrOptions;
 
   const filePath = options.filePath;
   // Disable sandbox by default in Docker/Linux due to Node.js permission assertion bug
@@ -162,11 +163,42 @@ render(React.createElement(Component));
 
     // Node.js built-in modules - use node: prefix for ESM
     const nodeBuiltins = [
-      "assert", "buffer", "child_process", "cluster", "console", "constants",
-      "crypto", "dgram", "dns", "domain", "events", "fs", "http", "https",
-      "module", "net", "os", "path", "perf_hooks", "process", "punycode",
-      "querystring", "readline", "repl", "stream", "string_decoder", "sys",
-      "timers", "tls", "tty", "url", "util", "v8", "vm", "worker_threads", "zlib"
+      "assert",
+      "buffer",
+      "child_process",
+      "cluster",
+      "console",
+      "constants",
+      "crypto",
+      "dgram",
+      "dns",
+      "domain",
+      "events",
+      "fs",
+      "http",
+      "https",
+      "module",
+      "net",
+      "os",
+      "path",
+      "perf_hooks",
+      "process",
+      "punycode",
+      "querystring",
+      "readline",
+      "repl",
+      "stream",
+      "string_decoder",
+      "sys",
+      "timers",
+      "tls",
+      "tty",
+      "url",
+      "util",
+      "v8",
+      "vm",
+      "worker_threads",
+      "zlib",
     ];
 
     // Create external list with node: prefix for proper ESM resolution
@@ -205,39 +237,49 @@ const __dirname = __dirname_fn(__filename);
           name: "resolve-ink-runner-deps",
           setup(build) {
             // Resolve bare specifiers for ink, react, and ink-* packages
-            build.onResolve({ filter: /^(ink|ink-[a-z-]+|react|react\/jsx-runtime)$/ }, (args) => {
-              try {
-                // Explicitly resolve from ink-runner's node_modules, not from CWD
-                // This is critical when running as a Claude Code plugin
-                const modulePath = path.join(inkRunnerNodeModules, args.path);
+            build.onResolve(
+              { filter: /^(ink|ink-[a-z-]+|react|react\/jsx-runtime)$/ },
+              (args) => {
+                try {
+                  // Explicitly resolve from ink-runner's node_modules, not from CWD
+                  // This is critical when running as a Claude Code plugin
+                  const modulePath = path.join(inkRunnerNodeModules, args.path);
 
-                // For react/jsx-runtime, we need to resolve the actual file
-                if (args.path === "react/jsx-runtime") {
-                  const jsxRuntimePath = path.join(inkRunnerNodeModules, "react", "jsx-runtime.js");
-                  if (fs.existsSync(jsxRuntimePath)) {
-                    return { path: jsxRuntimePath };
+                  // For react/jsx-runtime, we need to resolve the actual file
+                  if (args.path === "react/jsx-runtime") {
+                    const jsxRuntimePath = path.join(
+                      inkRunnerNodeModules,
+                      "react",
+                      "jsx-runtime.js"
+                    );
+                    if (fs.existsSync(jsxRuntimePath)) {
+                      return { path: jsxRuntimePath };
+                    }
                   }
-                }
 
-                // For ink and react, resolve using require.resolve with explicit paths
-                const pkgJsonPath = path.join(modulePath, "package.json");
-                if (fs.existsSync(pkgJsonPath)) {
-                  const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
-                  // Use the main/module/exports field to find the entry point
-                  const entryPoint = pkgJson.module || pkgJson.main || "index.js";
-                  const resolvedPath = path.join(modulePath, entryPoint);
-                  if (fs.existsSync(resolvedPath)) {
-                    return { path: resolvedPath };
+                  // For ink and react, resolve using require.resolve with explicit paths
+                  const pkgJsonPath = path.join(modulePath, "package.json");
+                  if (fs.existsSync(pkgJsonPath)) {
+                    const pkgJson = JSON.parse(
+                      fs.readFileSync(pkgJsonPath, "utf-8")
+                    );
+                    // Use the main/module/exports field to find the entry point
+                    const entryPoint =
+                      pkgJson.module || pkgJson.main || "index.js";
+                    const resolvedPath = path.join(modulePath, entryPoint);
+                    if (fs.existsSync(resolvedPath)) {
+                      return { path: resolvedPath };
+                    }
                   }
-                }
 
-                // Fallback to require.resolve
-                const resolved = require.resolve(args.path);
-                return { path: resolved };
-              } catch {
-                return null; // Let esbuild handle it
+                  // Fallback to require.resolve
+                  const resolved = require.resolve(args.path);
+                  return { path: resolved };
+                } catch {
+                  return null; // Let esbuild handle it
+                }
               }
-            });
+            );
           },
         },
         // Stub out react-devtools-core (optional peer dep)
@@ -249,7 +291,8 @@ const __dirname = __dirname_fn(__filename);
               namespace: "stub",
             }));
             build.onLoad({ filter: /.*/, namespace: "stub" }, () => ({
-              contents: "export default {}; export const connectToDevTools = () => {};",
+              contents:
+                "export default {}; export const connectToDevTools = () => {};",
             }));
           },
         },
@@ -271,8 +314,12 @@ const __dirname = __dirname_fn(__filename);
     if (sandbox.enabled !== false) {
       // Enable permission model for sandboxing
       // Node 20-22: --experimental-permission, Node 23+: --permission
-      const nodeVersion = parseInt(process.versions.node.split(".")[0], 10);
-      const permissionFlag = nodeVersion >= 23 ? "--permission" : "--experimental-permission";
+      const nodeVersion = Number.parseInt(
+        process.versions.node.split(".")[0],
+        10
+      );
+      const permissionFlag =
+        nodeVersion >= 23 ? "--permission" : "--experimental-permission";
       nodeArgs.push(permissionFlag);
 
       // Sandbox strategy: Block dangerous capabilities while allowing filesystem
@@ -328,7 +375,6 @@ const __dirname = __dirname_fn(__filename);
       });
       child.on("error", reject);
     });
-
   } catch (err) {
     console.error("Error bundling/running file:");
     console.error(err instanceof Error ? err.message : String(err));

@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   builtinComponents,
-  positionalArgMap,
-  isBuiltinComponent,
   getBuiltinComponentFile,
+  isBuiltinComponent,
+  positionalArgMap,
 } from "./component-registry.js";
 
 describe("component-registry", () => {
@@ -33,27 +33,27 @@ describe("component-registry", () => {
     });
 
     it("should support both with and without .tsx extension", () => {
-      expect(builtinComponents["confirm"]).toBe("confirm.tsx");
+      expect(builtinComponents.confirm).toBe("confirm.tsx");
       expect(builtinComponents["confirm.tsx"]).toBe("confirm.tsx");
     });
   });
 
   describe("positionalArgMap", () => {
     it("should map confirm to prompt", () => {
-      expect(positionalArgMap["confirm"]).toBe("prompt");
+      expect(positionalArgMap.confirm).toBe("prompt");
       expect(positionalArgMap["confirm.tsx"]).toBe("prompt");
     });
 
     it("should map checklist to items", () => {
-      expect(positionalArgMap["checklist"]).toBe("items");
+      expect(positionalArgMap.checklist).toBe("items");
     });
 
     it("should map markdown to file", () => {
-      expect(positionalArgMap["markdown"]).toBe("file");
+      expect(positionalArgMap.markdown).toBe("file");
     });
 
     it("should map progress to steps", () => {
-      expect(positionalArgMap["progress"]).toBe("steps");
+      expect(positionalArgMap.progress).toBe("steps");
     });
   });
 

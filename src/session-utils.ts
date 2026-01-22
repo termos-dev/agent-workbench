@@ -4,8 +4,8 @@
  * These functions help detect the current Claude session ID from various sources.
  */
 
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { ACTIVE_MARKER_STALE_MS } from "./constants.js";
 
 /**
@@ -64,8 +64,7 @@ export function detectClaudeSessionId(): string | undefined {
 
     // Find most recently modified session
     const sorted = [...index.entries].sort(
-      (a, b) =>
-        new Date(b.modified).getTime() - new Date(a.modified).getTime()
+      (a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime()
     );
 
     return sorted[0]?.sessionId;

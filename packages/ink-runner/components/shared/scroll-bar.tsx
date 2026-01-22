@@ -1,5 +1,4 @@
-import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text } from "ink";
 
 interface ScrollBarProps {
   /** Scroll position from 0 to 1 */
@@ -19,16 +18,18 @@ export function ScrollBar({ position, height }: ScrollBarProps) {
   const chars: string[] = [];
   for (let i = 0; i < trackHeight; i++) {
     if (i >= thumbPos && i < thumbPos + thumbSize) {
-      chars.push('\u2588'); // Full block
+      chars.push("\u2588"); // Full block
     } else {
-      chars.push('\u2591'); // Light shade
+      chars.push("\u2591"); // Light shade
     }
   }
 
   return (
     <Box flexDirection="column" marginLeft={1}>
       {chars.map((char, i) => (
-        <Text key={i} color="gray">{char}</Text>
+        <Text key={i} color="gray">
+          {char}
+        </Text>
       ))}
     </Box>
   );

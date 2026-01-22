@@ -1,33 +1,71 @@
-import { Box, Text, useInput, useApp } from 'ink';
-import { useState, useEffect } from 'react';
-import { readFileSync } from 'fs';
-import { useTerminalSize, ScrollBar, useMouseScroll, useFileWatch } from './shared/index.js';
+import { readFileSync } from "node:fs";
+import { Box, Text, useApp, useInput } from "ink";
+import { useEffect, useState } from "react";
+import {
+  ScrollBar,
+  useFileWatch,
+  useMouseScroll,
+  useTerminalSize,
+} from "./shared/index.js";
 
 declare const onComplete: (result: unknown) => void;
-declare const args: { file?: string; content?: string; title?: string; 'no-header'?: boolean };
+declare const args: {
+  file?: string;
+  content?: string;
+  title?: string;
+  "no-header"?: boolean;
+};
 
 // Simple markdown rendering
 function renderLine(line: string, idx: number) {
-  if (line.startsWith('### ')) {
-    return <Text key={idx} color="yellow">{line.slice(4)}</Text>;
+  if (line.startsWith("### ")) {
+    return (
+      <Text key={idx} color="yellow">
+        {line.slice(4)}
+      </Text>
+    );
   }
-  if (line.startsWith('## ')) {
-    return <Text key={idx} bold color="cyan">{line.slice(3)}</Text>;
+  if (line.startsWith("## ")) {
+    return (
+      <Text key={idx} bold color="cyan">
+        {line.slice(3)}
+      </Text>
+    );
   }
-  if (line.startsWith('# ')) {
-    return <Text key={idx} bold color="green">{line.slice(2)}</Text>;
+  if (line.startsWith("# ")) {
+    return (
+      <Text key={idx} bold color="green">
+        {line.slice(2)}
+      </Text>
+    );
   }
-  if (line.startsWith('- [ ] ')) {
-    return <Text key={idx}><Text color="gray">☐</Text> {line.slice(6)}</Text>;
+  if (line.startsWith("- [ ] ")) {
+    return (
+      <Text key={idx}>
+        <Text color="gray">☐</Text> {line.slice(6)}
+      </Text>
+    );
   }
-  if (line.startsWith('- [x] ')) {
-    return <Text key={idx}><Text color="green">☑</Text> {line.slice(6)}</Text>;
+  if (line.startsWith("- [x] ")) {
+    return (
+      <Text key={idx}>
+        <Text color="green">☑</Text> {line.slice(6)}
+      </Text>
+    );
   }
-  if (line.startsWith('- ')) {
-    return <Text key={idx}><Text color="blue">•</Text> {line.slice(2)}</Text>;
+  if (line.startsWith("- ")) {
+    return (
+      <Text key={idx}>
+        <Text color="blue">•</Text> {line.slice(2)}
+      </Text>
+    );
   }
-  if (line.startsWith('```')) {
-    return <Text key={idx} dimColor>{line}</Text>;
+  if (line.startsWith("```")) {
+    return (
+      <Text key={idx} dimColor>
+        {line}
+      </Text>
+    );
   }
   if (!line.trim()) {
     return <Text key={idx}> </Text>;
@@ -39,18 +77,18 @@ export default function MarkdownViewer() {
   const { exit } = useApp();
   const { rows } = useTerminalSize();
   const [scroll, setScroll] = useState(0);
-  const [content, setContent] = useState('');
+  const [_content, setContent] = useState("");
   const [lines, setLines] = useState<string[]>([]);
 
   const filePath = args?.file;
   const inlineContent = args?.content;
-  const title = args?.title || 'Markdown';
+  const title = args?.title || "Markdown";
 
   // Handle inline content (no file watching needed)
   useEffect(() => {
     if (inlineContent) {
       setContent(inlineContent);
-      setLines(inlineContent.split('\n'));
+      setLines(inlineContent.split("\n"));
     }
   }, [inlineContent]);
 
@@ -59,16 +97,16 @@ export default function MarkdownViewer() {
     if (inlineContent) return; // Skip if using inline content
 
     if (!filePath) {
-      setContent('No content specified');
-      setLines(['No content. Use --file <path> or --content <markdown>']);
+      setContent("No content specified");
+      setLines(["No content. Use --file <path> or --content <markdown>"]);
       return;
     }
 
     try {
-      const text = readFileSync(filePath, 'utf-8');
+      const text = readFileSync(filePath, "utf-8");
       setContent(text);
-      setLines(text.split('\n'));
-    } catch (e) {
+      setLines(text.split("\n"));
+    } catch (_e) {
       setContent(`Error: ${filePath}`);
       setLines([`Error reading: ${filePath}`]);
     }
@@ -81,22 +119,22 @@ export default function MarkdownViewer() {
   // Mouse scroll support
   useMouseScroll({ scroll, maxScroll, setScroll });
 
-  useInput((input, key) => {
+  useInput((_input, key) => {
     if (key.escape) {
       onComplete({ closed: true, file: filePath });
       exit();
     }
-    if (key.upArrow || input === 'k') {
-      setScroll(s => Math.max(0, s - 1));
+    if (key.upArrow) {
+      setScroll((s) => Math.max(0, s - 1));
     }
-    if (key.downArrow || input === 'j') {
-      setScroll(s => Math.min(maxScroll, s + 1));
+    if (key.downArrow) {
+      setScroll((s) => Math.min(maxScroll, s + 1));
     }
     if (key.pageUp) {
-      setScroll(s => Math.max(0, s - visibleLines));
+      setScroll((s) => Math.max(0, s - visibleLines));
     }
     if (key.pageDown) {
-      setScroll(s => Math.min(maxScroll, s + visibleLines));
+      setScroll((s) => Math.min(maxScroll, s + visibleLines));
     }
   });
 
@@ -105,11 +143,17 @@ export default function MarkdownViewer() {
 
   return (
     <Box flexDirection="column">
-      {!args?.['no-header'] && (
+      {!args?.["no-header"] && (
         <Box paddingX={1}>
-          <Text bold color="cyan">{title}</Text>
+          <Text bold color="cyan">
+            {title}
+          </Text>
           {showScrollBar && (
-            <Text dimColor> ({scroll + 1}-{Math.min(scroll + visibleLines, lines.length)}/{lines.length})</Text>
+            <Text dimColor>
+              {" "}
+              ({scroll + 1}-{Math.min(scroll + visibleLines, lines.length)}/
+              {lines.length})
+            </Text>
           )}
         </Box>
       )}
@@ -125,8 +169,8 @@ export default function MarkdownViewer() {
       </Box>
 
       <Box paddingX={1}>
-        <Text dimColor>q=close  ↑↓/jk=scroll  PgUp/PgDn</Text>
-        {showScrollBar && <Text dimColor>  mouse=scroll</Text>}
+        <Text dimColor>q=close ↑↓=scroll PgUp/PgDn</Text>
+        {showScrollBar && <Text dimColor> mouse=scroll</Text>}
       </Box>
     </Box>
   );

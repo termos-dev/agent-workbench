@@ -1,15 +1,18 @@
 #!/usr/bin/env npx tsx
 /**
- * Dashboard runner - standalone entry point for the termos dashboard TUI.
+ * Dashboard runner - standalone entry point for the termos tui command.
  * Run with: npx tsx packages/ink-runner/components/dashboard/run.tsx
  */
 
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { render } from "ink";
 import React from "react";
-import { execFile } from "child_process";
-import { promisify } from "util";
+import {
+  deleteDashboardMarker,
+  writeDashboardMarker,
+} from "../../../../src/runtime.js";
 import Dashboard from "./dashboard.js";
-import { writeDashboardMarker, deleteDashboardMarker } from "../../../../src/runtime.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -107,26 +110,26 @@ const args = parseArgs();
 });
 
 // Handle stream errors (EIO when terminal disconnects)
-process.stdin.on('error', () => process.exit(0));
-process.stdout.on('error', () => process.exit(0));
-process.stderr.on('error', () => process.exit(0));
+process.stdin.on("error", () => process.exit(0));
+process.stdout.on("error", () => process.exit(0));
+process.stderr.on("error", () => process.exit(0));
 
 async function main(): Promise<void> {
   // Write marker so termos run knows dashboard is handling interactions
   writeDashboardMarker();
 
   // Use alternate screen buffer so quitting returns to previous terminal content
-  process.stdout.write('\x1b[?1049h'); // Enter alternate screen
-  process.stdout.write('\x1b[?25l');   // Hide cursor
+  process.stdout.write("\x1b[?1049h"); // Enter alternate screen
+  process.stdout.write("\x1b[?25l"); // Hide cursor
 
   const cleanup = () => {
     deleteDashboardMarker();
-    process.stdout.write('\x1b[?25h');   // Show cursor
-    process.stdout.write('\x1b[?1049l'); // Exit alternate screen
+    process.stdout.write("\x1b[?25h"); // Show cursor
+    process.stdout.write("\x1b[?1049l"); // Exit alternate screen
   };
 
   // Ensure cleanup on exit
-  process.on('exit', cleanup);
+  process.on("exit", cleanup);
 
   // Pass args via props (dependency injection) instead of globals
   const { waitUntilExit } = render(
@@ -144,25 +147,34 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error("Fatal error:", err instanceof Error ? err.stack || err.message : String(err));
+  console.error(
+    "Fatal error:",
+    err instanceof Error ? err.stack || err.message : String(err)
+  );
   process.exit(1);
 });
 
 // Catch unhandled rejections and exceptions
-process.on('uncaughtException', (err) => {
+process.on("uncaughtException", (err) => {
   // Write to stderr and a log file for debugging
   const msg = `Uncaught exception: ${err.stack || err.message}`;
   console.error(msg);
   try {
-    require('fs').appendFileSync('/tmp/termos-crash.log', `${new Date().toISOString()} ${msg}\n`);
+    require("node:fs").appendFileSync(
+      "/tmp/termos-crash.log",
+      `${new Date().toISOString()} ${msg}\n`
+    );
   } catch {}
   process.exit(1);
 });
-process.on('unhandledRejection', (reason) => {
+process.on("unhandledRejection", (reason) => {
   const msg = `Unhandled rejection: ${reason}`;
   console.error(msg);
   try {
-    require('fs').appendFileSync('/tmp/termos-crash.log', `${new Date().toISOString()} ${msg}\n`);
+    require("node:fs").appendFileSync(
+      "/tmp/termos-crash.log",
+      `${new Date().toISOString()} ${msg}\n`
+    );
   } catch {}
   process.exit(1);
 });

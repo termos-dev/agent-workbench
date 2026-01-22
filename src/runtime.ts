@@ -1,8 +1,13 @@
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
-import { getAgentState, type AgentState } from "./events.js";
-import { DEFAULT_THRESHOLD_MS, MARKER_CLEANUP_MS, IDLE_GRACE_PERIOD_MS } from "./constants.js";
+import * as fs from "node:fs";
+import * as fsp from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+import {
+  DEFAULT_THRESHOLD_MS,
+  IDLE_GRACE_PERIOD_MS,
+  MARKER_CLEANUP_MS,
+} from "./constants.js";
+import { getAgentState } from "./events.js";
 
 /**
  * Get the Claude Code projects directory.
@@ -25,12 +30,12 @@ export function getClaudeSessionsIndexPath(projectPath: string): string {
  */
 export interface ClaudeSessionEntry {
   sessionId: string;
-  modified: string;       // ISO timestamp
+  modified: string; // ISO timestamp
   projectPath: string;
   messageCount: number;
   fullPath?: string;
   gitBranch?: string;
-  firstPrompt?: string;   // User's initial prompt for this session
+  firstPrompt?: string; // User's initial prompt for this session
 }
 
 /**
@@ -46,28 +51,26 @@ export interface ClaudeSessionsIndex {
 export interface ActiveSession {
   sessionId: string;
   projectPath: string;
-  project: string;           // Short project name
-  modified: string;          // Last activity timestamp
+  project: string; // Short project name
+  modified: string; // Last activity timestamp
   messageCount: number;
   gitBranch?: string;
-  title?: string;            // Short title (set via termos set-title)
-  firstPrompt?: string;      // User's initial prompt for this session
-  status: 'running' | 'idle' | 'thinking';
-  source: 'index' | 'marker' | 'both';  // Where we detected this session
+  title?: string; // Short title (set via termos set-title)
+  firstPrompt?: string; // User's initial prompt for this session
+  status: "running" | "idle" | "thinking";
+  source: "index" | "marker" | "both"; // Where we detected this session
 }
-
 
 /**
  * Get cached title for a session (set via `termos set-title`).
  */
-function getCachedTitle(sessionId: string): string | undefined {
+async function getCachedTitle(sessionId: string): Promise<string | undefined> {
   const titlePath = path.join(os.homedir(), ".termos", "titles", sessionId);
   try {
-    if (fs.existsSync(titlePath)) {
-      return fs.readFileSync(titlePath, "utf-8").trim() || undefined;
-    }
+    const content = await fsp.readFile(titlePath, "utf-8");
+    return content.trim() || undefined;
   } catch {
-    // Ignore errors
+    // Ignore errors (file doesn't exist or read failed)
   }
   return undefined;
 }
@@ -75,25 +78,23 @@ function getCachedTitle(sessionId: string): string | undefined {
 /**
  * Clean up stale markers from a directory (older than 1 hour).
  */
-function cleanupStaleMarkers(dir: string): void {
-  if (!fs.existsSync(dir)) return;
-
+async function cleanupStaleMarkers(dir: string): Promise<void> {
   const now = Date.now();
   try {
-    const files = fs.readdirSync(dir);
+    const files = await fsp.readdir(dir);
     for (const file of files) {
       const markerPath = path.join(dir, file);
       try {
-        const stat = fs.statSync(markerPath);
+        const stat = await fsp.stat(markerPath);
         if (now - stat.mtimeMs > MARKER_CLEANUP_MS) {
-          fs.unlinkSync(markerPath);
+          await fsp.unlink(markerPath);
         }
       } catch {
         // Ignore errors for individual files
       }
     }
   } catch {
-    // Ignore errors
+    // Ignore errors (directory doesn't exist or read failed)
   }
 }
 
@@ -106,26 +107,32 @@ function cleanupStaleMarkers(dir: string): void {
  *
  * A session is active if EITHER source shows recent activity AND no ended marker exists.
  */
-export function getActiveSessions(thresholdMs: number = DEFAULT_THRESHOLD_MS): ActiveSession[] {
+export async function getActiveSessions(
+  thresholdMs: number = DEFAULT_THRESHOLD_MS
+): Promise<ActiveSession[]> {
   const now = Date.now();
   const sessionsMap = new Map<string, ActiveSession>();
 
-  // Housekeeping: clean up old markers (ended and idle)
-  cleanupStaleMarkers(getEndedMarkersDir());
-  cleanupStaleMarkers(getIdleMarkersDir());
+  // Housekeeping: clean up old markers (ended and idle) - run in parallel
+  await Promise.all([
+    cleanupStaleMarkers(getEndedMarkersDir()),
+    cleanupStaleMarkers(getIdleMarkersDir()),
+  ]);
 
   // Build lookup map of all session data from Claude's index
-  const sessionDataLookup = buildSessionDataLookup();
+  const sessionDataLookup = await buildSessionDataLookup();
 
   // Source 1: Scan Claude's sessions-index.json files
-  scanSessionsIndex(sessionsMap, now, thresholdMs);
+  await scanSessionsIndex(sessionsMap, now, thresholdMs);
 
   // Source 2: Scan idle markers for sessions not yet in index
-  scanIdleMarkers(sessionsMap, now, thresholdMs, sessionDataLookup);
+  await scanIdleMarkers(sessionsMap, now, thresholdMs, sessionDataLookup);
 
   // Convert to array and sort by modified time (most recent first)
   const results = Array.from(sessionsMap.values());
-  results.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
+  results.sort(
+    (a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime()
+  );
 
   return results;
 }
@@ -134,31 +141,42 @@ export function getActiveSessions(thresholdMs: number = DEFAULT_THRESHOLD_MS): A
  * Build a lookup map of all sessions from Claude's sessions-index.json files.
  * Used to enrich idle marker entries with data like projectPath, gitBranch.
  */
-function buildSessionDataLookup(): Map<string, ClaudeSessionEntry> {
+async function buildSessionDataLookup(): Promise<
+  Map<string, ClaudeSessionEntry>
+> {
   const lookup = new Map<string, ClaudeSessionEntry>();
   const projectsDir = getClaudeProjectsDir();
-  if (!fs.existsSync(projectsDir)) return lookup;
 
   try {
-    const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    const entries = await fsp.readdir(projectsDir, { withFileTypes: true });
 
-      const indexPath = path.join(projectsDir, entry.name, "sessions-index.json");
-      if (!fs.existsSync(indexPath)) continue;
-
-      try {
-        const content = fs.readFileSync(indexPath, "utf-8");
-        const index = JSON.parse(content) as ClaudeSessionsIndex;
-        for (const session of index.entries) {
-          lookup.set(session.sessionId, session);
+    // Read all index files in parallel
+    const readPromises = entries
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+      .map(async (entry) => {
+        const indexPath = path.join(
+          projectsDir,
+          entry.name,
+          "sessions-index.json"
+        );
+        try {
+          const content = await fsp.readFile(indexPath, "utf-8");
+          const index = JSON.parse(content) as ClaudeSessionsIndex;
+          return index.entries;
+        } catch {
+          // Skip invalid or missing files
+          return [];
         }
-      } catch {
-        // Skip invalid files
+      });
+
+    const results = await Promise.all(readPromises);
+    for (const sessions of results) {
+      for (const session of sessions) {
+        lookup.set(session.sessionId, session);
       }
     }
   } catch {
-    // Ignore errors
+    // Ignore errors (directory doesn't exist or read failed)
   }
 
   return lookup;
@@ -167,63 +185,85 @@ function buildSessionDataLookup(): Map<string, ClaudeSessionEntry> {
 /**
  * Scan Claude's sessions-index.json files
  */
-function scanSessionsIndex(
+async function scanSessionsIndex(
   sessionsMap: Map<string, ActiveSession>,
   now: number,
   thresholdMs: number
-): void {
+): Promise<void> {
   const projectsDir = getClaudeProjectsDir();
-  if (!fs.existsSync(projectsDir)) return;
 
   try {
-    const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    const entries = await fsp.readdir(projectsDir, { withFileTypes: true });
+    const dirEntries = entries.filter(
+      (entry) => entry.isDirectory() && !entry.name.startsWith(".")
+    );
 
-      const indexPath = path.join(projectsDir, entry.name, "sessions-index.json");
-      if (!fs.existsSync(indexPath)) continue;
-
+    // Read all index files in parallel
+    const indexReadPromises = dirEntries.map(async (entry) => {
+      const indexPath = path.join(
+        projectsDir,
+        entry.name,
+        "sessions-index.json"
+      );
       try {
-        const content = fs.readFileSync(indexPath, "utf-8");
-        const index = JSON.parse(content) as ClaudeSessionsIndex;
-
-        for (const session of index.entries) {
-          // Skip if session has ended (immediate removal)
-          if (isSessionEnded(session.sessionId)) continue;
-
-          // Check if has idle marker (agent waiting for user input)
-          const idleTimestamp = getIdleMarkerTimestamp(session.sessionId);
-          const hasIdleMarker = idleTimestamp !== null;
-
-          const modifiedTime = new Date(session.modified).getTime();
-          const age = now - modifiedTime;
-
-          // Skip if too old AND no idle marker (stale/crashed session)
-          // Sessions with idle markers are kept indefinitely (user might be thinking)
-          if (age > thresholdMs && !hasIdleMarker) continue;
-
-          // Get status using event-based state machine
-          const status = getAgentStatus(session.sessionId, session.projectPath);
-
-          sessionsMap.set(session.sessionId, {
-            sessionId: session.sessionId,
-            projectPath: session.projectPath,
-            project: cwdToProject(session.projectPath),
-            modified: session.modified,
-            messageCount: session.messageCount,
-            gitBranch: session.gitBranch,
-            title: getCachedTitle(session.sessionId),
-            firstPrompt: session.firstPrompt,
-            status,
-            source: 'index',
-          });
-        }
+        const content = await fsp.readFile(indexPath, "utf-8");
+        return JSON.parse(content) as ClaudeSessionsIndex;
       } catch {
-        // Skip invalid files
+        return null;
+      }
+    });
+
+    const indexes = await Promise.all(indexReadPromises);
+
+    // Process all sessions from all indexes
+    for (const index of indexes) {
+      if (!index) continue;
+
+      // Process sessions in parallel per index
+      const sessionPromises = index.entries.map(async (session) => {
+        // Skip if session has ended (immediate removal)
+        if (await isSessionEnded(session.sessionId)) return null;
+
+        // Check if has idle marker (agent waiting for user input)
+        const idleTimestamp = await getIdleMarkerTimestamp(session.sessionId);
+        const hasIdleMarker = idleTimestamp !== null;
+
+        const modifiedTime = new Date(session.modified).getTime();
+        const age = now - modifiedTime;
+
+        // Skip if too old AND no idle marker (stale/crashed session)
+        // Sessions with idle markers are kept indefinitely (user might be thinking)
+        if (age > thresholdMs && !hasIdleMarker) return null;
+
+        // Get status using event-based state machine
+        const status = getAgentStatus(session.sessionId, session.projectPath);
+
+        // Get cached title
+        const title = await getCachedTitle(session.sessionId);
+
+        return {
+          sessionId: session.sessionId,
+          projectPath: session.projectPath,
+          project: cwdToProject(session.projectPath),
+          modified: session.modified,
+          messageCount: session.messageCount,
+          gitBranch: session.gitBranch,
+          title,
+          firstPrompt: session.firstPrompt,
+          status,
+          source: "index" as const,
+        };
+      });
+
+      const results = await Promise.all(sessionPromises);
+      for (const result of results) {
+        if (result) {
+          sessionsMap.set(result.sessionId, result);
+        }
       }
     }
   } catch {
-    // Ignore errors
+    // Ignore errors (directory doesn't exist or read failed)
   }
 }
 
@@ -238,13 +278,15 @@ interface IdleMarkerData {
 /**
  * Read idle marker data (supports both old plain text and new JSON format)
  */
-function readIdleMarker(markerPath: string): IdleMarkerData | null {
+async function readIdleMarker(
+  markerPath: string
+): Promise<IdleMarkerData | null> {
   try {
-    const content = fs.readFileSync(markerPath, "utf-8").trim();
+    const content = (await fsp.readFile(markerPath, "utf-8")).trim();
     if (!content) return null;
 
     // Try JSON format first
-    if (content.startsWith('{')) {
+    if (content.startsWith("{")) {
       return JSON.parse(content) as IdleMarkerData;
     }
 
@@ -259,67 +301,86 @@ function readIdleMarker(markerPath: string): IdleMarkerData | null {
  * Scan idle markers for sessions not yet in sessions-index.
  * This catches brand new sessions before Claude updates the index.
  */
-function scanIdleMarkers(
+async function scanIdleMarkers(
   sessionsMap: Map<string, ActiveSession>,
-  now: number,
-  thresholdMs: number,
+  _now: number,
+  _thresholdMs: number,
   sessionDataLookup: Map<string, ClaudeSessionEntry>
-): void {
+): Promise<void> {
   const markersDir = getIdleMarkersDir();
-  if (!fs.existsSync(markersDir)) return;
 
   try {
-    const files = fs.readdirSync(markersDir);
-    for (const sessionId of files) {
+    const files = await fsp.readdir(markersDir);
+
+    // Process markers in parallel
+    const markerPromises = files.map(async (sessionId) => {
       // Skip if session has ended (immediate removal)
-      if (isSessionEnded(sessionId)) continue;
+      if (await isSessionEnded(sessionId)) return null;
 
       // Skip if already found in sessions-index
-      if (sessionsMap.has(sessionId)) {
+      const existing = sessionsMap.get(sessionId);
+      if (existing) {
         // Update source to 'both'
-        const existing = sessionsMap.get(sessionId)!;
-        existing.source = 'both';
-        continue;
+        existing.source = "both";
+        return null;
       }
 
       const markerPath = path.join(markersDir, sessionId);
       try {
         // Read marker data - if idle marker exists, session is waiting for user
         // Keep it indefinitely (1hr cleanup handles truly stale markers)
-        const markerData = readIdleMarker(markerPath);
-        if (!markerData) continue;
+        const markerData = await readIdleMarker(markerPath);
+        if (!markerData) return null;
 
         const markerTime = new Date(markerData.timestamp);
-        const projectPath = markerData.cwd || 'unknown';
-        const project = projectPath !== 'unknown' ? cwdToProject(projectPath) : sessionId.substring(0, 8);
+        const projectPath = markerData.cwd || "unknown";
+        const project =
+          projectPath !== "unknown"
+            ? cwdToProject(projectPath)
+            : sessionId.substring(0, 8);
 
         // Look up additional session data from Claude's index
         const indexData = sessionDataLookup.get(sessionId);
         const effectiveProjectPath = indexData?.projectPath || projectPath;
 
         // Get status using event-based state machine
-        const status = effectiveProjectPath !== 'unknown'
-          ? getAgentStatus(sessionId, effectiveProjectPath)
-          : 'idle';
+        const status =
+          effectiveProjectPath !== "unknown"
+            ? getAgentStatus(sessionId, effectiveProjectPath)
+            : "idle";
 
-        sessionsMap.set(sessionId, {
+        // Get cached title
+        const title = await getCachedTitle(sessionId);
+
+        return {
           sessionId,
           projectPath: effectiveProjectPath,
-          project: effectiveProjectPath !== 'unknown' ? cwdToProject(effectiveProjectPath) : project,
+          project:
+            effectiveProjectPath !== "unknown"
+              ? cwdToProject(effectiveProjectPath)
+              : project,
           modified: markerTime.toISOString(),
           messageCount: indexData?.messageCount || 0,
           gitBranch: indexData?.gitBranch,
-          title: getCachedTitle(sessionId),
+          title,
           firstPrompt: indexData?.firstPrompt,
           status,
-          source: 'marker',
-        });
+          source: "marker" as const,
+        };
       } catch {
         // Skip invalid markers
+        return null;
+      }
+    });
+
+    const results = await Promise.all(markerPromises);
+    for (const result of results) {
+      if (result) {
+        sessionsMap.set(result.sessionId, result);
       }
     }
   } catch {
-    // Ignore errors
+    // Ignore errors (directory doesn't exist or read failed)
   }
 }
 
@@ -361,7 +422,6 @@ export function ensureEventsFile(sessionName: string): string {
   return filePath;
 }
 
-
 /**
  * Get the path to the global dashboard marker file.
  * This indicates the dashboard is running and can handle interactions.
@@ -377,7 +437,9 @@ export function writeDashboardMarker(): void {
   const dir = getRuntimeRoot();
   fs.mkdirSync(dir, { recursive: true });
   const markerPath = getDashboardMarkerPath();
-  fs.writeFileSync(markerPath, `${process.pid}\n${new Date().toISOString()}`, { flag: "w" });
+  fs.writeFileSync(markerPath, `${process.pid}\n${new Date().toISOString()}`, {
+    flag: "w",
+  });
 }
 
 /**
@@ -417,31 +479,38 @@ export function getEndedMarkersDir(): string {
 /**
  * Check if a session has an ended marker (set by SessionEnd hook).
  */
-export function isSessionEnded(sessionId: string): boolean {
+export async function isSessionEnded(sessionId: string): Promise<boolean> {
   const markerPath = path.join(getEndedMarkersDir(), sessionId);
-  return fs.existsSync(markerPath);
+  try {
+    await fsp.access(markerPath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Get the timestamp stored in an idle marker for a session.
  * Supports both old plain text and new JSON format.
  */
-export function getIdleMarkerTimestamp(sessionId: string): Date | null {
+export async function getIdleMarkerTimestamp(
+  sessionId: string
+): Promise<Date | null> {
   const markerPath = path.join(getIdleMarkersDir(), sessionId);
   try {
-    const content = fs.readFileSync(markerPath, "utf-8").trim();
+    const content = (await fsp.readFile(markerPath, "utf-8")).trim();
     if (!content) return null;
 
     // Try JSON format first
-    if (content.startsWith('{')) {
+    if (content.startsWith("{")) {
       const data = JSON.parse(content) as { timestamp: string };
       const date = new Date(data.timestamp);
-      return isNaN(date.getTime()) ? null : date;
+      return Number.isNaN(date.getTime()) ? null : date;
     }
 
     // Fallback: plain text timestamp
     const date = new Date(content);
-    return isNaN(date.getTime()) ? null : date;
+    return Number.isNaN(date.getTime()) ? null : date;
   } catch {
     return null;
   }
@@ -451,8 +520,11 @@ export function getIdleMarkerTimestamp(sessionId: string): Date | null {
  * Check if an agent is idle based on idle marker vs session modified time.
  * Uses a small grace period (2 seconds) to handle timing differences.
  */
-export function isAgentIdle(sessionId: string, sessionModified: string): boolean {
-  const idleTimestamp = getIdleMarkerTimestamp(sessionId);
+export async function isAgentIdle(
+  sessionId: string,
+  sessionModified: string
+): Promise<boolean> {
+  const idleTimestamp = await getIdleMarkerTimestamp(sessionId);
   if (!idleTimestamp) return false;
 
   const modifiedTime = new Date(sessionModified).getTime();
@@ -472,15 +544,18 @@ export function isAgentIdle(sessionId: string, sessionModified: string): boolean
  * - 'thinking': Agent just finished a tool and may be about to start another (grace period)
  * - 'idle': Agent has stopped and grace period has passed
  */
-export function getAgentStatus(_sessionId: string, projectPath: string): 'running' | 'thinking' | 'idle' {
+export function getAgentStatus(
+  _sessionId: string,
+  projectPath: string
+): "running" | "thinking" | "idle" {
   // Note: _sessionId is kept for API consistency and potential future use
   const sessionName = pathToSessionName(projectPath);
   const { state } = getAgentState(sessionName);
 
   // Map AgentState to status
-  if (state === 'working') return 'running';
-  if (state === 'thinking') return 'thinking';
-  return 'idle';
+  if (state === "working") return "running";
+  if (state === "thinking") return "thinking";
+  return "idle";
 }
 
 /**
@@ -515,24 +590,35 @@ export function cwdToProject(cwd: string): string {
  * @param projectPath - The project path (used to locate the JSONL file)
  * @returns The most recent plan file path found, or undefined if none
  */
-export function getPlanFileForSession(sessionId: string, projectPath: string): string | undefined {
+export async function getPlanFileForSession(
+  sessionId: string,
+  projectPath: string
+): Promise<string | undefined> {
   const encoded = pathToSessionName(projectPath);
-  const jsonlPath = path.join(getClaudeProjectsDir(), encoded, `${sessionId}.jsonl`);
-
-  if (!fs.existsSync(jsonlPath)) {
-    return undefined;
-  }
+  const jsonlPath = path.join(
+    getClaudeProjectsDir(),
+    encoded,
+    `${sessionId}.jsonl`
+  );
 
   try {
-    const content = fs.readFileSync(jsonlPath, "utf-8");
+    const content = await fsp.readFile(jsonlPath, "utf-8");
     const lines = content.trim().split("\n");
 
-    // Pattern to match plan file paths: ~/.claude/plans/*.md
+    // Pattern to match plan file paths: ~/.claude/plans/*.md or .claude/plans/*.md
     const homeDir = os.homedir();
-    const planDirPattern = path.join(homeDir, ".claude", "plans");
+    const absolutePlanDir = path.join(homeDir, ".claude", "plans");
 
     let latestPlanFile: string | undefined;
     let latestTimestamp = 0;
+
+    // Two patterns: absolute path and relative path (.claude/plans/...)
+    const absolutePattern = `${absolutePlanDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[/\\\\][^"\\s]+\\.md`;
+    const relativePattern = `\\.claude[/\\\\]plans[/\\\\][^"\\s]+\\.md`;
+    const planFileRegex = new RegExp(
+      `(${absolutePattern}|${relativePattern})`,
+      "g"
+    );
 
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -545,26 +631,27 @@ export function getPlanFileForSession(sessionId: string, projectPath: string): s
         const searchText = JSON.stringify(event);
 
         // Look for plan file paths in the JSON
-        const planFileRegex = new RegExp(
-          `${planDirPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[/\\\\][^"\\s]+\\.md`,
-          "g"
-        );
-
         const matches = searchText.match(planFileRegex);
         if (matches) {
-          for (const match of matches) {
+          for (const rawMatch of matches) {
             // Skip matches containing literal \n (multiline noise from JSON)
-            if (match.includes('\\n')) continue;
+            if (rawMatch.includes("\\n")) continue;
+
+            // Normalize relative paths to absolute
+            let match = rawMatch;
+            if (match.startsWith(".claude")) {
+              match = path.join(homeDir, match);
+            }
 
             // Parse timestamp - could be ISO string or number
             let timestamp = latestTimestamp + 1;
             const rawTs = event.timestamp || event.ts;
             if (rawTs) {
-              if (typeof rawTs === 'number') {
+              if (typeof rawTs === "number") {
                 timestamp = rawTs;
-              } else if (typeof rawTs === 'string') {
+              } else if (typeof rawTs === "string") {
                 const parsed = new Date(rawTs).getTime();
-                if (!isNaN(parsed)) timestamp = parsed;
+                if (!Number.isNaN(parsed)) timestamp = parsed;
               }
             }
 
@@ -584,10 +671,12 @@ export function getPlanFileForSession(sessionId: string, projectPath: string): s
       try {
         // Ensure it's a valid path that can be normalized
         const normalizedPath = path.resolve(latestPlanFile);
-        // Only return if the parent directory exists (file may be gone)
-        const parentDir = path.dirname(normalizedPath);
-        if (fs.existsSync(parentDir)) {
+        // Only return if the file actually exists
+        try {
+          await fsp.access(normalizedPath);
           return normalizedPath;
+        } catch {
+          return undefined;
         }
       } catch {
         // Path is invalid, don't return it
@@ -595,7 +684,7 @@ export function getPlanFileForSession(sessionId: string, projectPath: string): s
       }
     }
 
-    return latestPlanFile;
+    return undefined;
   } catch {
     return undefined;
   }

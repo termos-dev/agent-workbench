@@ -1,7 +1,12 @@
-import { Box, Text, useInput, useApp } from 'ink';
-import { useState } from 'react';
-import { readFileSync } from 'fs';
-import { useTerminalSize, ScrollBar, useMouseScroll, useFileWatch } from './shared/index.js';
+import { readFileSync } from "node:fs";
+import { Box, Text, useApp, useInput } from "ink";
+import { useState } from "react";
+import {
+  ScrollBar,
+  useFileWatch,
+  useMouseScroll,
+  useTerminalSize,
+} from "./shared/index.js";
 
 declare const onComplete: (result: unknown) => void;
 declare const args: { file?: string };
@@ -9,31 +14,59 @@ declare const args: { file?: string };
 // Simple markdown-ish rendering
 function renderLine(line: string, idx: number) {
   // Headers
-  if (line.startsWith('### ')) {
-    return <Text key={idx} color="yellow">{line.slice(4)}</Text>;
+  if (line.startsWith("### ")) {
+    return (
+      <Text key={idx} color="yellow">
+        {line.slice(4)}
+      </Text>
+    );
   }
-  if (line.startsWith('## ')) {
-    return <Text key={idx} bold color="cyan">{line.slice(3)}</Text>;
+  if (line.startsWith("## ")) {
+    return (
+      <Text key={idx} bold color="cyan">
+        {line.slice(3)}
+      </Text>
+    );
   }
-  if (line.startsWith('# ')) {
-    return <Text key={idx} bold color="green">{line.slice(2)}</Text>;
+  if (line.startsWith("# ")) {
+    return (
+      <Text key={idx} bold color="green">
+        {line.slice(2)}
+      </Text>
+    );
   }
   // List items
-  if (line.startsWith('- [ ] ')) {
-    return <Text key={idx}><Text color="gray">[ ]</Text> {line.slice(6)}</Text>;
+  if (line.startsWith("- [ ] ")) {
+    return (
+      <Text key={idx}>
+        <Text color="gray">[ ]</Text> {line.slice(6)}
+      </Text>
+    );
   }
-  if (line.startsWith('- [x] ')) {
-    return <Text key={idx}><Text color="green">[x]</Text> {line.slice(6)}</Text>;
+  if (line.startsWith("- [x] ")) {
+    return (
+      <Text key={idx}>
+        <Text color="green">[x]</Text> {line.slice(6)}
+      </Text>
+    );
   }
-  if (line.startsWith('- ')) {
-    return <Text key={idx}><Text color="blue">•</Text> {line.slice(2)}</Text>;
+  if (line.startsWith("- ")) {
+    return (
+      <Text key={idx}>
+        <Text color="blue">•</Text> {line.slice(2)}
+      </Text>
+    );
   }
   // Code blocks (simple)
-  if (line.startsWith('```')) {
-    return <Text key={idx} dimColor>{line}</Text>;
+  if (line.startsWith("```")) {
+    return (
+      <Text key={idx} dimColor>
+        {line}
+      </Text>
+    );
   }
   // Bold
-  if (line.includes('**')) {
+  if (line.includes("**")) {
     return <Text key={idx}>{line}</Text>;
   }
   // Empty line
@@ -53,14 +86,14 @@ export default function PlanViewer() {
 
   useFileWatch(filePath, () => {
     if (!filePath) {
-      setLines(['No plan file specified']);
+      setLines(["No plan file specified"]);
       return;
     }
 
     try {
-      const content = readFileSync(filePath, 'utf-8');
-      setLines(content.split('\n'));
-    } catch (e) {
+      const content = readFileSync(filePath, "utf-8");
+      setLines(content.split("\n"));
+    } catch (_e) {
       setLines([`Error reading file: ${filePath}`]);
     }
   });
@@ -73,25 +106,25 @@ export default function PlanViewer() {
   useMouseScroll({ scroll, maxScroll, setScroll });
 
   useInput((input, key) => {
-    if (input === 'y' || input === 'Y') {
+    if (input === "y" || input === "Y") {
       onComplete({ approved: true, file: filePath });
       exit();
     }
-    if (input === 'n' || input === 'N' || key.escape) {
+    if (input === "n" || input === "N" || key.escape) {
       onComplete({ approved: false, file: filePath });
       exit();
     }
-    if (key.upArrow || input === 'k') {
-      setScroll(s => Math.max(0, s - 1));
+    if (key.upArrow) {
+      setScroll((s) => Math.max(0, s - 1));
     }
-    if (key.downArrow || input === 'j') {
-      setScroll(s => Math.min(maxScroll, s + 1));
+    if (key.downArrow) {
+      setScroll((s) => Math.min(maxScroll, s + 1));
     }
     if (key.pageUp) {
-      setScroll(s => Math.max(0, s - visibleLines));
+      setScroll((s) => Math.max(0, s - visibleLines));
     }
     if (key.pageDown) {
-      setScroll(s => Math.min(maxScroll, s + visibleLines));
+      setScroll((s) => Math.min(maxScroll, s + visibleLines));
     }
   });
 
@@ -101,9 +134,15 @@ export default function PlanViewer() {
   return (
     <Box flexDirection="column" padding={1}>
       <Box borderStyle="round" borderColor="cyan" paddingX={1}>
-        <Text bold color="cyan">Plan Review</Text>
+        <Text bold color="cyan">
+          Plan Review
+        </Text>
         {showScrollBar && (
-          <Text dimColor> ({scroll + 1}-{Math.min(scroll + visibleLines, lines.length)}/{lines.length})</Text>
+          <Text dimColor>
+            {" "}
+            ({scroll + 1}-{Math.min(scroll + visibleLines, lines.length)}/
+            {lines.length})
+          </Text>
         )}
       </Box>
 
@@ -119,12 +158,18 @@ export default function PlanViewer() {
 
       <Box borderStyle="single" borderColor="gray" paddingX={1}>
         <Text>
-          <Text color="green" bold>Y</Text><Text dimColor>=approve</Text>
+          <Text color="green" bold>
+            Y
+          </Text>
+          <Text dimColor>=approve</Text>
           <Text> </Text>
-          <Text color="red" bold>N</Text><Text dimColor>=reject</Text>
+          <Text color="red" bold>
+            N
+          </Text>
+          <Text dimColor>=reject</Text>
           <Text> </Text>
-          <Text dimColor>↑↓/jk=scroll</Text>
-          {showScrollBar && <Text dimColor>  mouse=scroll</Text>}
+          <Text dimColor>↑↓=scroll</Text>
+          {showScrollBar && <Text dimColor> mouse=scroll</Text>}
         </Text>
       </Box>
     </Box>

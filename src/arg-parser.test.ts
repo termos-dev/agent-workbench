@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { extractFlags, extractComponentArgs, type FlagSpec } from "./arg-parser.js";
+import { describe, expect, it } from "vitest";
+import {
+  type FlagSpec,
+  extractComponentArgs,
+  extractFlags,
+} from "./arg-parser.js";
 
 describe("arg-parser", () => {
   describe("extractFlags", () => {

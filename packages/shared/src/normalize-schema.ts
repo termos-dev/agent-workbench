@@ -1,4 +1,4 @@
-import type { FormSchema, FormQuestion, FormOption } from "./schema.js";
+import type { FormOption, FormQuestion, FormSchema } from "./schema.js";
 
 interface RawQuestion {
   question?: string;
@@ -83,7 +83,7 @@ function generateUniqueHeader(
   idx: number,
   used: Set<string>
 ): string {
-  let header = existingHeader || slugify(question) || `q${idx + 1}`;
+  const header = existingHeader || slugify(question) || `q${idx + 1}`;
   let unique = header;
   let counter = 2;
   while (used.has(unique)) {

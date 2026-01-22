@@ -9,21 +9,24 @@ export const FormOptionSchema = z.object({
   description: z.string().optional(),
 });
 
-export const FormQuestionSchema = z.object({
-  question: z.string().min(1, "Question text is required"),
-  header: z.string().min(1, "Header is required (used as answer key)"),
-  options: z.array(FormOptionSchema).optional(),
-  multiSelect: z.boolean().optional(),
-  inputType: z.enum(["text", "textarea", "password"]).optional(),
-  placeholder: z.string().optional(),
-  validation: z.string().optional(),
-}).refine(
-  (q) => q.options || !q.multiSelect,
-  { message: "multiSelect requires options to be defined" }
-);
+export const FormQuestionSchema = z
+  .object({
+    question: z.string().min(1, "Question text is required"),
+    header: z.string().min(1, "Header is required (used as answer key)"),
+    options: z.array(FormOptionSchema).optional(),
+    multiSelect: z.boolean().optional(),
+    inputType: z.enum(["text", "textarea", "password"]).optional(),
+    placeholder: z.string().optional(),
+    validation: z.string().optional(),
+  })
+  .refine((q) => q.options || !q.multiSelect, {
+    message: "multiSelect requires options to be defined",
+  });
 
 export const FormSchemaSchema = z.object({
-  questions: z.array(FormQuestionSchema).min(1, "At least one question is required"),
+  questions: z
+    .array(FormQuestionSchema)
+    .min(1, "At least one question is required"),
 });
 
 /**
@@ -41,18 +44,22 @@ export function parseFormSchema(input: unknown): FormSchema {
   if (Array.isArray(input)) {
     throw new Error(
       "Schema must be an object with a 'questions' array, not an array directly.\n" +
-      "Expected: {\"questions\": [...]}\n" +
-      "Got: [...]"
+        'Expected: {"questions": [...]}\n' +
+        "Got: [...]"
     );
   }
 
   const result = FormSchemaSchema.safeParse(input);
   if (!result.success) {
-    const issues = result.error.issues.map(issue => {
-      const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
-      return `  - ${path}${issue.message}`;
-    }).join("\n");
-    throw new Error(`Invalid schema:\n${issues}\n\nRun with --help for expected format.`);
+    const issues = result.error.issues
+      .map((issue) => {
+        const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
+        return `  - ${path}${issue.message}`;
+      })
+      .join("\n");
+    throw new Error(
+      `Invalid schema:\n${issues}\n\nRun with --help for expected format.`
+    );
   }
   return result.data;
 }

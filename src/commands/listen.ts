@@ -2,11 +2,15 @@
  * Listen command handler - listens for pending messages.
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import { pathToSessionName, getSessionRuntimeDir } from "../runtime.js";
-import { getPendingMessages, countPendingMessages, markMessagesAsRead } from "../events.js";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { POLL_INTERVAL_MS } from "../constants.js";
+import {
+  countPendingMessages,
+  getPendingMessages,
+  markMessagesAsRead,
+} from "../events.js";
+import { getSessionRuntimeDir, pathToSessionName } from "../runtime.js";
 
 /**
  * Listen for pending messages (blocking) or get count (non-blocking).
@@ -32,10 +36,10 @@ export async function handleListen(args: string[]): Promise<void> {
   // Try to acquire lock
   try {
     if (fs.existsSync(lockFile)) {
-      const pid = parseInt(fs.readFileSync(lockFile, "utf-8").trim());
+      const pid = Number.parseInt(fs.readFileSync(lockFile, "utf-8").trim());
       try {
         process.kill(pid, 0); // Check if process exists
-        console.error("Another listener is active (pid " + pid + ")");
+        console.error(`Another listener is active (pid ${pid})`);
         process.exit(1);
       } catch {
         // Process dead, stale lock - remove it

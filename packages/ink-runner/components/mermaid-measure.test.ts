@@ -1,14 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
+  calculateMinimumSize,
   detectDiagramType,
-  stripMarkdownFences,
+  expandIfNeeded,
+  measureDiagram,
+  renderClassAscii,
   renderFlowchartAscii,
   renderSequenceAscii,
-  renderClassAscii,
   renderStateAscii,
-  measureDiagram,
-  calculateMinimumSize,
-  expandIfNeeded,
+  stripMarkdownFences,
 } from "./mermaid-measure.js";
 
 describe("mermaid-measure", () => {
@@ -20,8 +20,12 @@ describe("mermaid-measure", () => {
     });
 
     it("detects sequence diagrams", () => {
-      expect(detectDiagramType("sequenceDiagram\n  A->>B: Hello")).toBe("sequence");
-      expect(detectDiagramType("SEQUENCEDIAGRAM\n  A->>B: Hello")).toBe("sequence");
+      expect(detectDiagramType("sequenceDiagram\n  A->>B: Hello")).toBe(
+        "sequence"
+      );
+      expect(detectDiagramType("SEQUENCEDIAGRAM\n  A->>B: Hello")).toBe(
+        "sequence"
+      );
     });
 
     it("detects class diagrams", () => {
@@ -29,12 +33,16 @@ describe("mermaid-measure", () => {
     });
 
     it("detects state diagrams", () => {
-      expect(detectDiagramType("stateDiagram-v2\n  [*] --> Active")).toBe("state");
+      expect(detectDiagramType("stateDiagram-v2\n  [*] --> Active")).toBe(
+        "state"
+      );
       expect(detectDiagramType("statediagram\n  [*] --> Active")).toBe("state");
     });
 
     it("detects ER diagrams", () => {
-      expect(detectDiagramType("erDiagram\n  CUSTOMER ||--o{ ORDER")).toBe("er");
+      expect(detectDiagramType("erDiagram\n  CUSTOMER ||--o{ ORDER")).toBe(
+        "er"
+      );
     });
 
     it("returns unknown for unrecognized types", () => {
@@ -203,7 +211,7 @@ describe("mermaid-measure", () => {
       expect(result.error).toBeUndefined();
 
       // Count how many lines contain box tops (╭) - should be 1 row
-      const boxTopLines = result.lines.filter(l => l.includes("╭"));
+      const boxTopLines = result.lines.filter((l) => l.includes("╭"));
       expect(boxTopLines.length).toBe(1);
     });
 
@@ -220,7 +228,7 @@ describe("mermaid-measure", () => {
       expect(result.error).toBeUndefined();
 
       // Count how many lines contain box tops (╭) - should be multiple rows
-      const boxTopLines = result.lines.filter(l => l.includes("╭"));
+      const boxTopLines = result.lines.filter((l) => l.includes("╭"));
       expect(boxTopLines.length).toBeGreaterThan(1);
     });
 
@@ -268,9 +276,11 @@ describe("mermaid-measure", () => {
       expect(result.error).toBeUndefined();
 
       // Should have blank lines separating state rows (before Transitions:)
-      const transitionsIndex = result.lines.findIndex(l => l.includes("Transitions:"));
+      const transitionsIndex = result.lines.findIndex((l) =>
+        l.includes("Transitions:")
+      );
       const stateLines = result.lines.slice(0, transitionsIndex);
-      const hasBlankLine = stateLines.some(l => l.trim() === "");
+      const hasBlankLine = stateLines.some((l) => l.trim() === "");
       expect(hasBlankLine).toBe(true);
     });
   });
