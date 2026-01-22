@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Termos - Autonomous, not absent</title>
-    <meta name="description" content="Keep Claude Code interactive while it works. Approve plans, review diffs, and stay in control." />
+    <title>Termos - Your Command Center for AI Agents</title>
+    <meta name="description" content="See every Claude session. Respond to every request. Stay in control with the Agent Inbox dashboard." />
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link
       rel="stylesheet"
@@ -116,9 +116,10 @@
       <!-- Hero Section -->
       <section class="mt-20 text-center">
         <h1 class="text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
-          <span class="gradient-text">Make Claude Code Interactive</span>
+          <span class="gradient-text">Your Command Center for AI Agents</span>
         </h1>
-        <p class="mt-4 text-lg text-slate-400"><a href="#components" class="text-cyan-400 hover:text-cyan-300 transition">Floating panes</a> keep you in the loop while Claude is running</p>
+        <p class="mt-4 text-lg text-slate-400">See every Claude session. Respond to every request. Stay in control.</p>
+
         <!-- Install Commands -->
         <div class="mt-10 mx-auto max-w-2xl">
           <div class="relative rounded-xl border border-white/10 bg-slate-950/80 px-5 py-4 text-left font-mono text-sm" data-selectable>
@@ -137,37 +138,14 @@ claude plugins install termos</code></pre>
               Copy
             </button>
           </div>
+          <p class="mt-3 text-sm text-slate-500">Then run <code class="rounded bg-slate-800 px-2 py-0.5 text-cyan-400">termos tui</code> to launch the dashboard</p>
         </div>
 
-        <!-- Demo Video with Tabs -->
+        <!-- Demo Video (Single) -->
         <div class="mt-12">
-          <!-- Tab Buttons -->
-          <div class="flex justify-center gap-2 mb-4">
-            <button
-              id="tab-macos"
-              class="video-tab px-6 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 bg-white/10 border border-cyan-400/50 text-white"
-              data-tab="macos"
-            >
-              New Window
-            </button>
-            <button
-              id="tab-terminal"
-              class="video-tab px-6 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/20"
-              data-tab="terminal"
-            >
-              Inside Terminal
-            </button>
-          </div>
-
-          <!-- Video Container -->
           <div class="overflow-hidden rounded-2xl border border-white/10 bg-black/40 shadow-2xl">
-            <!-- macOS Video (default, visible) -->
-            <video id="video-macos" class="w-full" autoplay loop muted playsinline controls poster="recordings/poster.jpg">
-              <source src="recordings/ghostty.mp4" type="video/mp4" />
-            </video>
-            <!-- Terminal/Zellij Video (hidden by default) -->
-            <video id="video-terminal" class="w-full hidden" loop muted playsinline controls>
-              <source src="recordings/zellij-demo.mp4" type="video/mp4" />
+            <video class="w-full" autoplay loop muted playsinline controls poster="recordings/poster.jpg">
+              <source src="recordings/tui-demo.mp4" type="video/mp4" />
             </video>
           </div>
         </div>
@@ -176,16 +154,16 @@ claude plugins install termos</code></pre>
       <!-- Feature Cards -->
       <section class="mt-24">
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <!-- Card 1 -->
+          <!-- Card 1: Agent Inbox -->
           <div class="feature-card rounded-2xl border border-white/10 bg-white/5 p-6">
             <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
               <svg class="h-6 w-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
             </div>
-            <h3 class="text-lg font-semibold">Approve, don't hope</h3>
+            <h3 class="text-lg font-semibold">Agent Inbox</h3>
             <p class="mt-2 text-sm leading-relaxed text-slate-400">
-              Review plans, confirm deploys, approve destructive commands before they run.
+              All your Claude sessions in one view. Switch between agents with a single keystroke.
             </p>
           </div>
 
@@ -230,63 +208,61 @@ claude plugins install termos</code></pre>
         </div>
       </section>
 
-      <!-- Side-by-Side Workflow -->
+      <!-- Focus Mode -->
       <section class="mt-24">
         <div class="text-center">
-          <h2 class="text-3xl font-bold">Side-by-Side Workflow</h2>
-          <p class="mt-3 text-slate-400">Run a Zellij session alongside Claude with your dev servers</p>
+          <h2 class="text-3xl font-bold">Focus Mode</h2>
+          <p class="mt-3 text-slate-400">Plan and interactions side-by-side</p>
         </div>
 
-        <div class="mt-10 grid gap-6 md:grid-cols-2">
-          <!-- Terminal 1 -->
-          <div class="rounded-2xl border border-white/10 bg-black/40 p-5">
+        <!-- Two-pane mockup -->
+        <div class="mt-10 grid gap-4 md:grid-cols-2">
+          <!-- Left: Plan Pane -->
+          <div class="rounded-2xl border border-violet-500/30 bg-black/60 p-5">
             <div class="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
-              <span class="w-2.5 h-2.5 rounded-full bg-red-500/80"></span>
-              <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></span>
-              <span class="w-2.5 h-2.5 rounded-full bg-green-500/80"></span>
-              <span class="ml-2 text-xs text-slate-500">Terminal 1 — Claude</span>
+              <span class="text-xs font-semibold text-violet-400 uppercase tracking-wider">Plan</span>
+              <span class="text-xs text-slate-500 ml-auto">live refresh</span>
             </div>
-            <pre class="font-mono text-sm text-slate-300"><span class="text-slate-500">$</span> <span class="text-cyan-400">claude</span>
+            <pre class="font-mono text-sm text-slate-300 leading-relaxed"><span class="text-violet-400 font-bold">## API Refactor Plan</span>
 
-<span class="text-slate-500"># Claude runs termos commands...</span>
-<span class="text-slate-500"># Interactions appear in Terminal 2</span></pre>
+<span class="text-emerald-400">✓</span> <span class="line-through text-slate-500">Migrate user endpoints to v2</span>
+<span class="text-emerald-400">✓</span> <span class="line-through text-slate-500">Update auth middleware</span>
+<span class="text-cyan-400">▸</span> <span class="text-white">Add rate limiting</span>
+  <span class="text-slate-400">- Configure redis client</span>
+  <span class="text-slate-400">- Add middleware to routes</span>
+  <span class="text-slate-400">- Set limits per endpoint</span>
+<span class="text-slate-500">○</span> <span class="text-slate-500">Write integration tests</span></pre>
           </div>
 
-          <!-- Terminal 2 -->
-          <div class="rounded-2xl border border-cyan-500/30 bg-black/40 p-5">
+          <!-- Right: Interactions Pane -->
+          <div class="rounded-2xl border border-cyan-500/30 bg-black/60 p-5">
             <div class="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
-              <span class="w-2.5 h-2.5 rounded-full bg-red-500/80"></span>
-              <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></span>
-              <span class="w-2.5 h-2.5 rounded-full bg-green-500/80"></span>
-              <span class="ml-2 text-xs text-slate-500">Terminal 2 — Interactions + Dev Servers</span>
+              <span class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Interactions</span>
+              <span class="text-xs text-amber-400 ml-auto">2 pending</span>
             </div>
-            <pre class="font-mono text-sm text-slate-300"><span class="text-slate-500">$</span> <span class="text-cyan-400">termos attach</span>
-
-<span class="text-slate-500"># Zellij session with your layout:</span>
-<span class="text-slate-500"># - Dev server running</span>
-<span class="text-slate-500"># - API server running</span>
-<span class="text-slate-500"># - Termos interactions appear here</span></pre>
+            <pre class="font-mono text-sm text-slate-300 leading-relaxed"><span class="text-slate-500">┌─────────────────────────────────────┐</span>
+<span class="text-slate-500">│</span> <span class="text-cyan-400">Confirm Redis configuration?</span>       <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span>                                     <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span> Host: <span class="text-emerald-400">localhost:6379</span>               <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span> DB: <span class="text-emerald-400">0</span>                               <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span>                                     <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span> <span class="bg-emerald-600 text-white px-2 rounded">Yes</span>  <span class="bg-slate-700 text-slate-300 px-2 rounded">No</span>  <span class="bg-slate-700 text-slate-300 px-2 rounded">Edit</span>           <span class="text-slate-500">│</span>
+<span class="text-slate-500">└─────────────────────────────────────┘</span></pre>
           </div>
         </div>
 
-        <div class="mt-6 text-center">
-          <p class="text-sm text-slate-500">
-            <span class="font-mono text-slate-400">/termos:init</span> asks about your background processes and generates custom layouts
+        <div class="mt-4 text-center">
+          <p class="text-sm text-slate-500 font-mono">
+            <span class="text-slate-400">tab</span> switch panes • <span class="text-slate-400">enter</span> respond • <span class="text-slate-400">r</span> refresh plan • <span class="text-slate-400">esc</span> back to list
           </p>
-          <div class="mt-4 flex flex-wrap justify-center gap-2">
-            <code class="rounded bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300">termos attach</code>
-            <code class="rounded bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300">termos attach -l debug</code>
-            <code class="rounded bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300">termos status</code>
-            <code class="rounded bg-slate-800/80 px-3 py-1.5 text-xs text-slate-300">termos stop</code>
-          </div>
         </div>
       </section>
 
       <!-- Component Showcase -->
       <section id="components" class="mt-24">
         <div class="text-center">
-          <h2 class="text-3xl font-bold">15 Built-in Components</h2>
-          <p class="mt-3 text-slate-400">Termos is a CLI that Claude runs to create interactive terminals attached to your session</p>
+          <h2 class="text-3xl font-bold">What Agents Can Request</h2>
+          <p class="mt-3 text-slate-400">15 built-in interaction types appear in your dashboard when Claude needs input</p>
         </div>
 
         <div class="mt-10 flex flex-col items-center gap-6">
@@ -373,41 +349,6 @@ claude plugins install termos</code></pre>
       </section>
 
 
-      <!-- Environment Support -->
-      <section class="mt-24">
-        <div class="text-center">
-          <h2 class="text-3xl font-bold">Works Everywhere</h2>
-          <p class="mt-3 text-slate-400">Native experience on every platform</p>
-        </div>
-
-        <div class="mt-10 grid gap-6 md:grid-cols-3">
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-            <div class="mb-3 text-3xl">🍎</div>
-            <h3 class="text-lg font-semibold">macOS</h3>
-            <p class="mt-2 text-sm text-slate-400">
-              Ghostty or Terminal.app<br />
-              Floating windows, native feel
-            </p>
-          </div>
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-            <div class="mb-3 text-3xl">🐧</div>
-            <h3 class="text-lg font-semibold">Linux + Zellij</h3>
-            <p class="mt-2 text-sm text-slate-400">
-              Split panes, floating panes<br />
-              Tabs, full features
-            </p>
-          </div>
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-            <div class="mb-3 text-3xl">🪟</div>
-            <h3 class="text-lg font-semibold">Windows + WSL</h3>
-            <p class="mt-2 text-sm text-slate-400">
-              Zellij in WSL<br />
-              Full feature support
-            </p>
-          </div>
-        </div>
-      </section>
-
       <!-- Editor Integration -->
       <section class="mt-24">
         <div class="text-center">
@@ -432,25 +373,25 @@ claude plugins install termos</code></pre>
           <div class="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
             <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-mono font-semibold">1</div>
             <div class="text-sm text-slate-300">
-              <span class="font-mono text-slate-400">termos attach</span> starts side-by-side session
+              <span class="font-mono text-slate-400">termos tui</span> opens the dashboard
             </div>
           </div>
           <div class="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
             <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-mono font-semibold">2</div>
             <div class="text-sm text-slate-300">
-              <span class="font-mono text-slate-400">termos run</span> spawns interactive panes
+              Agents auto-detected from Claude sessions
             </div>
           </div>
           <div class="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
             <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-mono font-semibold">3</div>
             <div class="text-sm text-slate-300">
-              <span class="font-mono text-slate-400">termos wait</span> runs in background
+              Interactions queue as pending requests
             </div>
           </div>
           <div class="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] p-4">
             <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-mono font-semibold">4</div>
             <div class="text-sm text-slate-300">
-              Claude runs without blocking
+              Respond to unblock agents
             </div>
           </div>
         </div>
@@ -713,41 +654,6 @@ This is <span class="font-bold text-white">bold</span> and <span class="italic t
       if (componentCards.length > 0) {
         selectComponent(componentCards[0]);
       }
-
-      // Video tab switching
-      const videoTabs = document.querySelectorAll('.video-tab');
-      const videoMacos = document.getElementById('video-macos');
-      const videoTerminal = document.getElementById('video-terminal');
-
-      videoTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-          const selectedTab = tab.dataset.tab;
-
-          // Update tab styles
-          videoTabs.forEach(t => {
-            if (t.dataset.tab === selectedTab) {
-              t.classList.remove('bg-white/5', 'border-white/10', 'text-slate-400');
-              t.classList.add('bg-white/10', 'border-cyan-400/50', 'text-white');
-            } else {
-              t.classList.remove('bg-white/10', 'border-cyan-400/50', 'text-white');
-              t.classList.add('bg-white/5', 'border-white/10', 'text-slate-400');
-            }
-          });
-
-          // Switch videos
-          if (selectedTab === 'macos') {
-            videoMacos.classList.remove('hidden');
-            videoTerminal.classList.add('hidden');
-            videoTerminal.pause();
-            videoMacos.play();
-          } else {
-            videoTerminal.classList.remove('hidden');
-            videoMacos.classList.add('hidden');
-            videoMacos.pause();
-            videoTerminal.play();
-          }
-        });
-      });
     </script>
   </body>
 </html>
