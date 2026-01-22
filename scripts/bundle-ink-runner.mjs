@@ -115,6 +115,19 @@ async function bundlePackage(name) {
     copyDir(componentsDir, path.join(dest, "components"));
   }
 
+  // Create tsconfig.json for tsx runtime compilation with correct JSX settings
+  // We modify the include pattern to cover components/ which is where the .tsx files are
+  const tsconfigPath = path.join(src, "tsconfig.json");
+  if (fs.existsSync(tsconfigPath)) {
+    const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, "utf-8"));
+    // Include components directory for tsx runtime compilation
+    tsconfig.include = ["src/**/*", "components/**/*"];
+    fs.writeFileSync(
+      path.join(dest, "tsconfig.json"),
+      JSON.stringify(tsconfig, null, 2)
+    );
+  }
+
   const totalSize = getSize(dest);
   console.log(`Copied to: ${dest}`);
   console.log(`Size: ${(totalSize / 1024 / 1024).toFixed(1)} MB`);
