@@ -89,6 +89,7 @@
       <nav class="flex items-center justify-between">
         <div class="flex items-center gap-3 font-semibold tracking-wide">
           <span class="text-xl">Termos</span>
+          <span class="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs font-medium text-cyan-400">v0.4.0</span>
         </div>
         <a
           class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:-translate-y-0.5 hover:border-cyan-300/50 hover:text-white"
@@ -189,7 +190,7 @@ claude plugins install termos</code></pre>
             </div>
             <h3 class="text-lg font-semibold">Fully customizable</h3>
             <p class="mt-2 text-sm leading-relaxed text-slate-400">
-              16 built-in components. Drop custom Ink React components when you need more.
+              15 built-in components. Drop custom Ink React components when you need more.
             </p>
           </div>
 
@@ -212,7 +213,7 @@ claude plugins install termos</code></pre>
       <section id="components" class="mt-24">
         <div class="text-center">
           <h2 class="text-3xl font-bold">What Agents Can Request</h2>
-          <p class="mt-3 text-slate-400">16 built-in interaction types appear in your dashboard when Claude needs input</p>
+          <p class="mt-3 text-slate-400">15 built-in interaction types appear in your dashboard when Claude needs input</p>
         </div>
 
         <div class="mt-10 flex flex-col items-center gap-6">
@@ -221,9 +222,6 @@ claude plugins install termos</code></pre>
             <!-- User Input -->
             <div class="component-card cursor-pointer rounded-md border border-cyan-500 bg-white/10 px-3 py-1.5 transition hover:bg-white/15" data-component="confirm">
               <span class="font-mono text-sm text-cyan-400">confirm</span>
-            </div>
-            <div class="component-card cursor-pointer rounded-md border border-white/10 bg-white/5 px-3 py-1.5 transition hover:border-cyan-500/50 hover:bg-white/10" data-component="ask">
-              <span class="font-mono text-sm text-cyan-400">ask</span>
             </div>
             <div class="component-card cursor-pointer rounded-md border border-white/10 bg-white/5 px-3 py-1.5 transition hover:border-cyan-500/50 hover:bg-white/10" data-component="checklist">
               <span class="font-mono text-sm text-cyan-400">checklist</span>
@@ -308,21 +306,21 @@ claude plugins install termos</code></pre>
       </section>
 
 
-      <!-- Editor Integration -->
+      <!-- Terminal Integration -->
       <section class="mt-24">
         <div class="text-center">
-          <h2 class="text-2xl font-bold">Works with your editor</h2>
+          <h2 class="text-2xl font-bold">Works with any terminal</h2>
           <div class="mt-6 flex flex-wrap justify-center gap-3">
-            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">nvim</span>
-            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">vim</span>
-            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">hx</span>
-            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">micro</span>
-            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">nano</span>
-            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">emacs</span>
+            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">iTerm2</span>
+            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">Ghostty</span>
+            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">Warp</span>
+            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">Kitty</span>
+            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">Alacritty</span>
+            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">Terminal.app</span>
             <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">VS Code</span>
-            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">Cursor</span>
+            <span class="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-sm text-slate-300">Zellij</span>
           </div>
-          <p class="mt-4 text-sm text-slate-500">TUI editors enable in-pane editing</p>
+          <p class="mt-4 text-sm text-slate-500">Run Claude Code in one pane, Termos dashboard in another</p>
         </div>
       </section>
 
@@ -414,14 +412,6 @@ claude plugins install termos</code></pre>
 <span class="text-slate-500">│</span>    <span class="text-slate-400">No</span>                               <span class="text-slate-500">│</span>
 <span class="text-slate-500">└─────────────────────────────────────┘</span>
 <span class="text-slate-600 text-xs">↑↓ navigate • enter select • esc cancel</span>`,
-
-        ask: `<span class="text-slate-500">┌─────────────────────────────────────┐</span>
-<span class="text-slate-500">│</span>  <span class="text-cyan-400">What is your project name?</span>         <span class="text-slate-500">│</span>
-<span class="text-slate-500">│</span>                                     <span class="text-slate-500">│</span>
-<span class="text-slate-500">│</span>  <span class="text-white">my-awesome-app<span class="animate-pulse">▌</span></span>                    <span class="text-slate-500">│</span>
-<span class="text-slate-500">│</span>                                     <span class="text-slate-500">│</span>
-<span class="text-slate-500">└─────────────────────────────────────┘</span>
-<span class="text-slate-600 text-xs">enter submit • esc cancel</span>`,
 
         checklist: `<span class="text-slate-500">┌─────────────────────────────────────┐</span>
 <span class="text-slate-500">│</span>  <span class="text-cyan-400">Select tasks to run:</span>               <span class="text-slate-500">│</span>
@@ -570,7 +560,6 @@ This is <span class="font-bold text-white">bold</span> and <span class="italic t
       // Command examples for each component
       const commandExamples = {
         confirm: '--prompt "Deploy to production?"',
-        ask: '--prompt "What is your project name?"',
         checklist: '--items "Build,Test,Deploy,Notify"',
         select: '--prompt "Select environment" --options "Dev,Staging,Prod"',
         diff: '--file "src/config.ts"',
