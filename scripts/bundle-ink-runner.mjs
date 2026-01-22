@@ -62,12 +62,19 @@ async function bundlePackage(name) {
 
   console.log(`\nBuilding ${name}...`);
 
-  // Build the package first
+  // Install all dependencies first (needed for TypeScript compilation)
+  console.log(`Installing ${name} dependencies...`);
+  execFileSync("npm", ["install"], {
+    cwd: src,
+    stdio: "inherit",
+  });
+
+  // Build the package
   execFileSync("npm", ["run", "build"], { cwd: src, stdio: "inherit" });
 
-  // Install production dependencies
-  console.log(`Installing ${name} dependencies...`);
-  execFileSync("npm", ["install", "--omit=dev"], {
+  // Prune to production dependencies only
+  console.log(`Pruning ${name} dev dependencies...`);
+  execFileSync("npm", ["prune", "--omit=dev"], {
     cwd: src,
     stdio: "inherit",
   });
