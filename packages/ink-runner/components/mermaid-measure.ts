@@ -94,10 +94,11 @@ function preprocessFlowchart(source: string): PreprocessResult {
         /^(graph|flowchart)\s+(TB|TD|BT|LR|RL)/i
       );
       if (headerMatch) {
-        const [fullMatch, keyword, direction] = headerMatch;
+        const [fullMatch, , direction] = headerMatch;
         const normalizedDirection =
           direction.toUpperCase() === "TB" ? "TD" : direction.toUpperCase();
-        const cleanHeader = `${keyword} ${normalizedDirection}`;
+        // Always use 'graph' keyword - mermaid-ascii renders it more reliably than 'flowchart'
+        const cleanHeader = `graph ${normalizedDirection}`;
 
         const extraContent = trimmed.slice(fullMatch.length).trim();
         if (extraContent) {
@@ -106,9 +107,8 @@ function preprocessFlowchart(source: string): PreprocessResult {
 
         processed.push(cleanHeader);
       } else {
-        const keywordMatch = trimmed.match(/^(graph|flowchart)/i);
-        const keyword = keywordMatch ? keywordMatch[1] : "graph";
-        processed.push(`${keyword} TD`);
+        // Default to 'graph TD' for reliable rendering
+        processed.push("graph TD");
         warnings.push("Could not parse direction, defaulting to TD");
       }
       continue;

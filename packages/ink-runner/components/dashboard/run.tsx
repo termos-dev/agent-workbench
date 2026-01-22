@@ -72,18 +72,28 @@ async function main(): Promise<void> {
   // Write marker so termos run knows dashboard is handling interactions
   writeDashboardMarker();
 
-  // Use alternate screen buffer so quitting returns to previous terminal content
-  process.stdout.write("\x1b[?1049h"); // Enter alternate screen
-  process.stdout.write("\x1b[?25l"); // Hide cursor
-
   const cleanup = () => {
     deleteDashboardMarker();
-    process.stdout.write("\x1b[?25h"); // Show cursor
-    process.stdout.write("\x1b[?1049l"); // Exit alternate screen
   };
 
   // Ensure cleanup on exit
   process.on("exit", cleanup);
+
+  // Handle non-TTY (piped output, CI) - use debug mode to append frames instead of overwriting
+  if (!process.stdout.isTTY) {
+    const { waitUntilExit } = render(
+      React.createElement(Dashboard, {
+        args: {
+          global: args.global,
+          currentProject: args.currentProject,
+        },
+      }),
+      { debug: true }
+    );
+    await waitUntilExit();
+    cleanup();
+    return;
+  }
 
   // Pass args via props (dependency injection) instead of globals
   const { waitUntilExit } = render(

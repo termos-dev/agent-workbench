@@ -286,25 +286,49 @@ describe("mermaid-measure", () => {
   });
 
   describe("renderFlowchartAscii", () => {
-    it("renders basic flowchart", () => {
+    it("renders basic flowchart with box characters", () => {
       const source = `flowchart TD
   A[Start] --> B[Process]
   B --> C[End]`;
 
       const result = renderFlowchartAscii(source);
-      // May or may not succeed depending on mermaid-ascii support
       expect(result.lines.length).toBeGreaterThan(0);
+
+      // Verify actual ASCII boxes are rendered, not just source
+      const output = result.lines.join("\n");
+      // Should contain box drawing characters
+      expect(output).toMatch(/[┌┐└┘│─▼▶◀▲├┤┬┴]/);
     });
 
-    it("handles graph alias", () => {
+    it("handles graph LR with box characters", () => {
       const source = `graph LR
-  A --> B`;
+  A[User] --> B[Dashboard]
+  B --> C[Output]`;
 
       const result = renderFlowchartAscii(source);
       expect(result.lines.length).toBeGreaterThan(0);
+
+      // Verify boxes are rendered
+      const output = result.lines.join("\n");
+      expect(output).toMatch(/[┌┐└┘│─►]/);
     });
 
-    it("returns warnings for complex diagrams", () => {
+    it("handles flowchart LR (converts to graph LR internally)", () => {
+      const source = `flowchart LR
+  A[Start] --> B[Middle]
+  B --> C[End]`;
+
+      const result = renderFlowchartAscii(source);
+      expect(result.lines.length).toBeGreaterThan(0);
+
+      // Should render with boxes, not return source
+      const output = result.lines.join("\n");
+      expect(output).toMatch(/[┌┐└┘│─►]/);
+      // Should NOT contain the raw source arrows
+      expect(output).not.toContain("-->");
+    });
+
+    it("returns warnings for complex diagrams with subgraphs", () => {
       const source = `flowchart TD
   A[Start] --> B[Process]
   subgraph Group
@@ -314,6 +338,16 @@ describe("mermaid-measure", () => {
       const result = renderFlowchartAscii(source);
       // Should process without crashing
       expect(result.lines.length).toBeGreaterThan(0);
+    });
+
+    it("handles semicolon syntax by ignoring inline definitions", () => {
+      // Semicolon syntax is not fully supported - should warn
+      const source = "flowchart LR; A-->B-->C";
+
+      const result = renderFlowchartAscii(source);
+      expect(result.lines.length).toBeGreaterThan(0);
+      // Should have a warning about ignored content
+      expect(result.warnings?.length).toBeGreaterThan(0);
     });
   });
 

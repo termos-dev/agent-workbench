@@ -18,6 +18,7 @@ import { TableError, TableRenderer, parseTableData } from "../shared/index.js";
 import {
   AskEmbed,
   CardEmbed,
+  ChecklistEmbed,
   ConfirmEmbed,
   DisplayFeedbackEmbed,
   InputEmbed,
@@ -215,255 +216,261 @@ export function InteractionCard({
         </Text>
       </Box>
 
-      {interaction.component !== "ask" && (
-        <Box marginTop={1} marginLeft={2} flexDirection="column">
-          {interaction.component === "card" ? (
-            content.map(renderMd)
-          ) : interaction.component === "mermaid" ? (
-            content.map((l, i) => (
-              <Text key={i} dimColor={!isSelected}>
-                {l}
-              </Text>
-            ))
-          ) : interaction.component === "chart" ? (
-            chartData ? (
-              chartType === "sparkline" && chartData.type === "numbers" ? (
-                // Sparkline rendering
-                <Box flexDirection="column">
-                  <Text color="cyan">
-                    {chartData.values
-                      .map((v: number) => {
-                        const min = Math.min(...chartData.values);
-                        const max = Math.max(...chartData.values);
-                        const range = max - min || 1;
-                        const chars = "▁▂▃▄▅▆▇█";
-                        const idx = Math.min(
-                          Math.floor(((v - min) / range) * 8),
-                          7
+      {interaction.component !== "ask" &&
+        interaction.component !== "checklist" && (
+          <Box marginTop={1} marginLeft={2} flexDirection="column">
+            {interaction.component === "card" ? (
+              content.map(renderMd)
+            ) : interaction.component === "mermaid" ? (
+              content.map((l, i) => (
+                <Text key={i} dimColor={!isSelected}>
+                  {l}
+                </Text>
+              ))
+            ) : interaction.component === "chart" ? (
+              chartData ? (
+                chartType === "sparkline" && chartData.type === "numbers" ? (
+                  // Sparkline rendering
+                  <Box flexDirection="column">
+                    <Text color="cyan">
+                      {chartData.values
+                        .map((v: number) => {
+                          const min = Math.min(...chartData.values);
+                          const max = Math.max(...chartData.values);
+                          const range = max - min || 1;
+                          const chars = "▁▂▃▄▅▆▇█";
+                          const idx = Math.min(
+                            Math.floor(((v - min) / range) * 8),
+                            7
+                          );
+                          return chars[idx];
+                        })
+                        .join("")}
+                    </Text>
+                    <Text dimColor>
+                      min: {Math.min(...chartData.values)} max:{" "}
+                      {Math.max(...chartData.values)} pts:{" "}
+                      {chartData.values.length}
+                    </Text>
+                  </Box>
+                ) : chartData.type === "objects" ? (
+                  // Bar chart rendering
+                  <Box flexDirection="column">
+                    {chartData.items.map(
+                      (item: { label: string; value: number }, i: number) => {
+                        const maxVal = Math.max(
+                          ...chartData.items.map(
+                            (d: { value: number }) => d.value
+                          ),
+                          1
                         );
-                        return chars[idx];
-                      })
-                      .join("")}
-                  </Text>
-                  <Text dimColor>
-                    min: {Math.min(...chartData.values)} max:{" "}
-                    {Math.max(...chartData.values)} pts:{" "}
-                    {chartData.values.length}
-                  </Text>
-                </Box>
-              ) : chartData.type === "objects" ? (
-                // Bar chart rendering
-                <Box flexDirection="column">
-                  {chartData.items.map(
-                    (item: { label: string; value: number }, i: number) => {
-                      const maxVal = Math.max(
-                        ...chartData.items.map(
-                          (d: { value: number }) => d.value
-                        ),
-                        1
-                      );
-                      const barWidth = Math.min(
-                        30,
-                        Math.floor((item.value / maxVal) * 30)
-                      );
-                      const colors = [
-                        "cyan",
-                        "green",
-                        "yellow",
-                        "magenta",
-                        "blue",
-                      ];
+                        const barWidth = Math.min(
+                          30,
+                          Math.floor((item.value / maxVal) * 30)
+                        );
+                        const colors = [
+                          "cyan",
+                          "green",
+                          "yellow",
+                          "magenta",
+                          "blue",
+                        ];
+                        return (
+                          <Box key={i}>
+                            <Text dimColor>{item.label}</Text>
+                            <Text color={colors[i % colors.length]}>
+                              {"█".repeat(barWidth)}
+                            </Text>
+                            <Text dimColor> {item.value}</Text>
+                          </Box>
+                        );
+                      }
+                    )}
+                  </Box>
+                ) : chartData.type === "numbers" ? (
+                  // Numbers as bar chart (convert to items)
+                  <Box flexDirection="column">
+                    {chartData.values
+                      .slice(0, 8)
+                      .map((v: number, i: number) => {
+                        const maxVal = Math.max(
+                          ...chartData.values.slice(0, 8),
+                          1
+                        );
+                        const barWidth = Math.min(
+                          30,
+                          Math.floor((v / maxVal) * 30)
+                        );
+                        const colors = [
+                          "cyan",
+                          "green",
+                          "yellow",
+                          "magenta",
+                          "blue",
+                        ];
+                        return (
+                          <Box key={i}>
+                            <Text dimColor>{String(i + 1).padEnd(12)}</Text>
+                            <Text color={colors[i % colors.length]}>
+                              {"█".repeat(barWidth)}
+                            </Text>
+                            <Text dimColor> {v}</Text>
+                          </Box>
+                        );
+                      })}
+                  </Box>
+                ) : null
+              ) : (
+                <Text dimColor>[Chart: {chartType}]</Text>
+              )
+            ) : interaction.component === "table" && tableResult ? (
+              "error" in tableResult ? (
+                <TableError error={tableResult.error} />
+              ) : (
+                <TableRenderer
+                  data={tableResult.data}
+                  width={Math.max(30, width - 10)}
+                  maxRows={8}
+                  compact
+                />
+              )
+            ) : interaction.component === "gauge" ? (
+              // Gauge rendering
+              (() => {
+                const value = Number.parseFloat(args?.value as string) || 0;
+                const min = Number.parseFloat(args?.min as string) || 0;
+                const max = Number.parseFloat(args?.max as string) || 100;
+                const unit = (args?.unit as string) || "%";
+                const label = args?.label as string;
+                const percent = Math.max(
+                  0,
+                  Math.min(100, ((value - min) / (max - min)) * 100)
+                );
+                // Safeguard against NaN width
+                const safeWidth = Number.isFinite(width) ? width : 80;
+                const barWidth = Math.min(30, Math.max(10, safeWidth - 20));
+                const filled = Math.round((percent * barWidth) / 100);
+                const empty = barWidth - filled;
+                const color =
+                  percent >= 90 ? "red" : percent >= 70 ? "yellow" : "green";
+                return (
+                  <Box flexDirection="column">
+                    {label && <Text bold>{label}</Text>}
+                    <Box>
+                      <Text color={color}>
+                        {filled > 0 ? "█".repeat(filled) : ""}
+                      </Text>
+                      <Text dimColor>{empty > 0 ? "░".repeat(empty) : ""}</Text>
+                      <Text> </Text>
+                      <Text bold>{value.toLocaleString()}</Text>
+                      <Text dimColor>{unit}</Text>
+                    </Box>
+                    <Box>
+                      <Text dimColor>
+                        {min}
+                        {unit}
+                      </Text>
+                      <Text dimColor>
+                        {" ".repeat(
+                          Math.max(
+                            1,
+                            barWidth - String(min).length - String(max).length
+                          )
+                        )}
+                      </Text>
+                      <Text dimColor>
+                        {max}
+                        {unit}
+                      </Text>
+                    </Box>
+                  </Box>
+                );
+              })()
+            ) : interaction.component === "progress" ? (
+              // Progress steps rendering
+              (() => {
+                const stepsStr =
+                  (args?.steps as string) ||
+                  (args?.tasks as string) ||
+                  (args?.items as string) ||
+                  "";
+                const steps = stepsStr
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                const currentStep = Number.parseInt(args?.step as string) || 1;
+                if (steps.length === 0)
+                  return <Text dimColor>[No steps defined]</Text>;
+                return (
+                  <Box flexDirection="column">
+                    {steps.map((step, i) => {
+                      const status =
+                        i < currentStep - 1
+                          ? "done"
+                          : i === currentStep - 1
+                            ? "running"
+                            : "pending";
+                      const icon =
+                        status === "done"
+                          ? "✓"
+                          : status === "running"
+                            ? "◉"
+                            : "○";
+                      const color =
+                        status === "done"
+                          ? "green"
+                          : status === "running"
+                            ? "cyan"
+                            : undefined;
                       return (
                         <Box key={i}>
-                          <Text dimColor>{item.label}</Text>
-                          <Text color={colors[i % colors.length]}>
-                            {"█".repeat(barWidth)}
+                          <Text color={color}>{icon} </Text>
+                          <Text color={color} dimColor={status === "pending"}>
+                            {step}
                           </Text>
-                          <Text dimColor> {item.value}</Text>
                         </Box>
                       );
-                    }
-                  )}
-                </Box>
-              ) : chartData.type === "numbers" ? (
-                // Numbers as bar chart (convert to items)
-                <Box flexDirection="column">
-                  {chartData.values.slice(0, 8).map((v: number, i: number) => {
-                    const maxVal = Math.max(...chartData.values.slice(0, 8), 1);
-                    const barWidth = Math.min(
-                      30,
-                      Math.floor((v / maxVal) * 30)
-                    );
-                    const colors = [
-                      "cyan",
-                      "green",
-                      "yellow",
-                      "magenta",
-                      "blue",
-                    ];
-                    return (
-                      <Box key={i}>
-                        <Text dimColor>{String(i + 1).padEnd(12)}</Text>
-                        <Text color={colors[i % colors.length]}>
-                          {"█".repeat(barWidth)}
-                        </Text>
-                        <Text dimColor> {v}</Text>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              ) : null
-            ) : (
-              <Text dimColor>[Chart: {chartType}]</Text>
-            )
-          ) : interaction.component === "table" && tableResult ? (
-            "error" in tableResult ? (
-              <TableError error={tableResult.error} />
-            ) : (
-              <TableRenderer
-                data={tableResult.data}
-                width={Math.max(30, width - 10)}
-                maxRows={8}
-                compact
+                    })}
+                  </Box>
+                );
+              })()
+            ) : interaction.component === "tree" ? (
+              // Tree - show path info
+              <Box flexDirection="column">
+                <Text>📁 {args?.path || args?.dir || process.cwd()}</Text>
+                <Text dimColor>Open full view to browse tree</Text>
+              </Box>
+            ) : interaction.component === "diff" ? (
+              // Diff - show file comparison info
+              <Box flexDirection="column">
+                <Text>📄 {args?.file1 || args?.old || "file1"}</Text>
+                <Text dimColor>↓</Text>
+                <Text>📄 {args?.file2 || args?.new || "file2"}</Text>
+              </Box>
+            ) : interaction.component === "markdown" ? (
+              // Markdown - show file path
+              <Box flexDirection="column">
+                <Text>📝 {args?.file || "markdown content"}</Text>
+              </Box>
+            ) : isLiveOutput ? (
+              <LiveOutputEmbed
+                outputFile={args?.outputFile as string}
+                isActive={isSelected}
+                onRespond={(feedback) =>
+                  onRespond({ action: "accept", value: "dismissed", feedback })
+                }
               />
-            )
-          ) : interaction.component === "gauge" ? (
-            // Gauge rendering
-            (() => {
-              const value = Number.parseFloat(args?.value as string) || 0;
-              const min = Number.parseFloat(args?.min as string) || 0;
-              const max = Number.parseFloat(args?.max as string) || 100;
-              const unit = (args?.unit as string) || "%";
-              const label = args?.label as string;
-              const percent = Math.max(
-                0,
-                Math.min(100, ((value - min) / (max - min)) * 100)
-              );
-              // Safeguard against NaN width
-              const safeWidth = Number.isFinite(width) ? width : 80;
-              const barWidth = Math.min(30, Math.max(10, safeWidth - 20));
-              const filled = Math.round((percent * barWidth) / 100);
-              const empty = barWidth - filled;
-              const color =
-                percent >= 90 ? "red" : percent >= 70 ? "yellow" : "green";
-              return (
-                <Box flexDirection="column">
-                  {label && <Text bold>{label}</Text>}
-                  <Box>
-                    <Text color={color}>
-                      {filled > 0 ? "█".repeat(filled) : ""}
-                    </Text>
-                    <Text dimColor>{empty > 0 ? "░".repeat(empty) : ""}</Text>
-                    <Text> </Text>
-                    <Text bold>{value.toLocaleString()}</Text>
-                    <Text dimColor>{unit}</Text>
-                  </Box>
-                  <Box>
-                    <Text dimColor>
-                      {min}
-                      {unit}
-                    </Text>
-                    <Text dimColor>
-                      {" ".repeat(
-                        Math.max(
-                          1,
-                          barWidth - String(min).length - String(max).length
-                        )
-                      )}
-                    </Text>
-                    <Text dimColor>
-                      {max}
-                      {unit}
-                    </Text>
-                  </Box>
-                </Box>
-              );
-            })()
-          ) : interaction.component === "progress" ? (
-            // Progress steps rendering
-            (() => {
-              const stepsStr =
-                (args?.steps as string) ||
-                (args?.tasks as string) ||
-                (args?.items as string) ||
-                "";
-              const steps = stepsStr
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean);
-              const currentStep = Number.parseInt(args?.step as string) || 1;
-              if (steps.length === 0)
-                return <Text dimColor>[No steps defined]</Text>;
-              return (
-                <Box flexDirection="column">
-                  {steps.map((step, i) => {
-                    const status =
-                      i < currentStep - 1
-                        ? "done"
-                        : i === currentStep - 1
-                          ? "running"
-                          : "pending";
-                    const icon =
-                      status === "done"
-                        ? "✓"
-                        : status === "running"
-                          ? "◉"
-                          : "○";
-                    const color =
-                      status === "done"
-                        ? "green"
-                        : status === "running"
-                          ? "cyan"
-                          : undefined;
-                    return (
-                      <Box key={i}>
-                        <Text color={color}>{icon} </Text>
-                        <Text color={color} dimColor={status === "pending"}>
-                          {step}
-                        </Text>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              );
-            })()
-          ) : interaction.component === "tree" ? (
-            // Tree - show path info
-            <Box flexDirection="column">
-              <Text>📁 {args?.path || args?.dir || process.cwd()}</Text>
-              <Text dimColor>Open full view to browse tree</Text>
-            </Box>
-          ) : interaction.component === "diff" ? (
-            // Diff - show file comparison info
-            <Box flexDirection="column">
-              <Text>📄 {args?.file1 || args?.old || "file1"}</Text>
-              <Text dimColor>↓</Text>
-              <Text>📄 {args?.file2 || args?.new || "file2"}</Text>
-            </Box>
-          ) : interaction.component === "markdown" ? (
-            // Markdown - show file path
-            <Box flexDirection="column">
-              <Text>📝 {args?.file || "markdown content"}</Text>
-            </Box>
-          ) : isLiveOutput ? (
-            <LiveOutputEmbed
-              outputFile={args?.outputFile as string}
-              isActive={isSelected}
-              onRespond={(feedback) =>
-                onRespond({ action: "accept", value: "dismissed", feedback })
-              }
-            />
-          ) : !interactive ? (
-            content.map((l, i) => (
-              <Text key={i} dimColor={!isSelected}>
-                {l}
-              </Text>
-            ))
-          ) : (
-            <Text>{interaction.prompt || "Please respond"}</Text>
-          )}
-        </Box>
-      )}
+            ) : !interactive ? (
+              content.map((l, i) => (
+                <Text key={i} dimColor={!isSelected}>
+                  {l}
+                </Text>
+              ))
+            ) : (
+              <Text>{interaction.prompt || "Please respond"}</Text>
+            )}
+          </Box>
+        )}
 
       <Box marginTop={1} marginLeft={2}>
         {interaction.component === "confirm" && (
@@ -508,6 +515,16 @@ export function InteractionCard({
                 action: "accept",
                 value: { selected: v, selectedLabel: l },
               })
+            }
+            onCancel={() => onRespond({ action: "cancel" })}
+          />
+        )}
+        {interaction.component === "checklist" && (
+          <ChecklistEmbed
+            interaction={interaction}
+            isActive={isSelected}
+            onRespond={(checked, checkedLabels) =>
+              onRespond({ action: "accept", checked, checkedLabels })
             }
             onCancel={() => onRespond({ action: "cancel" })}
           />

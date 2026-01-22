@@ -1,21 +1,7 @@
-/**
- * Main Dashboard component - Interactive TUI for Claude Code.
- */
-
-import * as fs from "node:fs";
-import { Box, Text, useInput } from "ink";
-import {
-  Component,
-  type ErrorInfo,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Box, Static, Text, useInput } from "ink";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTerminalSize } from "../shared/index.js";
 import { AgentRow } from "./agent-row.js";
-import { FocusedSessionView } from "./focused-session-view.js";
 import { HelpOverlay } from "./help-overlay.js";
 import { InteractionCard } from "./interaction-card.js";
 import type { DashboardInteraction } from "./types.js";
@@ -24,61 +10,6 @@ import {
   type InteractionResponse,
   useDashboardData,
 } from "./use-dashboard-data.js";
-
-// Error boundary to catch React rendering errors
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-class ErrorBoundary extends Component<
-  {
-    children: ReactNode;
-    fallback?: ReactNode;
-    onError?: (error: Error) => void;
-  },
-  ErrorBoundaryState
-> {
-  constructor(props: {
-    children: ReactNode;
-    fallback?: ReactNode;
-    onError?: (error: Error) => void;
-  }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    // Log to file for debugging
-    try {
-      const msg = `React error: ${error.message}\n${error.stack}\nComponent stack: ${errorInfo.componentStack}`;
-      fs.appendFileSync(
-        "/tmp/termos-crash.log",
-        `${new Date().toISOString()} ${msg}\n`
-      );
-    } catch {}
-    this.props.onError?.(error);
-  }
-
-  render(): ReactNode {
-    if (this.state.hasError) {
-      return (
-        this.props.fallback || (
-          <Box flexDirection="column" padding={1}>
-            <Text color="red">Component Error</Text>
-            <Text dimColor>{this.state.error?.message || "Unknown error"}</Text>
-            <Text dimColor>Check /tmp/termos-crash.log for details</Text>
-          </Box>
-        )
-      );
-    }
-    return this.props.children;
-  }
-}
 
 // Args type for dependency injection (testability)
 export interface DashboardArgs {
@@ -101,6 +32,14 @@ const INTERACTIVE = new Set([
 ]);
 const isInteractive = (c: string) => INTERACTIVE.has(c);
 
+// Completed item for scrollback history
+interface CompletedItem {
+  id: string;
+  timestamp: number;
+  summary: string;
+  type: "interaction" | "agent";
+}
+
 export interface DashboardProps {
   /** Dashboard args - if not provided, falls back to globalThis.args */
   args?: DashboardArgs;
@@ -116,9 +55,13 @@ export default function Dashboard(props?: DashboardProps) {
   const [showHelp, setShowHelp] = useState(false);
   const [gPressed, setGPressed] = useState(false);
 
-  // Focused session state
-  const [focusedSessionId, setFocusedSessionId] = useState<string | null>(null);
   const [selectedAgentIdx, setSelectedAgentIdx] = useState(0);
+
+  // Tab-based agent selection
+  const [activeAgent, setActiveAgent] = useState<string | null>(null);
+
+  // Completed items for scrollback history (using Static)
+  const [completedItems, setCompletedItems] = useState<CompletedItem[]>([]);
 
   const showStatus = useCallback((msg: string) => {
     setStatus(msg);
@@ -132,17 +75,11 @@ export default function Dashboard(props?: DashboardProps) {
     [showStatus]
   );
 
-  const {
-    allInteractions,
-    loading,
-    error,
-    refresh,
-    respondToInteraction,
-    sendMessage,
-  } = useDashboardData({
-    refreshInterval: 1000,
-    onNewInteraction: handleNew,
-  });
+  const { allInteractions, loading, error, refresh, respondToInteraction } =
+    useDashboardData({
+      refreshInterval: 1000,
+      onNewInteraction: handleNew,
+    });
 
   const { agents } = useAgents({
     refreshInterval: 1000,
@@ -193,6 +130,26 @@ export default function Dashboard(props?: DashboardProps) {
     return { agentRows: rows, orphans };
   }, [filteredAgents, interactions]);
 
+  // Find active agent's data
+  const activeAgentData = useMemo(
+    () => agentRows.find(({ agent }) => agent.sessionId === activeAgent),
+    [agentRows, activeAgent]
+  );
+
+  // Initialize activeAgent when agents become available
+  useEffect(() => {
+    if (agentRows.length > 0 && !activeAgent) {
+      setActiveAgent(agentRows[0].agent.sessionId);
+    }
+    // Clear activeAgent if it no longer exists
+    if (
+      activeAgent &&
+      !agentRows.some(({ agent }) => agent.sessionId === activeAgent)
+    ) {
+      setActiveAgent(agentRows[0]?.agent.sessionId ?? null);
+    }
+  }, [agentRows, activeAgent]);
+
   const maxIdx = Math.max(0, interactions.length - 1);
   const selected = interactions[selectedIdx];
 
@@ -203,7 +160,26 @@ export default function Dashboard(props?: DashboardProps) {
   const handleRespond = useCallback(
     async (session: string, id: string, response: InteractionResponse) => {
       try {
+        // Find the interaction before responding so we can log it
+        const interaction = interactions.find((i) => i.id === id);
         await respondToInteraction(session, id, response);
+
+        // Add to completed items for scrollback
+        if (interaction) {
+          const summary = `✓ ${interaction.title || interaction.component}${
+            typeof response === "boolean" ? (response ? " → Yes" : " → No") : ""
+          }`;
+          setCompletedItems((prev) => [
+            ...prev,
+            {
+              id: `${id}-${Date.now()}`,
+              timestamp: Date.now(),
+              summary,
+              type: "interaction",
+            },
+          ]);
+        }
+
         showStatus("Responded");
         if (selectedIdx >= interactions.length - 1)
           setSelectedIdx(Math.max(0, selectedIdx - 1));
@@ -211,21 +187,7 @@ export default function Dashboard(props?: DashboardProps) {
         showStatus(`Failed: ${e instanceof Error ? e.message : String(e)}`);
       }
     },
-    [selectedIdx, interactions.length, respondToInteraction, showStatus]
-  );
-
-  const handleSendMessage = useCallback(
-    async (sessionName: string, text: string, agentSessionId?: string) => {
-      try {
-        await sendMessage(sessionName, text, agentSessionId);
-        showStatus("Message sent");
-      } catch (e) {
-        showStatus(
-          `Failed to send: ${e instanceof Error ? e.message : String(e)}`
-        );
-      }
-    },
-    [sendMessage, showStatus]
+    [selectedIdx, interactions, respondToInteraction, showStatus]
   );
 
   // Tab navigation callbacks for ask components
@@ -236,27 +198,6 @@ export default function Dashboard(props?: DashboardProps) {
   const handleTabPrev = useCallback(() => {
     setSelectedIdx((i) => (i <= 0 ? maxIdx : i - 1));
   }, [maxIdx]);
-
-  // Get focused agent and its interactions
-  const focusedAgent = useMemo(
-    () =>
-      focusedSessionId
-        ? filteredAgents.find((a) => a.sessionId === focusedSessionId)
-        : null,
-    [focusedSessionId, filteredAgents]
-  );
-
-  const focusedInteractions = useMemo(
-    () =>
-      focusedAgent
-        ? interactions.filter(
-            (i) =>
-              (i as { agentSessionId?: string }).agentSessionId ===
-              focusedAgent.sessionId
-          )
-        : [],
-    [focusedAgent, interactions]
-  );
 
   // Keep selectedAgentIdx in bounds
   const maxAgentIdx = Math.max(0, filteredAgents.length - 1);
@@ -270,10 +211,7 @@ export default function Dashboard(props?: DashboardProps) {
     // Skip input handling if showing help
     if (showHelp) return;
 
-    // Skip input handling if we're in focused session mode (FocusedSessionView handles its own input)
-    if (focusedSessionId) return;
-
-    // Help - skip when user is typing in input components
+    // Help - 'h' when not typing
     const isTyping =
       selected?.component === "input" || selected?.component === "ask";
     if (input === "h" && !isTyping) {
@@ -288,13 +226,21 @@ export default function Dashboard(props?: DashboardProps) {
       return;
     }
 
-    // Enter to focus selected agent (when no interaction is selected or when agents exist)
-    if (key.return && filteredAgents.length > 0 && !selected) {
-      const agentToFocus = filteredAgents[selectedAgentIdx];
-      if (agentToFocus) {
-        setFocusedSessionId(agentToFocus.sessionId);
-        showStatus(`Focused: ${agentToFocus.project}`);
-      }
+    // Agent switching with [ and ]
+    if (input === "[" && agentRows.length > 1) {
+      const currentIdx = agentRows.findIndex(
+        ({ agent }) => agent.sessionId === activeAgent
+      );
+      const prevIdx = currentIdx <= 0 ? agentRows.length - 1 : currentIdx - 1;
+      setActiveAgent(agentRows[prevIdx].agent.sessionId);
+      return;
+    }
+    if (input === "]" && agentRows.length > 1) {
+      const currentIdx = agentRows.findIndex(
+        ({ agent }) => agent.sessionId === activeAgent
+      );
+      const nextIdx = (currentIdx + 1) % agentRows.length;
+      setActiveAgent(agentRows[nextIdx].agent.sessionId);
       return;
     }
 
@@ -339,8 +285,9 @@ export default function Dashboard(props?: DashboardProps) {
       return;
     }
 
-    // Navigation
-    const skipArrows = selected?.component === "ask";
+    // Navigation - skip arrows for components that handle their own navigation
+    const skipArrows =
+      selected?.component === "ask" || selected?.component === "checklist";
     const askMultiQ =
       selected?.component === "ask" &&
       ((selected.args as { schema?: { questions?: unknown[] } })?.schema
@@ -456,41 +403,6 @@ export default function Dashboard(props?: DashboardProps) {
     );
   }
 
-  // Focused session view
-  if (focusedSessionId && focusedAgent) {
-    // Get sessionName for response handling
-    const sessionName =
-      focusedInteractions[0]?.sessionName ||
-      (focusedAgent.projectPath
-        ? focusedAgent.projectPath.replace(/[/\\]/g, "-").replace(/^-/, "")
-        : "");
-
-    return (
-      <ErrorBoundary
-        onError={() => setFocusedSessionId(null)}
-        fallback={
-          <Box flexDirection="column" padding={1}>
-            <Text color="red">Error loading focused view</Text>
-            <Text dimColor>Press Esc to return</Text>
-          </Box>
-        }
-      >
-        <FocusedSessionView
-          agent={focusedAgent}
-          interactions={focusedInteractions}
-          onRespond={(sName, id, r) => handleRespond(sName, id, r)}
-          onBack={() => setFocusedSessionId(null)}
-          onSendMessage={
-            sessionName
-              ? (text) =>
-                  handleSendMessage(sessionName, text, focusedAgent.sessionId)
-              : undefined
-          }
-        />
-      </ErrorBoundary>
-    );
-  }
-
   // Context-aware hints
   const hints = selected
     ? selected.component === "confirm"
@@ -507,65 +419,158 @@ export default function Dashboard(props?: DashboardProps) {
     : "";
 
   return (
-    <Box flexDirection="column" width={columns} height={rows}>
-      <Box flexDirection="column" flexGrow={1} paddingX={1} overflow="hidden">
-        {agentRows.map(({ agent, interactions: ints }, agentIdx) => {
-          const isAgentSelected = agentIdx === selectedAgentIdx;
-          return (
-            <AgentRow
-              key={agent.sessionId}
-              agent={agent}
-              interactions={ints}
-              selectedId={selected?.id}
-              onRespond={handleRespond}
-              width={columns - 4}
-              onTabNext={handleTabNext}
-              onTabPrev={handleTabPrev}
-              isAgentSelected={isAgentSelected}
-              onFocus={() => setFocusedSessionId(agent.sessionId)}
-            />
-          );
-        })}
-        {orphans.length > 0 && (
-          <Box flexDirection="column" marginTop={1}>
-            {orphans.map((i) => (
-              <InteractionCard
-                key={i.id}
-                interaction={i}
-                isSelected={i.id === selected?.id}
-                onRespond={(r) => handleRespond(i.sessionName, i.id, r)}
-                width={columns - 6}
-                onTabNext={handleTabNext}
-                onTabPrev={handleTabPrev}
-              />
-            ))}
+    <>
+      {/* STATIC: Completed items preserved in scrollback */}
+      <Static items={completedItems}>
+        {(item) => (
+          <Box key={item.id} paddingX={1}>
+            <Text dimColor>
+              {new Date(item.timestamp).toLocaleTimeString()} {item.summary}
+            </Text>
           </Box>
         )}
-      </Box>
+      </Static>
 
-      {status && (
-        <Box paddingX={1}>
-          <Text color="yellow">{status}</Text>
+      {/* DYNAMIC: Current state updates in place */}
+      <Box flexDirection="column" width={columns} height={rows}>
+        <Box flexDirection="column" flexGrow={1} paddingX={1} overflow="hidden">
+          {/* Show active agent's interactions */}
+          {activeAgentData && activeAgentData.interactions.length > 0 && (
+            <Box flexDirection="column">
+              {activeAgentData.interactions.map((i) => (
+                <InteractionCard
+                  key={i.id}
+                  interaction={i}
+                  isSelected={i.id === selected?.id}
+                  onRespond={(r) => handleRespond(i.sessionName, i.id, r)}
+                  width={columns - 4}
+                  onTabNext={handleTabNext}
+                  onTabPrev={handleTabPrev}
+                />
+              ))}
+            </Box>
+          )}
+          {/* Orphan interactions */}
+          {orphans.length > 0 && (
+            <Box
+              flexDirection="column"
+              marginTop={activeAgentData?.interactions.length ? 1 : 0}
+            >
+              {orphans.map((i) => (
+                <InteractionCard
+                  key={i.id}
+                  interaction={i}
+                  isSelected={i.id === selected?.id}
+                  onRespond={(r) => handleRespond(i.sessionName, i.id, r)}
+                  width={columns - 4}
+                  onTabNext={handleTabNext}
+                  onTabPrev={handleTabPrev}
+                />
+              ))}
+            </Box>
+          )}
         </Box>
-      )}
 
-      <Box paddingX={1}>
-        <Text bold>{filteredAgents.length} Agents</Text>
-        {interactions.length > 0 && (
-          <Text color="yellow"> • {interactions.length} pending</Text>
-        )}
-        {activePath && <Text dimColor> {activePath}</Text>}
-      </Box>
+        {/* Activity/status message above separator */}
+        {(() => {
+          // Show status message if set, otherwise show agent activity
+          if (status) {
+            return (
+              <Box paddingX={1}>
+                <Text color="yellow">{status}</Text>
+              </Box>
+            );
+          }
+          // Show agent activity status
+          const agent = activeAgentData?.agent;
+          if (agent) {
+            const activityText =
+              agent.title ||
+              (agent.displayStatus === "running"
+                ? "Working..."
+                : agent.displayStatus === "thinking"
+                  ? "Thinking..."
+                  : null);
+            if (activityText) {
+              const activityColor =
+                agent.displayStatus === "running"
+                  ? "cyan"
+                  : agent.displayStatus === "thinking"
+                    ? "magenta"
+                    : agent.displayStatus === "waiting"
+                      ? "yellow"
+                      : "gray";
+              return (
+                <Box paddingX={1}>
+                  <Text color={activityColor} italic>
+                    {activityText}
+                  </Text>
+                </Box>
+              );
+            }
+          }
+          return null;
+        })()}
 
-      <Box paddingX={1}>
-        <Text dimColor>
-          ↑↓ navigate {hints}
-          {filteredAgents.length > 0 && !selected ? "Enter focus  " : ""}h help
-        </Text>
-        {gPressed && (
-          <Text color="cyan"> [g pressed - press g again for top]</Text>
+        {/* Agent status line */}
+        {agentRows.length > 0 && (
+          <>
+            <Box paddingX={1}>
+              <Text dimColor>{"─".repeat(Math.max(0, columns - 2))}</Text>
+            </Box>
+            {activeAgentData && (
+              <Box paddingX={1}>
+                <AgentRow
+                  agent={activeAgentData.agent}
+                  interactions={[]}
+                  selectedId={undefined}
+                  onRespond={handleRespond}
+                  width={columns - 4}
+                  isAgentSelected={true}
+                  showProject={!!args.global}
+                />
+              </Box>
+            )}
+          </>
         )}
+
+        <Box paddingX={1}>
+          {agentRows.length > 1 ? (
+            <>
+              <Text bold>
+                [
+                {agentRows.findIndex(
+                  ({ agent }) => agent.sessionId === activeAgent
+                ) + 1}
+                /{agentRows.length}]
+              </Text>
+              <Text> </Text>
+            </>
+          ) : null}
+          {activeAgentData && activeAgentData.interactions.length > 0 && (
+            <Text color="yellow">
+              {activeAgentData.interactions.length} pending
+            </Text>
+          )}
+          {activeAgentData &&
+            activeAgentData.interactions.length > 0 &&
+            completedItems.length > 0 && <Text> • </Text>}
+          {completedItems.length > 0 && (
+            <Text color="green">{completedItems.length} done</Text>
+          )}
+          {activePath && <Text dimColor> {activePath}</Text>}
+        </Box>
+
+        <Box paddingX={1}>
+          <Text dimColor>
+            {agentRows.length > 1 ? "[] switch  " : ""}
+            ↑↓ navigate {hints}h help
+          </Text>
+          {gPressed && (
+            <Text color="cyan"> [g pressed - press g again for top]</Text>
+          )}
+        </Box>
       </Box>
-    </Box>
+    </>
   );
 }

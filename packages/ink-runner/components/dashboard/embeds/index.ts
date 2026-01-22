@@ -18,3 +18,4 @@ export {
   type DisplayFeedbackEmbedProps,
 } from "./display-feedback.js";
 export { LiveOutputEmbed, type LiveOutputEmbedProps } from "./live-output.js";
+export { ChecklistEmbed, type ChecklistEmbedProps } from "./checklist.js";

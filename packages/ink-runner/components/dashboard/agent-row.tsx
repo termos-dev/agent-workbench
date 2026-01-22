@@ -43,6 +43,8 @@ export interface AgentRowProps {
   onTabPrev?: () => void;
   isAgentSelected?: boolean;
   onFocus?: () => void;
+  /** Show project name (use in global mode) */
+  showProject?: boolean;
 }
 
 export function AgentRow({
@@ -54,6 +56,7 @@ export function AgentRow({
   onTabNext,
   onTabPrev,
   isAgentSelected,
+  showProject,
 }: AgentRowProps) {
   const statusColor =
     agent.displayStatus === "running"
@@ -63,41 +66,42 @@ export function AgentRow({
         : agent.displayStatus === "waiting"
           ? "yellow"
           : "gray";
-  // Use title as the status indicator (more user-friendly than idle/running)
-  const displayTitle =
-    agent.title ||
-    (agent.displayStatus === "running"
-      ? "Working..."
-      : agent.displayStatus === "thinking"
-        ? "Thinking..."
-        : "");
 
   // Get first line of plan file to display instead of icon
   const planFirstLine = getPlanFirstLine(agent.planFile);
 
+  // Show full session ID when selected, short (8 chars) otherwise
+  const displaySessionId = isAgentSelected
+    ? agent.sessionId
+    : agent.sessionId.slice(0, 8);
+
+  // Only add bottom margin if we have interactions to show
+  const hasInteractions = interactions.length > 0;
+
   return (
-    <Box flexDirection="column" marginBottom={1}>
+    <Box flexDirection="column" marginBottom={hasInteractions ? 1 : 0}>
+      {/* Compact single-line agent header */}
       <Box>
-        <Text color={isAgentSelected ? "cyan" : statusColor}>
-          {isAgentSelected ? "> " : "  "}
-        </Text>
-        <Text bold>{agent.project}</Text>
-        <Text> </Text>
-        <Text dimColor>{agent.sessionId}</Text>
+        <Text>Claude Code </Text>
+        <Text color={statusColor}>● </Text>
+        {showProject && (
+          <>
+            <Text bold>{agent.project}</Text>
+            <Text dimColor> </Text>
+          </>
+        )}
+        <Text dimColor={!isAgentSelected}>{displaySessionId}</Text>
+        <Text dimColor> {agent.messageCount} msgs</Text>
+        {planFirstLine && (
+          <>
+            <Text dimColor> • </Text>
+            <Text color="blue">
+              {planFirstLine.slice(0, 40)}
+              {planFirstLine.length > 40 ? "…" : ""}
+            </Text>
+          </>
+        )}
       </Box>
-      {planFirstLine && (
-        <Box marginLeft={2}>
-          <Text color="blue">{planFirstLine}</Text>
-        </Box>
-      )}
-      {displayTitle && (
-        <Box marginLeft={2}>
-          <Text color={statusColor} italic>
-            {displayTitle}
-          </Text>
-          <Text dimColor> {agent.messageCount} messages</Text>
-        </Box>
-      )}
       {interactions.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
           {interactions.map((i) => (
