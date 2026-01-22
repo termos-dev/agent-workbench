@@ -26,8 +26,8 @@ termos run --title "Confirm" confirm --prompt "Proceed?"
 # Wait for result (blocking)
 termos wait <id>
 
-# Or check all results (non-blocking)
-termos result
+# Or get all results (debugging)
+termos wait --all
 ```
 
 ## Floating pane opens then closes
@@ -80,7 +80,7 @@ If it stays empty after you answer, the pane didn’t write results (see PATH no
 printf '{"ts":%s,"type":"result","id":"test","action":"accept"}\n' "$(date +%s000)" >> ~/.termos/sessions/<session>/events.jsonl
 ```
 
-You should see the line when running `termos result` or by tailing the events file.
+You should see the line when running `termos wait --all` or by tailing the events file.
 
 ## Confirm you are using the local build
 

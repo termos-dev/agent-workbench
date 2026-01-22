@@ -1,12 +1,12 @@
 {
   "name": "termos",
-  "version": "0.2.0",
-  "description": "Interactive UI for Claude Code. Use `termos status` to see running session with tabs/panes. Use `termos run` for confirmations, progress, tables, diffs. Run `termos --help` for all commands.",
+  "version": "0.3.2",
+  "description": "Termos is an interactive TUI that enhances Claude Code with rich visual components. WORKFLOW: 1) `termos run --title \"Title\" <component> [args]` sends an interaction and returns an ID, 2) `termos wait <id>` blocks until user responds. COMPONENTS: confirm (yes/no prompts before destructive actions), progress (multi-step task tracking with --steps), diff (code review before commits), table (structured data display), code (syntax-highlighted file viewer), json (formatted JSON/API responses), ask (quick user questions), chart (data visualization). WHEN TO USE: Before deleting files, deploying, or destructive operations use confirm. For multi-step tasks use progress. Before git commits show diff. For structured output use table/json. Always include --title. Run `termos --help` or `termos run --help` for details. The user runs `termos tui` in a separate terminal to see and respond to interactions.",
   "author": {
     "name": "termos-dev"
   },
   "repository": "https://github.com/termos-dev/termos",
   "license": "MIT",
-  "keywords": ["ide", "interactive", "terminal", "claude-code", "zellij", "tui"],
+  "keywords": ["tui", "interactive", "terminal", "claude-code"],
   "hooks": "./hooks/hooks.json"
 }

@@ -82,7 +82,7 @@ export default function MarkdownViewer() {
   useMouseScroll({ scroll, maxScroll, setScroll });
 
   useInput((input, key) => {
-    if (input === 'q' || key.escape) {
+    if (key.escape) {
       onComplete({ closed: true, file: filePath });
       exit();
     }

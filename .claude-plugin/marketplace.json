@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Interactive UI runner for Claude Code",
-    "version": "0.1.0"
+    "version": "0.3.2"
   },
   "plugins": [
     {
       "name": "termos",
       "source": "./",
-      "description": "Interactive UI runner for Claude Code using Zellij floating panes.",
-      "version": "0.1.0",
+      "description": "Interactive TUI for Claude Code.",
+      "version": "0.3.2",
       "author": {
         "name": "termos-dev"
       }

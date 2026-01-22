@@ -357,7 +357,7 @@ export default function Chart() {
   });
 
   useInput((input, key) => {
-    if (input === 'q' || key.escape || key.return) {
+    if (key.escape || key.return) {
       onComplete({ action: 'accept', type: chartType });
       exit();
     }
@@ -367,7 +367,7 @@ export default function Chart() {
     return (
       <Box flexDirection="column" paddingX={1}>
         <Text color="red">{error}</Text>
-        <Text dimColor>Press q to close</Text>
+        <Text dimColor>Press Esc to close</Text>
       </Box>
     );
   }
@@ -404,7 +404,7 @@ export default function Chart() {
       )}
 
       <Box marginTop={1}>
-        <Text dimColor>Press q or Enter to close</Text>
+        <Text dimColor>Press Esc or Enter to close</Text>
       </Box>
     </Box>
   );

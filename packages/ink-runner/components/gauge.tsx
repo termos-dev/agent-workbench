@@ -253,7 +253,7 @@ export default function Gauge() {
   }, { interval: 500 });
 
   useInput((input, key) => {
-    if (key.escape || input === 'q' || key.return) {
+    if (key.escape || key.return) {
       onComplete({
         action: 'accept',
         gauges: gauges.map(g => ({ value: g.value, label: g.label })),
@@ -266,7 +266,7 @@ export default function Gauge() {
     return (
       <Box flexDirection="column" paddingX={1}>
         <Text color="red">{error}</Text>
-        <Text dimColor>Press q to close</Text>
+        <Text dimColor>Press Esc to close</Text>
       </Box>
     );
   }
@@ -284,7 +284,7 @@ export default function Gauge() {
       ))}
 
       <Box marginTop={1}>
-        <Text dimColor>Press q or Enter to close</Text>
+        <Text dimColor>Press Esc or Enter to close</Text>
         {args?.file && <Text dimColor> (watching file for updates)</Text>}
       </Box>
     </Box>

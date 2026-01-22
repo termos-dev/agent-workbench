@@ -1,7 +1,7 @@
 {
   "name": "@termosdev/cli",
   "version": "0.3.2",
-  "description": "Interactive UI runner for Claude Code using Zellij floating panes",
+  "description": "Interactive TUI for Claude Code",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -23,6 +23,7 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "prepublishOnly": "npm run build"
   },
   "repository": {
@@ -35,20 +36,22 @@
     "url": "https://github.com/termos-dev/termos/issues"
   },
   "keywords": [
-    "ide",
+    "tui",
     "interactive",
     "terminal",
     "claude-code",
-    "ai-agent",
-    "zellij"
+    "ai-agent"
   ],
   "license": "MIT",
   "dependencies": {
     "@termosdev/shared": "file:packages/shared",
+    "date-fns": "^4.1.0",
+    "mermaid-ascii": "^1.0.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.19.27",
+    "@vitest/coverage-v8": "^4.0.17",
     "esbuild": "^0.27.2",
     "typescript": "^5.3.0",
     "vitest": "^4.0.16"

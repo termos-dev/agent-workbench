@@ -40,6 +40,10 @@ function getLanguage(filePath: string): string {
   return langMap[ext] || 'text';
 }
 
+// Box Drawing (U+2500-U+257F) and Block Elements (U+2580-U+259F)
+const BOX_DRAWING_REGEX = /[\u2500-\u257F\u2580-\u259F]/;
+const containsBoxDrawing = (line: string) => BOX_DRAWING_REGEX.test(line);
+
 function highlightLine(line: string, lang: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   let remaining = line;
@@ -90,7 +94,7 @@ function highlightLine(line: string, lang: string): React.ReactNode[] {
 
 export default function CodeViewer() {
   const { exit } = useApp();
-  const { rows } = useTerminalSize();
+  const { rows, columns } = useTerminalSize();
 
   const filePath = args?.file;
   const title = args?.title || (filePath ? path.basename(filePath) : 'Code');
@@ -101,6 +105,8 @@ export default function CodeViewer() {
   const [scroll, setScroll] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [maxScroll, setMaxScroll] = useState(0);
+  const [horizontalScroll, setHorizontalScroll] = useState(0);
+  const [maxLineLength, setMaxLineLength] = useState(0);
 
   // Parse highlight range
   const highlightStart = highlightRange
@@ -121,7 +127,9 @@ export default function CodeViewer() {
 
     try {
       const content = readFileSync(filePath, 'utf-8');
-      setLines(content.split('\n'));
+      const fileLines = content.split('\n');
+      setLines(fileLines);
+      setMaxLineLength(Math.max(...fileLines.map(l => l.length)));
       setError(null);
 
       // Jump to line only on first load
@@ -141,6 +149,9 @@ export default function CodeViewer() {
   });
   const lang = filePath ? getLanguage(filePath) : 'text';
   const lineNumWidth = String(lines.length).length;
+  // Calculate visible columns (account for line numbers, padding, scrollbar)
+  // " │ " = 3 chars, paddingX=1 each side = 2 chars, scrollbar = 1 char
+  const visibleCols = columns - lineNumWidth - 6;
 
   // Update maxScroll when lines or visibleLines change
   useEffect(() => {
@@ -151,7 +162,7 @@ export default function CodeViewer() {
   useMouseScroll({ scroll, maxScroll, setScroll });
 
   useInput((input, key) => {
-    if (input === 'q' || key.escape) {
+    if (key.escape) {
       const result = {
         action: 'accept',
         file: filePath,
@@ -241,13 +252,22 @@ export default function CodeViewer() {
     if (input === 'G') {
       setScroll(maxScroll);
     }
+
+    // Horizontal scroll
+    const maxHorizontalScroll = Math.max(0, maxLineLength - visibleCols);
+    if (key.leftArrow || input === 'h') {
+      setHorizontalScroll(s => Math.max(0, s - 5));
+    }
+    if (key.rightArrow || input === 'l') {
+      setHorizontalScroll(s => Math.min(maxHorizontalScroll, s + 5));
+    }
   });
 
   if (error) {
     return (
       <Box flexDirection="column" paddingX={1}>
         <Text color="red">{error}</Text>
-        <Text dimColor>Press q to close</Text>
+        <Text dimColor>Press Esc to close</Text>
       </Box>
     );
   }
@@ -276,11 +296,27 @@ export default function CodeViewer() {
               lineNum >= highlightStart &&
               lineNum <= (highlightEnd || highlightStart);
 
+            // Check for box drawing on original line before truncation
+            const hasBoxDrawing = containsBoxDrawing(line);
+
+            // Apply horizontal scroll
+            const scrolledLine = line.slice(horizontalScroll);
+
+            // Truncate to visible width
+            const truncatedLine = visibleCols > 0 && scrolledLine.length > visibleCols
+              ? scrolledLine.slice(0, visibleCols - 1) + '→'
+              : scrolledLine;
+
+            // Skip syntax highlighting for ASCII art lines (box-drawing characters)
+            const lineContent = hasBoxDrawing
+              ? truncatedLine
+              : highlightLine(truncatedLine, lang);
+
             return (
               <Box key={displayIdx}>
                 <Text color="gray">{String(lineNum).padStart(lineNumWidth, ' ')} │ </Text>
                 <Text inverse={isHighlighted} color={isHighlighted ? 'yellow' : undefined}>
-                  {highlightLine(line, lang)}
+                  {lineContent}
                 </Text>
               </Box>
             );
@@ -293,7 +329,7 @@ export default function CodeViewer() {
       </Box>
 
       <Box paddingX={1}>
-        <Text dimColor>↑↓/jk=scroll  g/G=top/bottom  PgUp/PgDn  q=close</Text>
+        <Text dimColor>↑↓/jk=scroll  ←→/hl=pan  g/G=top/bottom  PgUp/PgDn  Esc=close</Text>
         {(args?.editor || args?.embeddedEditor) && <Text dimColor>  e=edit</Text>}
         {showScrollBar && <Text dimColor>  mouse=scroll</Text>}
       </Box>

@@ -168,7 +168,7 @@ export default function JsonViewer() {
   };
 
   useInput((input, key) => {
-    if (key.escape || input === 'q') {
+    if (key.escape) {
       onComplete({ action: 'cancel' });
       exit();
       return;
@@ -257,7 +257,7 @@ export default function JsonViewer() {
     return (
       <Box flexDirection="column" paddingX={1}>
         <Text color="red">{error}</Text>
-        <Text dimColor>Press q to close</Text>
+        <Text dimColor>Press Esc to close</Text>
       </Box>
     );
   }

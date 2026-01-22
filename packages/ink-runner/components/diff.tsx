@@ -166,7 +166,7 @@ export default function DiffViewer() {
   useMouseScroll({ scroll, maxScroll, setScroll });
 
   useInput((input, key) => {
-    if (input === 'q' || key.escape) {
+    if (key.escape) {
       onComplete({
         action: 'accept',
         file: args?.file,
@@ -201,7 +201,7 @@ export default function DiffViewer() {
     return (
       <Box flexDirection="column" paddingX={1}>
         <Text color="yellow">{error}</Text>
-        <Text dimColor>Press q to close</Text>
+        <Text dimColor>Press Esc to close</Text>
       </Box>
     );
   }

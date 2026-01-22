@@ -1,10 +1,5 @@
 # Project: mcp-sidecar
 
-## Environment
-- Platform: macOS
-- Zellij: available (installed)
-- Ghostty: available
-
 ## Editor
 ```yaml
 editor: code
@@ -30,21 +25,19 @@ Use `confirm` before:
 
 Example:
 ```bash
-termos run --title "Delete Files" --position floating:center confirm --prompt "Delete 5 files from src/old/?"
+termos run --title "Delete Files" confirm --prompt "Delete 5 files from src/old/?"
 ```
 
 ### Progress Tracking
 Use `progress` for operations with multiple steps (3+ steps):
 ```bash
-termos run --title "Setup" --position floating:bottom-right progress --steps "Install deps,Build,Test,Deploy"
+termos run --title "Setup" progress --steps "Install deps,Build,Test,Deploy"
 ```
 
-Update the current step as you complete each task.
-
 ### Code Review
-Use `diff` before committing changes to show side-by-side comparison:
+Use `diff` before committing changes:
 ```bash
-termos run --title "Review Changes" --position floating:center diff --file path/to/file
+termos run --title "Review Changes" diff --file path/to/file
 ```
 
 Always show diffs before:
@@ -60,63 +53,32 @@ Use appropriate components for structured data:
 
 Example:
 ```bash
-termos run --title "API Response" --position floating:center table --data '...'
+termos run --title "API Response" table --data '...'
 ```
 
 ### Plan Mode
-When entering plan mode, display the plan file in a centered pane:
+When entering plan mode, display the plan file:
 ```bash
-termos run --title "Plan" --position floating:center plan-viewer --file <plan-path>
+termos run --title "Plan" plan-viewer --file <plan-path>
 ```
 
-The user can approve (Y) or reject (N) directly from the pane.
+The user can approve (Y) or reject (N) directly from the TUI.
 
-### Task Progress
-For multi-step tasks, show live progress in a corner pane:
+### Command Output
+Run commands and display output in the TUI:
 ```bash
-termos run --title "Tasks" --position floating:bottom-right progress --steps "Step1,Step2,Step3"
+termos run --title "Git Status" --cmd "git status"
 ```
-
-Update current step as you complete each task. Keep this visible throughout the operation.
-
-### User Engagement
-Keep the user engaged while working:
-- Periodically check in with quick questions using `ask`
-- Keep 1-2 floating panes visible for status updates
-- Use `floating:bottom-right` to stay unobtrusive
-
-Example:
-```bash
-termos run --title "Quick Check" --position floating:bottom-right ask --prompt "All good so far?"
-```
-
-Best practices for engagement:
-- Check in every few major steps
-- Confirm before proceeding to new phases
-- Show progress updates for long operations
-
-### Live Git Diff Pane (Zellij only)
-Show live git diff in a split pane while coding:
-```bash
-termos run --title "Git Diff" --position split:right --cmd "while true; do clear; git diff --color=always; sleep 5; done"
-```
-
-This updates continuously as you make changes.
-Start this when beginning a coding session inside Zellij.
-
-## Component Preferences
-- Default position: `floating:center` for important decisions
-- Progress/status: `floating:bottom-right` to stay out of the way
-- Confirmations: `floating:center` for visibility
-- Data displays: `floating:center` for easy reading
 
 ## Quick Reference
 
-| Component | Use Case | Default Position |
-|-----------|----------|------------------|
-| confirm | Before destructive actions | floating:center |
-| progress | Multi-step operations | floating:bottom-right |
-| diff | Code review before commits | floating:center |
-| table | Structured data display | floating:center |
-| ask | Quick questions/check-ins | floating:bottom-right |
-| plan-viewer | Plan mode display | floating:center |
+| Component | Use Case |
+|-----------|----------|
+| confirm | Before destructive actions |
+| progress | Multi-step operations |
+| diff | Code review before commits |
+| table | Structured data display |
+| ask | Quick questions/check-ins |
+| plan-viewer | Plan mode display |
+| code | Display file contents |
+| json | API responses, configs |

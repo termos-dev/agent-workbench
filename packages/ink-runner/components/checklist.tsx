@@ -89,7 +89,7 @@ export default function Checklist() {
   useMouseScroll({ scroll, maxScroll, setScroll });
 
   useInput((input, key) => {
-    if (input === 'q' || key.escape) {
+    if (key.escape) {
       onComplete({ action: 'cancel' });
       exit();
       return;

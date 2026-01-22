@@ -34,37 +34,50 @@ export function useMouseScroll({
   useEffect(() => {
     if (!stdin) return;
 
-    // Enable mouse tracking (SGR 1006 mode for better compatibility)
-    process.stdout.write('\x1b[?1000h'); // Enable mouse click tracking
-    process.stdout.write('\x1b[?1006h'); // Enable SGR extended mode
+    try {
+      // Enable mouse tracking (SGR 1006 mode for better compatibility)
+      process.stdout.write('\x1b[?1000h'); // Enable mouse click tracking
+      process.stdout.write('\x1b[?1006h'); // Enable SGR extended mode
+    } catch {
+      // Ignore stdout write errors
+      return;
+    }
 
     const handleData = (data: Buffer) => {
-      const str = data.toString();
+      try {
+        const str = data.toString();
 
-      // Parse SGR mouse sequences: \x1b[<button;x;y;M or m
-      // Button 64 = scroll up, 65 = scroll down
-      const sgrMatch = str.match(/\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
-      if (sgrMatch) {
-        const button = parseInt(sgrMatch[1], 10);
-        if (button === 64) handleScroll('up');
-        else if (button === 65) handleScroll('down');
-        return;
-      }
+        // Parse SGR mouse sequences: \x1b[<button;x;y;M or m
+        // Button 64 = scroll up, 65 = scroll down
+        const sgrMatch = str.match(/\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
+        if (sgrMatch) {
+          const button = parseInt(sgrMatch[1], 10);
+          if (button === 64) handleScroll('up');
+          else if (button === 65) handleScroll('down');
+          return;
+        }
 
-      // Parse legacy mouse sequences: \x1b[M followed by 3 bytes
-      if (str.startsWith('\x1b[M') && str.length >= 6) {
-        const button = str.charCodeAt(3) - 32;
-        if (button === 64) handleScroll('up');
-        else if (button === 65) handleScroll('down');
+        // Parse legacy mouse sequences: \x1b[M followed by 3 bytes
+        if (str.startsWith('\x1b[M') && str.length >= 6) {
+          const button = str.charCodeAt(3) - 32;
+          if (button === 64) handleScroll('up');
+          else if (button === 65) handleScroll('down');
+        }
+      } catch {
+        // Ignore parse errors
       }
     };
 
     stdin.on('data', handleData);
 
     return () => {
-      // Disable mouse tracking on cleanup
-      process.stdout.write('\x1b[?1006l');
-      process.stdout.write('\x1b[?1000l');
+      try {
+        // Disable mouse tracking on cleanup
+        process.stdout.write('\x1b[?1006l');
+        process.stdout.write('\x1b[?1000l');
+      } catch {
+        // Ignore stdout write errors
+      }
       stdin.off('data', handleData);
     };
   }, [stdin, handleScroll]);

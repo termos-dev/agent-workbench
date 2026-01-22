@@ -10,7 +10,7 @@ description: Run Termos interactive UI inside Zellij for Codex sessions. Use whe
 Run inside a Zellij session (or on macOS without Zellij):
 ```bash
 termos run --title "Confirm" confirm --prompt "Proceed?"
-termos wait <id>  # or use `termos result` for non-blocking
+termos wait <id>  # blocks until user responds
 ```
 
 ## REQUIRED: Learn Component Args
@@ -63,7 +63,7 @@ Examples:
 termos run --title "Confirm" confirm --prompt "Proceed?"
 
 # Centered floating pane
-termos run --title "Question" --position floating:center ask --prompt "Name?"
+termos run --title "Question" --position floating:center ask --questions '[{"question":"Name?","header":"name"}]'
 
 # Split pane (Zellij only)
 termos run --title "Review" --position split confirm --prompt "Approve changes?"
@@ -83,9 +83,9 @@ Note: Split positions only work in Zellij. On macOS without Zellij, split falls 
 # Fire multiple interactions at once
 termos run --title "Q1" --position floating:top-left confirm --prompt "Approve?"
 termos run --title "Q2" --position floating:top-right checklist --items "A,B,C"
-# Continue working, then check results:
-termos result  # all results
-termos wait <id>  # wait for specific one
+# Continue working, then wait for results:
+termos wait <id1>
+termos wait <id2>
 ```
 
 **Anti-pattern (don't do this):**
@@ -93,18 +93,25 @@ termos wait <id>  # wait for specific one
 
 ## Ask component
 
-Single question:
+The `ask` component displays 1-4 questions at once. All questions are visible and navigable with Tab/Shift+Tab.
+
+Single question (text input):
 ```bash
-termos run --title "Question" ask --prompt "What is your name?" --placeholder "Enter your name..."
+termos run --title "Question" ask --questions '[{"question":"What is your name?","header":"name","placeholder":"Enter your name..."}]'
 ```
 
 Single question with choices:
 ```bash
-termos run --title "Question" ask --prompt "Favorite language?" --options "TypeScript,Python,Go"
+termos run --title "Question" ask --questions '[{"question":"Favorite language?","header":"lang","options":[{"label":"TypeScript"},{"label":"Python"},{"label":"Go"}]}]'
 ```
 
-Multiple questions (inline JSON array):
+Multiple questions at once:
 ```bash
-termos run --title "Question" ask --questions '[{"question":"Name?","options":["Alice","Bob"]}]'
+termos run --title "Setup" ask --questions '[{"question":"Auth method?","header":"auth","options":[{"label":"OAuth","description":"Industry standard"},{"label":"JWT","description":"Stateless"}]},{"question":"Database?","header":"db","options":[{"label":"PostgreSQL"},{"label":"MongoDB"}]}]'
+```
+
+Multi-select (checkboxes):
+```bash
+termos run --title "Features" ask --questions '[{"question":"Select features","header":"features","multiSelect":true,"options":[{"label":"Auth"},{"label":"API"},{"label":"Dashboard"}]}]'
 ```
 

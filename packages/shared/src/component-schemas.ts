@@ -23,22 +23,33 @@ export interface ComponentSchema {
 export const componentSchemas: Record<string, ComponentSchema> = {
   ask: {
     name: "ask",
-    description: "Multi-question interactive form",
+    description: `Multi-question interactive form (1-4 questions visible at once).
+
+Question schema:
+  {
+    "question": string,           // Required: the question text
+    "header": string,             // Required: key for the answer in results
+    "options": [                  // Optional: for selection questions
+      { "label": string, "description"?: string }
+    ],
+    "multiSelect": boolean,       // Optional: allow multiple selections (default: false)
+    "placeholder": string,        // Optional: placeholder for text input
+    "inputType": "text"|"password" // Optional: input type (default: text)
+  }
+
+Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`,
     args: {
-      questions: { type: "json", description: "Inline JSON - array of question objects" },
-      prompt: { type: "string", description: "Single-question prompt (shorthand)" },
-      options: { type: "string", description: "Options for single-question prompt (CSV or JSON array)" },
-      placeholder: { type: "string", description: "Placeholder for single-question prompt" },
-      title: { type: "string", description: "Form title" },
+      questions: { type: "json", required: true, description: "JSON array of question objects (1-4 questions)" },
     },
     returns: {
       action: "accept | cancel",
       answers: "Record<header, value> - answers keyed by question header",
     },
     examples: [
-      'termos run --title "Question" ask --prompt "What is your name?" --placeholder "Enter your name..."',
-      'termos run --title "Question" ask --prompt "Favorite language?" --options "TypeScript,Python,Go"',
-      'termos run --title "Question" ask --questions \'[{"question":"Name?","options":["Alice","Bob"]}]\'',
+      'termos run --title "Setup" ask --questions \'[{"question":"What is your name?","header":"name"}]\'',
+      'termos run --title "Config" ask --questions \'[{"question":"Select language","header":"lang","options":[{"label":"TypeScript"},{"label":"Python"},{"label":"Go"}]}]\'',
+      'termos run --title "Preferences" ask --questions \'[{"question":"Auth method?","header":"auth","options":[{"label":"OAuth","description":"Industry standard"},{"label":"JWT","description":"Stateless"}]},{"question":"Database?","header":"db","options":[{"label":"PostgreSQL"},{"label":"MongoDB"}]}]\'',
+      'termos run --title "Features" ask --questions \'[{"question":"Select features","header":"features","multiSelect":true,"options":[{"label":"Auth"},{"label":"API"},{"label":"Dashboard"}]}]\'',
     ],
   },
 
@@ -358,42 +369,41 @@ export const componentSchemas: Record<string, ComponentSchema> = {
       'termos run --title "Stats" gauge --data \'[{"label":"CPU","value":45},{"label":"Memory","value":72}]\'',
     ],
   },
-};
 
-/**
- * Valid position presets
- */
-export const POSITION_PRESETS = [
-  "floating",
-  "floating:center",
-  "floating:top-left",
-  "floating:top-right",
-  "floating:bottom-left",
-  "floating:bottom-right",
-  "split",
-  "split:right",
-  "split:down",
-  "tab",
-] as const;
+  card: {
+    name: "card",
+    description: "Display markdown content with custom action buttons",
+    args: {
+      content: { type: "string", description: "Markdown/text content to display" },
+      file: { type: "string", description: "Path to markdown file" },
+      actions: { type: "json", description: 'Action buttons: [{"label":"Ok","key":"o","value":"ok"}]' },
+      layout: { type: "string", default: "auto", description: "Button layout: horizontal | vertical | auto" },
+    },
+    validation: {
+      oneOf: ["content", "file"],
+    },
+    returns: {
+      action: "accept | cancel",
+      selected: "string - value of selected action",
+      selectedLabel: "string - label of selected action",
+    },
+    examples: [
+      'termos run --title "Joke" card --content "Why do programmers prefer dark mode?\\n\\nBecause light attracts bugs!"',
+      'termos run --title "Notice" card --content "# Important\\n\\nMaintenance tonight."',
+      'termos run --title "Rate" card --content "How was it?" --actions \'[{"label":"Good","key":"g","value":"good"},{"label":"Bad","key":"b","value":"bad"}]\'',
+      'termos run --title "Review" card --file notes.md --layout vertical',
+    ],
+  },
+};
 
 /**
  * Global options schema - applies to all `termos run` commands
  */
 export const globalOptionsSchema: Record<string, ArgSchema> = {
-  position: {
-    type: "string",
-    required: true,
-    description: `Pane position preset: ${POSITION_PRESETS.join(", ")}`,
-  },
   title: {
     type: "string",
     required: true,
-    description: "Title for the pane",
-  },
-  session: {
-    type: "string",
-    required: false,
-    description: "Session name (auto-generated from dir name on macOS)",
+    description: "Title for the interaction",
   },
   cmd: {
     type: "string",
@@ -500,7 +510,6 @@ Command Execution:
 
 Global Options:
 ${generateGlobalOptionsHelp()}
-  Note: split positions only work in Zellij; other hosts fall back to a new window/tab
 `);
 
   for (const schema of Object.values(componentSchemas)) {
@@ -519,7 +528,6 @@ ${generateGlobalOptionsHelp()}
   Create .tsx files with a default export React component.
   Use global onComplete(result) to return data.
   Pass arguments via --key value flags.
-  Use --position to control placement (required).
 `);
 
   return sections.join('\n');

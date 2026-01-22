@@ -28,38 +28,6 @@ npm link
 
 Then `termos` command is available globally.
 
-## Zellij Requirement (Linux/Windows)
-
-Run Termos **inside a Zellij session** on Linux/Windows:
-
-```bash
-zellij attach --create termos-dev
-termos run --title "Test" confirm --prompt "Smoke test?"
-termos wait <id>
-```
-
-## macOS Mode
-
-On macOS you can run outside Zellij. Termos will open Ghostty if available,
-otherwise it opens a Terminal tab for interactions:
-
-```bash
-termos run --title "Test" confirm --prompt "Smoke test?"
-termos wait <id>
-```
-
-### Terminal Override
-
-Set `TERMOS_TERMINAL` to override auto-detection:
-
-```bash
-# Force Terminal.app
-export TERMOS_TERMINAL=terminal
-
-# Force Ghostty (errors if not installed)
-export TERMOS_TERMINAL=ghostty
-```
-
 ## Testing
 
 When testing from different directories, clear the plugin cache first:
@@ -78,31 +46,11 @@ cd /path/to/project
 This project uses termos for interactive UI. Read `termos.md` for interaction preferences.
 
 Workflow:
-1. `termos run ...` spawns pane, returns interaction ID
-2. `termos wait <id>` blocks until result (or run in background with `&`)
-3. `termos result` checks all results, or `termos result <id>` for specific one
+1. `termos run ...` writes event, returns interaction ID
+2. `termos wait <id>` blocks until user responds in TUI
 
 - **USE termos components** for confirmations, progress, and user engagement
-- **Show plan files** in a pane during plan mode (if enabled in termos.md)
+- **Show plan files** during plan mode (if enabled in termos.md)
 - **Display task progress** visually for multi-step operations
 
-Run `termos --help` for available components. Always use `--title` and `--position` flags.
-
-## Session Awareness
-
-Check what's running in the termos session:
-```bash
-termos status
-```
-
-This shows the session name, status, and layout with tabs/panes and their commands.
-
-To get logs from a pane (dumps the focused pane's screen):
-```bash
-zellij --session <session-name> action dump-screen /tmp/pane.txt && cat /tmp/pane.txt
-```
-
-To focus a specific tab first:
-```bash
-zellij --session <session-name> action go-to-tab-name "Tab Name"
-```
+Run `termos` for help, `termos run --help` for component details. Always use `--title`.

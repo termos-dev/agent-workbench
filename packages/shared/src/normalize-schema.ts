@@ -2,23 +2,22 @@ import type { FormSchema, FormQuestion, FormOption } from "./schema.js";
 
 interface RawQuestion {
   question?: string;
-  prompt?: string;
   header?: string;
   options?: unknown[];
-  choices?: unknown[];
   placeholder?: string;
-  default?: string;
+  multiSelect?: boolean;
+  inputType?: string;
+  validation?: string;
   [key: string]: unknown;
 }
 
 /**
  * Normalize various input formats to standard FormSchema.
  * Handles:
- * - Array of questions directly
- * - Object with question:header mapping
- * - { questions: [...] } format
- * - Field aliases (prompt -> question, choices -> options, default -> placeholder)
- * - Auto-generates unique headers from question text
+ * - Array of questions directly: [{question, header, options?}]
+ * - Object with question:header mapping: {"What is your name?": "name"}
+ * - Standard format: { questions: [...] }
+ * - Auto-generates unique headers from question text if not provided
  */
 export function normalizeFormSchema(input: unknown): FormSchema {
   // Handle array input
@@ -62,22 +61,7 @@ function normalizeQuestion(
 ): FormQuestion {
   const result: Record<string, unknown> = { ...q };
 
-  // Alias normalization: prompt -> question
-  if (!result.question && typeof q.prompt === "string") {
-    result.question = q.prompt;
-  }
-
-  // Alias normalization: choices -> options
-  if (!result.options && Array.isArray(q.choices)) {
-    result.options = q.choices;
-  }
-
-  // Alias normalization: default -> placeholder
-  if (!result.placeholder && typeof q.default === "string") {
-    result.placeholder = q.default;
-  }
-
-  // Auto-generate unique header
+  // Auto-generate unique header if not provided
   result.header = generateUniqueHeader(
     (result.question as string) || "",
     result.header as string | undefined,
@@ -85,7 +69,7 @@ function normalizeQuestion(
     usedHeaders
   );
 
-  // Normalize options format
+  // Normalize options format (string -> {label: string})
   if (Array.isArray(result.options)) {
     result.options = (result.options as unknown[]).map(normalizeOption);
   }

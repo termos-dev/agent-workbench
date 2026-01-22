@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { watchFile, unwatchFile } from 'fs';
+import { watchFile, unwatchFile, existsSync } from 'fs';
+import * as path from 'path';
 
 const DEFAULT_INTERVAL = 1000;
 
@@ -24,11 +25,39 @@ export function useFileWatch(
   const { deps = [], interval = DEFAULT_INTERVAL } = options;
 
   useEffect(() => {
-    onLoad();
+    // Safe callback wrapper
+    const safeOnLoad = () => {
+      try {
+        onLoad();
+      } catch (err) {
+        console.error('useFileWatch callback error:', err);
+      }
+    };
+
+    safeOnLoad();
 
     if (filePath) {
-      watchFile(filePath, { interval }, onLoad);
-      return () => unwatchFile(filePath);
+      try {
+        // Validate path before watching
+        const normalizedPath = path.resolve(filePath);
+
+        // Only watch if the parent directory exists (file may not exist yet)
+        const parentDir = path.dirname(normalizedPath);
+        if (!existsSync(parentDir)) {
+          return;
+        }
+
+        watchFile(normalizedPath, { interval }, safeOnLoad);
+        return () => {
+          try {
+            unwatchFile(normalizedPath);
+          } catch {
+            // Ignore unwatch errors
+          }
+        };
+      } catch (err) {
+        console.error('useFileWatch setup error:', err);
+      }
     }
   }, [filePath, ...deps]);
 }
@@ -49,17 +78,40 @@ export function useMultiFileWatch(
   const { deps = [], interval = DEFAULT_INTERVAL } = options;
 
   useEffect(() => {
-    onLoad();
+    // Safe callback wrapper
+    const safeOnLoad = () => {
+      try {
+        onLoad();
+      } catch (err) {
+        console.error('useMultiFileWatch callback error:', err);
+      }
+    };
+
+    safeOnLoad();
 
     const validPaths = filePaths.filter((p): p is string => !!p);
+    const watchedPaths: string[] = [];
 
-    for (const path of validPaths) {
-      watchFile(path, { interval }, onLoad);
+    for (const filePath of validPaths) {
+      try {
+        const normalizedPath = path.resolve(filePath);
+        const parentDir = path.dirname(normalizedPath);
+        if (existsSync(parentDir)) {
+          watchFile(normalizedPath, { interval }, safeOnLoad);
+          watchedPaths.push(normalizedPath);
+        }
+      } catch {
+        // Skip paths that can't be watched
+      }
     }
 
     return () => {
-      for (const path of validPaths) {
-        unwatchFile(path);
+      for (const watchedPath of watchedPaths) {
+        try {
+          unwatchFile(watchedPath);
+        } catch {
+          // Ignore unwatch errors
+        }
       }
     };
   }, [...filePaths, ...deps]);

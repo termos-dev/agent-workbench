@@ -89,7 +89,7 @@ export default function Progress() {
   }, { interval: 500 });
 
   useInput((input, key) => {
-    if (input === 'q' || key.escape) {
+    if (key.escape) {
       const completed = steps.filter(s => s.status === 'done').map(s => s.name);
       const current = steps.find(s => s.status === 'running')?.name || null;
       onComplete({

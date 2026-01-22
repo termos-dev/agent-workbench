@@ -10,11 +10,11 @@ Claude Code's built-in `AskUserQuestion` tool blocks execution until you respond
 
 ## The Solution
 
-Termos is a CLI + Claude Code skill that spawns **floating terminal panes** for interactions. Claude keeps working while you review and respond in your own time.
+Termos is a CLI + Claude Code skill for non-blocking interactions. Claude keeps working while you review and respond in your own time via the TUI.
 
 ```bash
 # Claude runs this (non-blocking)
-termos run confirm --prompt "Deploy to production?"
+termos run --title "Deploy" confirm --prompt "Deploy to production?"
 
 # Returns immediately with an ID
 # Claude continues working, checks result later
@@ -22,9 +22,8 @@ termos wait <id>
 ```
 
 - **Non-blocking** - Claude asks without stopping
-- **Parallel interactions** - Multiple panes, multiple questions
+- **Parallel interactions** - Multiple questions queue up in the TUI
 - **Rich components** - Diffs, tables, checklists, not just text prompts
-- **Side-by-side workflow** - Run a Zellij session alongside Claude with your dev servers
 
 ## Install
 
@@ -35,25 +34,14 @@ claude plugins install termos
 
 Then run `/termos:init` in Claude to configure.
 
-## Side-by-Side Workflow
-
-Run a Zellij session alongside Claude with your background processes:
+## Usage
 
 ```bash
-# Terminal 1: Claude Code
-claude
+# Launch the TUI to respond to interactions
+termos tui
 
-# Terminal 2: View interactions + run dev servers
-termos attach
-```
-
-`/termos:init` asks about your project's background processes (dev server, API, logs) and generates a custom layout. When you run `termos attach`, everything starts automatically.
-
-```bash
-termos attach              # Start session with default layout
-termos attach -l debug     # Use a different layout
-termos status              # Check session status
-termos stop                # Kill the session
+# Show help
+termos
 ```
 
 ## Components
@@ -61,11 +49,6 @@ termos stop                # Kill the session
 `confirm` `ask` `checklist` `select` `diff` `code` `table` `json` `markdown` `progress` `chart` `gauge` `tree` `mermaid` `plan-viewer`
 
 Drop custom `.tsx` files in `.termos/interactive/` for your own Ink components.
-
-## Requirements
-
-- **macOS**: Native support (Ghostty or Terminal.app)
-- **Linux/Windows**: Requires [Zellij](https://zellij.dev/)
 
 ## License
 

@@ -25,6 +25,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Run tests
+        run: npm test
+
+      - name: Check coverage
+        run: npm run test:coverage
+
       - name: Publish to npm
         run: npm publish --provenance --access public
         env:
