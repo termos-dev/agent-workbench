@@ -9,7 +9,8 @@
   },
   "files": ["dist", ".claude-plugin", "skills", "templates", "!dist/**/*.map"],
   "scripts": {
-    "build": "tsc && cp -r src/templates dist/ && npm run bundle:ink-runner",
+    "build": "npm run build:shared && tsc && cp -r src/templates dist/ && npm run bundle:ink-runner",
+    "build:shared": "cd packages/shared && npm run build",
     "bundle:ink-runner": "node scripts/bundle-ink-runner.mjs",
     "dev": "npm run serve",
     "dev:cli": "tsc --watch",
