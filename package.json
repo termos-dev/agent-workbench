@@ -1,6 +1,6 @@
 {
   "name": "@termosdev/cli",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Interactive TUI for Claude Code",
   "type": "module",
   "main": "dist/index.js",
