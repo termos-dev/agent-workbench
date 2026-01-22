@@ -189,7 +189,7 @@ claude plugins install termos</code></pre>
             </div>
             <h3 class="text-lg font-semibold">Fully customizable</h3>
             <p class="mt-2 text-sm leading-relaxed text-slate-400">
-              15 built-in components. Drop custom Ink React components when you need more.
+              16 built-in components. Drop custom Ink React components when you need more.
             </p>
           </div>
 
@@ -212,7 +212,7 @@ claude plugins install termos</code></pre>
       <section id="components" class="mt-24">
         <div class="text-center">
           <h2 class="text-3xl font-bold">What Agents Can Request</h2>
-          <p class="mt-3 text-slate-400">15 built-in interaction types appear in your dashboard when Claude needs input</p>
+          <p class="mt-3 text-slate-400">16 built-in interaction types appear in your dashboard when Claude needs input</p>
         </div>
 
         <div class="mt-10 flex flex-col items-center gap-6">
@@ -246,6 +246,9 @@ claude plugins install termos</code></pre>
             </div>
             <div class="component-card cursor-pointer rounded-md border border-white/10 bg-white/5 px-3 py-1.5 transition hover:border-amber-500/50 hover:bg-white/10" data-component="markdown">
               <span class="font-mono text-sm text-amber-400">markdown</span>
+            </div>
+            <div class="component-card cursor-pointer rounded-md border border-white/10 bg-white/5 px-3 py-1.5 transition hover:border-amber-500/50 hover:bg-white/10" data-component="card">
+              <span class="font-mono text-sm text-amber-400">card</span>
             </div>
             <!-- Status -->
             <div class="component-card cursor-pointer rounded-md border border-white/10 bg-white/5 px-3 py-1.5 transition hover:border-emerald-500/50 hover:bg-white/10" data-component="progress">
@@ -489,6 +492,16 @@ This is <span class="font-bold text-white">bold</span> and <span class="italic t
 
 <span class="text-slate-500 bg-slate-800 px-1 rounded">console.log("hello");</span>`,
 
+        card: `<span class="text-slate-500">┌─ Status Update ─────────────────────┐</span>
+<span class="text-slate-500">│</span>                                     <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span>  <span class="text-cyan-400 font-bold">Build Completed</span>                   <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span>                                     <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span>  <span class="text-slate-300">All 42 tests passed</span>               <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span>  <span class="text-slate-300">Bundle size: 128kb</span>                <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span>  <span class="text-emerald-400">Ready for deployment</span>              <span class="text-slate-500">│</span>
+<span class="text-slate-500">│</span>                                     <span class="text-slate-500">│</span>
+<span class="text-slate-500">└─────────────────────────────────────┘</span>`,
+
         progress: `<span class="text-slate-500">┌─ Build Progress ────────────────────┐</span>
 <span class="text-slate-500">│</span>                                     <span class="text-slate-500">│</span>
 <span class="text-slate-500">│</span>  <span class="text-emerald-400">✓</span> Installing dependencies          <span class="text-slate-500">│</span>
@@ -565,6 +578,7 @@ This is <span class="font-bold text-white">bold</span> and <span class="italic t
         table: '--data \'[{"name":"Alice","role":"Admin"}]\'',
         json: '--data \'{"user":{"name":"Alice"}}\'',
         markdown: '--file "README.md"',
+        card: '--content "Build completed!" --actions \'[{"label":"OK","value":"ok"}]\'',
         progress: '--steps "Install,Compile,Test,Build"',
         chart: '--data \'[{"label":"Mon","value":42}]\'',
         gauge: '--label "CPU" --value 78',

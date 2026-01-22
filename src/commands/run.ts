@@ -267,9 +267,9 @@ export async function handleRun(args: string[]): Promise<void> {
       console.error("Usage: termos run <component> or termos run -- <command>");
       console.error("\nBuilt-in components:");
       console.error(
-        "  ask, confirm, checklist, code, diff, table, progress, mermaid"
+        "  ask, confirm, checklist, select, code, diff, table, json, markdown, card"
       );
-      console.error("  markdown, plan-viewer");
+      console.error("  progress, chart, gauge, tree, mermaid, plan-viewer");
       process.exit(1);
     }
 

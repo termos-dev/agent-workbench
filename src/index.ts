@@ -45,7 +45,8 @@ TUI Options:
 
 Components:
   Interactive: confirm, select, checklist, ask (user responds)
-  Display:     code, table, json, output, etc. (user dismisses with 'd')
+  Display:     code, diff, table, json, markdown, card, progress, chart,
+               gauge, tree, mermaid, plan-viewer (user dismisses with 'd')
 
 Agent Best Practice:
   At the start of a session, set a descriptive title:
