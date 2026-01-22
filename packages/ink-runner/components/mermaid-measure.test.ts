@@ -191,6 +191,88 @@ describe("mermaid-measure", () => {
       const result = renderStateAscii("stateDiagram-v2");
       expect(result.error).toBeDefined();
     });
+
+    it("renders single row when width is sufficient", () => {
+      const source = `stateDiagram-v2
+  [*] --> A
+  A --> B
+  B --> [*]`;
+
+      // With large maxWidth, should fit in single row
+      const result = renderStateAscii(source, { maxWidth: 200 });
+      expect(result.error).toBeUndefined();
+
+      // Count how many lines contain box tops (╭) - should be 1 row
+      const boxTopLines = result.lines.filter(l => l.includes("╭"));
+      expect(boxTopLines.length).toBe(1);
+    });
+
+    it("renders multi-row grid when width is limited", () => {
+      const source = `stateDiagram-v2
+  [*] --> StateA
+  StateA --> StateB
+  StateB --> StateC
+  StateC --> StateD
+  StateD --> [*]`;
+
+      // With small maxWidth, should wrap to multiple rows
+      const result = renderStateAscii(source, { maxWidth: 50 });
+      expect(result.error).toBeUndefined();
+
+      // Count how many lines contain box tops (╭) - should be multiple rows
+      const boxTopLines = result.lines.filter(l => l.includes("╭"));
+      expect(boxTopLines.length).toBeGreaterThan(1);
+    });
+
+    it("handles very narrow width gracefully", () => {
+      const source = `stateDiagram-v2
+  [*] --> Active
+  Active --> [*]`;
+
+      // Even with very small width, should not crash
+      const result = renderStateAscii(source, { maxWidth: 20 });
+      expect(result.error).toBeUndefined();
+      expect(result.lines.length).toBeGreaterThan(0);
+    });
+
+    it("preserves all states in grid layout", () => {
+      const source = `stateDiagram-v2
+  [*] --> A
+  A --> B
+  B --> C
+  C --> D
+  D --> E
+  E --> [*]`;
+
+      const result = renderStateAscii(source, { maxWidth: 60 });
+      expect(result.error).toBeUndefined();
+
+      const output = result.lines.join("\n");
+      // All states should be present
+      expect(output).toContain("A");
+      expect(output).toContain("B");
+      expect(output).toContain("C");
+      expect(output).toContain("D");
+      expect(output).toContain("E");
+      expect(output).toContain("●"); // Start/end marker
+    });
+
+    it("adds blank lines between rows in grid layout", () => {
+      const source = `stateDiagram-v2
+  [*] --> StateOne
+  StateOne --> StateTwo
+  StateTwo --> StateThree
+  StateThree --> [*]`;
+
+      const result = renderStateAscii(source, { maxWidth: 40 });
+      expect(result.error).toBeUndefined();
+
+      // Should have blank lines separating state rows (before Transitions:)
+      const transitionsIndex = result.lines.findIndex(l => l.includes("Transitions:"));
+      const stateLines = result.lines.slice(0, transitionsIndex);
+      const hasBlankLine = stateLines.some(l => l.trim() === "");
+      expect(hasBlankLine).toBe(true);
+    });
   });
 
   describe("renderFlowchartAscii", () => {

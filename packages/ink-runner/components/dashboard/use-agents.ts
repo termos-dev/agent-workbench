@@ -14,6 +14,7 @@ export interface AgentDisplayStatus {
   messageCount: number;
   gitBranch?: string;
   title?: string;          // Short title (set via termos set-title)
+  firstPrompt?: string;    // User's initial prompt for this session
   source: 'index' | 'marker' | 'both';
   planFile?: string;       // Associated plan file path (from session transcript)
 }
@@ -40,6 +41,7 @@ type RuntimeModule = {
     messageCount: number;
     gitBranch?: string;
     title?: string;
+    firstPrompt?: string;
     status: 'running' | 'idle' | 'thinking';
     source: 'index' | 'marker' | 'both';
   }>;
@@ -109,6 +111,7 @@ export function useAgents(options: UseAgentsOptions = {}): UseAgentsResult {
           messageCount: session.messageCount,
           gitBranch: session.gitBranch,
           title: session.title,
+          firstPrompt: session.firstPrompt,
           source: session.source,
           planFile,
         });

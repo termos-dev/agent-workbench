@@ -628,7 +628,49 @@ function parseStateDiagram(source: string): { states: State[]; transitions: Stat
   return { states, transitions };
 }
 
-export function renderStateAscii(source: string): { lines: string[]; error?: string } {
+export interface StateRenderOptions {
+  maxWidth?: number;
+}
+
+/**
+ * Calculate grid layout for states based on max width
+ */
+function calculateStateGridLayout(
+  states: State[],
+  widths: number[],
+  maxWidth: number,
+  spacing: number
+): State[][] {
+  const rows: State[][] = [];
+  let currentRow: State[] = [];
+  let currentWidth = 0;
+
+  for (let i = 0; i < states.length; i++) {
+    const stateWidth = widths[i];
+    const additionalWidth = currentRow.length > 0 ? spacing + stateWidth : stateWidth;
+
+    if (currentWidth + additionalWidth > maxWidth && currentRow.length > 0) {
+      // Start new row
+      rows.push(currentRow);
+      currentRow = [states[i]];
+      currentWidth = stateWidth;
+    } else {
+      currentRow.push(states[i]);
+      currentWidth += additionalWidth;
+    }
+  }
+
+  if (currentRow.length > 0) {
+    rows.push(currentRow);
+  }
+
+  return rows;
+}
+
+export function renderStateAscii(
+  source: string,
+  options?: StateRenderOptions
+): { lines: string[]; error?: string } {
   try {
     const { states, transitions } = parseStateDiagram(source);
 
@@ -637,6 +679,8 @@ export function renderStateAscii(source: string): { lines: string[]; error?: str
     }
 
     const output: string[] = [];
+    const spacing = 4;
+    const maxWidth = options?.maxWidth || Infinity;
 
     const getBoxWidth = (state: State): number => {
       if (state.id === '[*]') return 3;
@@ -659,41 +703,61 @@ export function renderStateAscii(source: string): { lines: string[]; error?: str
       return lines;
     };
 
-    const stateBoxes = states.map(s => drawState(s));
-    const maxHeight = Math.max(...stateBoxes.map(b => b.length));
-    const spacing = 4;
+    // Calculate widths for all states
+    const stateWidths = states.map(s => getBoxWidth(s));
+    const totalWidth = stateWidths.reduce((a, b) => a + b, 0) + (states.length - 1) * spacing;
 
-    stateBoxes.forEach((box, idx) => {
-      const state = states[idx];
-      if (state.id === '[*]') {
-        const topPad = Math.floor((maxHeight - 1) / 2);
-        const newBox: string[] = [];
-        for (let i = 0; i < maxHeight; i++) {
-          newBox.push(i === topPad ? box[0] : '   ');
-        }
-        stateBoxes[idx] = newBox;
-      } else {
-        const topPad = Math.floor((maxHeight - box.length) / 2);
-        const width = box[0].length;
-        const newBox: string[] = [];
-        for (let i = 0; i < maxHeight; i++) {
-          if (i < topPad || i >= topPad + box.length) {
-            newBox.push(' '.repeat(width));
-          } else {
-            newBox.push(box[i - topPad]);
+    // Determine if we need grid layout
+    const needsGrid = totalWidth > maxWidth && states.length > 1;
+    const stateRows = needsGrid
+      ? calculateStateGridLayout(states, stateWidths, maxWidth, spacing)
+      : [states];
+
+    // Render each row of states
+    for (let rowIdx = 0; rowIdx < stateRows.length; rowIdx++) {
+      const rowStates = stateRows[rowIdx];
+      const stateBoxes = rowStates.map(s => drawState(s));
+      const maxHeight = Math.max(...stateBoxes.map(b => b.length));
+
+      // Normalize heights within this row
+      stateBoxes.forEach((box, idx) => {
+        const state = rowStates[idx];
+        if (state.id === '[*]') {
+          const topPad = Math.floor((maxHeight - 1) / 2);
+          const newBox: string[] = [];
+          for (let i = 0; i < maxHeight; i++) {
+            newBox.push(i === topPad ? box[0] : '   ');
           }
+          stateBoxes[idx] = newBox;
+        } else {
+          const topPad = Math.floor((maxHeight - box.length) / 2);
+          const width = box[0].length;
+          const newBox: string[] = [];
+          for (let i = 0; i < maxHeight; i++) {
+            if (i < topPad || i >= topPad + box.length) {
+              newBox.push(' '.repeat(width));
+            } else {
+              newBox.push(box[i - topPad]);
+            }
+          }
+          stateBoxes[idx] = newBox;
         }
-        stateBoxes[idx] = newBox;
-      }
-    });
+      });
 
-    for (let row = 0; row < maxHeight; row++) {
-      let line = '';
-      for (let i = 0; i < stateBoxes.length; i++) {
-        if (i > 0) line += ' '.repeat(spacing);
-        line += stateBoxes[i][row];
+      // Render this row
+      for (let row = 0; row < maxHeight; row++) {
+        let line = '';
+        for (let i = 0; i < stateBoxes.length; i++) {
+          if (i > 0) line += ' '.repeat(spacing);
+          line += stateBoxes[i][row];
+        }
+        output.push(line);
       }
-      output.push(line);
+
+      // Add blank line between rows (except after last row)
+      if (rowIdx < stateRows.length - 1) {
+        output.push('');
+      }
     }
 
     if (transitions.length > 0) {

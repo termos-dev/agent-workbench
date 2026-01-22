@@ -30,6 +30,7 @@ export interface ClaudeSessionEntry {
   messageCount: number;
   fullPath?: string;
   gitBranch?: string;
+  firstPrompt?: string;   // User's initial prompt for this session
 }
 
 /**
@@ -50,6 +51,7 @@ export interface ActiveSession {
   messageCount: number;
   gitBranch?: string;
   title?: string;            // Short title (set via termos set-title)
+  firstPrompt?: string;      // User's initial prompt for this session
   status: 'running' | 'idle' | 'thinking';
   source: 'index' | 'marker' | 'both';  // Where we detected this session
 }
@@ -211,6 +213,7 @@ function scanSessionsIndex(
             messageCount: session.messageCount,
             gitBranch: session.gitBranch,
             title: getCachedTitle(session.sessionId),
+            firstPrompt: session.firstPrompt,
             status,
             source: 'index',
           });
@@ -307,6 +310,7 @@ function scanIdleMarkers(
           messageCount: indexData?.messageCount || 0,
           gitBranch: indexData?.gitBranch,
           title: getCachedTitle(sessionId),
+          firstPrompt: indexData?.firstPrompt,
           status,
           source: 'marker',
         });

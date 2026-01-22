@@ -3,6 +3,11 @@ node_modules/
 
 # Build output
 dist/
+*.d.ts
+!packages/shared/**/*.d.ts
+
+# Compiled JS in source directories (should only be in dist/)
+packages/ink-runner/components/**/*.js
 
 # Environment files
 .env

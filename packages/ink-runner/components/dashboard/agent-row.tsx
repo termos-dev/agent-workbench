@@ -54,16 +54,30 @@ export function AgentRow({
     : ''
   );
 
+  // Check if firstPrompt should be displayed
+  const showFirstPrompt = agent.firstPrompt && agent.firstPrompt !== 'No prompt';
+
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
         <Text color={isAgentSelected ? 'cyan' : statusColor}>{isAgentSelected ? '> ' : '  '}</Text>
         <Text bold>{agent.project}</Text>
-        {agent.planFile && <Text color="blue"> 📋</Text>}
         <Text> </Text>
         <Text dimColor>{agent.sessionId}</Text>
       </Box>
-      {displayTitle && <Box marginLeft={2}><Text color={statusColor} italic>{displayTitle}</Text></Box>}
+      {showFirstPrompt && (
+        <Box marginLeft={2}>
+          <Text dimColor>User: </Text>
+          <Text>{agent.firstPrompt}</Text>
+        </Box>
+      )}
+      {displayTitle && (
+        <Box marginLeft={2}>
+          <Text color={statusColor} italic>{displayTitle}</Text>
+          {agent.planFile && <Text color="blue"> 📋</Text>}
+          <Text dimColor> {agent.messageCount} messages</Text>
+        </Box>
+      )}
       {interactions.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
           {visible.map(i => (

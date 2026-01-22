@@ -70,7 +70,7 @@ export default function MermaidViewer() {
       } else if (type === 'class') {
         result = renderClassAscii(cleanSource);
       } else if (type === 'state') {
-        result = renderStateAscii(cleanSource);
+        result = renderStateAscii(cleanSource, { maxWidth: visibleCols });
       }
 
       if (result) {
