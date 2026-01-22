@@ -314,4 +314,22 @@ describe("CLI smoke tests", () => {
       expect(result.stderr).toContain("Unknown command");
     });
   });
+
+  describe("tui command", () => {
+    it("should not fail with React is not defined error", () => {
+      // Run TUI - it will fail because we're not in a TTY, but it should NOT fail
+      // with "React is not defined" which indicates a JSX transform misconfiguration
+      const result = runCli(["tui"], { expectFail: true });
+
+      // The TUI will fail in CI/test environment because there's no TTY
+      // But it should fail with "Raw mode is not supported", NOT "React is not defined"
+      const combinedOutput = result.stdout + result.stderr;
+
+      // This is the critical assertion - if this fails, the JSX transform is broken
+      expect(combinedOutput).not.toContain("React is not defined");
+
+      // Expected error in non-TTY environment
+      expect(combinedOutput).toContain("Raw mode is not supported");
+    });
+  });
 });
