@@ -9,46 +9,61 @@ import { useState } from "react";
 export interface DisplayFeedbackEmbedProps {
   isActive: boolean;
   onRespond: (feedback?: string) => void;
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
 export function DisplayFeedbackEmbed({
   isActive,
   onRespond,
+  onTypingChange,
 }: DisplayFeedbackEmbedProps) {
   const [feedback, setFeedback] = useState("");
   const [showInput, setShowInput] = useState(false);
+
+  // Helper to update showInput and notify parent
+  const updateShowInput = (value: boolean) => {
+    setShowInput(value);
+    onTypingChange?.(value);
+  };
+
+  // Helper to respond and reset typing state
+  const respond = (feedback?: string) => {
+    updateShowInput(false);
+    setFeedback("");
+    onRespond(feedback);
+  };
 
   useInput((input, key) => {
     if (!isActive) return;
 
     // 'd' or Escape dismisses without feedback (when not in input mode)
     if ((input === "d" || input === "D" || key.escape) && !showInput) {
-      onRespond();
+      respond();
       return;
     }
 
     // 'f' starts feedback mode
     if ((input === "f" || input === "F") && !showInput) {
-      setShowInput(true);
+      updateShowInput(true);
       return;
     }
 
     // Escape cancels feedback mode (when in input mode)
     if (key.escape && showInput) {
-      setShowInput(false);
+      updateShowInput(false);
       setFeedback("");
       return;
     }
 
     // Enter submits feedback if in input mode and has text
     if (key.return && showInput && feedback.trim()) {
-      onRespond(feedback.trim());
+      respond(feedback.trim());
       return;
     }
 
     // Enter without text in input mode dismisses
     if (key.return && showInput && !feedback.trim()) {
-      onRespond();
+      respond();
       return;
     }
   });

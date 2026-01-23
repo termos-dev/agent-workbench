@@ -68,7 +68,9 @@ interface PreprocessResult {
 }
 
 function preprocessFlowchart(source: string): PreprocessResult {
-  const lines = source.split("\n");
+  // Convert semicolon-separated statements to newlines (common mermaid shorthand)
+  const normalizedSource = source.replace(/;\s*/g, "\n");
+  const lines = normalizedSource.split("\n");
   const processed: string[] = [];
   const nodeLabels = new Map<string, string>();
   const warnings: string[] = [];

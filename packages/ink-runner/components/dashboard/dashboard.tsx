@@ -54,6 +54,7 @@ export default function Dashboard(props?: DashboardProps) {
   const [status, setStatus] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [gPressed, setGPressed] = useState(false);
+  const [isFeedbackTyping, setIsFeedbackTyping] = useState(false);
 
   const [selectedAgentIdx, setSelectedAgentIdx] = useState(0);
 
@@ -211,66 +212,73 @@ export default function Dashboard(props?: DashboardProps) {
     // Skip input handling if showing help
     if (showHelp) return;
 
-    // Help - 'h' when not typing
+    // Check if user is typing in a text input - skip character shortcuts
     const isTyping =
-      selected?.component === "input" || selected?.component === "ask";
+      selected?.component === "input" ||
+      selected?.component === "ask" ||
+      isFeedbackTyping;
+
+    // Help - 'h' when not typing
     if (input === "h" && !isTyping) {
       setShowHelp(true);
       return;
     }
 
-    // Refresh
-    if (input === "r") {
-      refresh();
-      showStatus("Refreshing...");
-      return;
-    }
-
-    // Agent switching with [ and ]
-    if (input === "[" && agentRows.length > 1) {
-      const currentIdx = agentRows.findIndex(
-        ({ agent }) => agent.sessionId === activeAgent
-      );
-      const prevIdx = currentIdx <= 0 ? agentRows.length - 1 : currentIdx - 1;
-      setActiveAgent(agentRows[prevIdx].agent.sessionId);
-      return;
-    }
-    if (input === "]" && agentRows.length > 1) {
-      const currentIdx = agentRows.findIndex(
-        ({ agent }) => agent.sessionId === activeAgent
-      );
-      const nextIdx = (currentIdx + 1) % agentRows.length;
-      setActiveAgent(agentRows[nextIdx].agent.sessionId);
-      return;
-    }
-
-    // Number keys 1-9 jump to interaction
-    const num = Number.parseInt(input, 10);
-    if (num >= 1 && num <= 9 && num <= interactions.length) {
-      setSelectedIdx(num - 1);
-      setGPressed(false);
-      return;
-    }
-
-    // g + g = go to first
-    if (input === "g") {
-      if (gPressed) {
-        setSelectedIdx(0);
-        setSelectedAgentIdx(0);
-        setGPressed(false);
-      } else {
-        setGPressed(true);
-        setTimeout(() => setGPressed(false), 500);
+    // All character-based shortcuts below are skipped when typing
+    if (!isTyping) {
+      // Refresh
+      if (input === "r") {
+        refresh();
+        showStatus("Refreshing...");
+        return;
       }
-      return;
-    }
 
-    // G = go to last
-    if (input === "G") {
-      setSelectedIdx(maxIdx);
-      setSelectedAgentIdx(maxAgentIdx);
-      setGPressed(false);
-      return;
+      // Agent switching with [ and ]
+      if (input === "[" && agentRows.length > 1) {
+        const currentIdx = agentRows.findIndex(
+          ({ agent }) => agent.sessionId === activeAgent
+        );
+        const prevIdx = currentIdx <= 0 ? agentRows.length - 1 : currentIdx - 1;
+        setActiveAgent(agentRows[prevIdx].agent.sessionId);
+        return;
+      }
+      if (input === "]" && agentRows.length > 1) {
+        const currentIdx = agentRows.findIndex(
+          ({ agent }) => agent.sessionId === activeAgent
+        );
+        const nextIdx = (currentIdx + 1) % agentRows.length;
+        setActiveAgent(agentRows[nextIdx].agent.sessionId);
+        return;
+      }
+
+      // Number keys 1-9 jump to interaction
+      const num = Number.parseInt(input, 10);
+      if (num >= 1 && num <= 9 && num <= interactions.length) {
+        setSelectedIdx(num - 1);
+        setGPressed(false);
+        return;
+      }
+
+      // g + g = go to first
+      if (input === "g") {
+        if (gPressed) {
+          setSelectedIdx(0);
+          setSelectedAgentIdx(0);
+          setGPressed(false);
+        } else {
+          setGPressed(true);
+          setTimeout(() => setGPressed(false), 500);
+        }
+        return;
+      }
+
+      // G = go to last
+      if (input === "G") {
+        setSelectedIdx(maxIdx);
+        setSelectedAgentIdx(maxAgentIdx);
+        setGPressed(false);
+        return;
+      }
     }
 
     // Home/End
@@ -446,6 +454,7 @@ export default function Dashboard(props?: DashboardProps) {
                   width={columns - 4}
                   onTabNext={handleTabNext}
                   onTabPrev={handleTabPrev}
+                  onTypingChange={setIsFeedbackTyping}
                 />
               ))}
             </Box>
@@ -465,6 +474,7 @@ export default function Dashboard(props?: DashboardProps) {
                   width={columns - 4}
                   onTabNext={handleTabNext}
                   onTabPrev={handleTabPrev}
+                  onTypingChange={setIsFeedbackTyping}
                 />
               ))}
             </Box>
@@ -528,6 +538,7 @@ export default function Dashboard(props?: DashboardProps) {
                   width={columns - 4}
                   isAgentSelected={true}
                   showProject={!!args.global}
+                  onTypingChange={setIsFeedbackTyping}
                 />
               </Box>
             )}

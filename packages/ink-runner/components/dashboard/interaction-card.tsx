@@ -76,6 +76,7 @@ export interface InteractionCardProps {
   width: number;
   onTabNext?: () => void;
   onTabPrev?: () => void;
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
 export function InteractionCard({
@@ -85,6 +86,7 @@ export function InteractionCard({
   width,
   onTabNext,
   onTabPrev,
+  onTypingChange,
 }: InteractionCardProps) {
   const args = interaction.args as Record<string, unknown> | undefined;
   const interactive = isInteractive(interaction.component);
@@ -158,7 +160,9 @@ export function InteractionCard({
             return [`[Error: ${args.file}]`];
           }
         }
-        return ((args?.content as string) || "").split("\n");
+        // Handle literal \n escape sequences from CLI
+        const content = ((args?.content as string) || "").replace(/\\n/g, "\n");
+        return content.split("\n");
       }
       if (interaction.component === "json") {
         const d = args?.data;
@@ -455,17 +459,17 @@ export function InteractionCard({
               <Box flexDirection="column">
                 {args?.file ? (
                   // Git diff of a single file
-                  <>
+                  <Box flexDirection="column">
                     <Text>📄 {args.file as string}{args?.staged ? " (staged)" : ""}</Text>
                     <Text dimColor>git diff</Text>
-                  </>
+                  </Box>
                 ) : (
                   // Before/after file comparison
-                  <>
+                  <Box flexDirection="column">
                     <Text>📄 {(args?.before as string) || "before"}</Text>
                     <Text dimColor>↓</Text>
                     <Text>📄 {(args?.after as string) || "after"}</Text>
-                  </>
+                  </Box>
                 )}
               </Box>
             ) : interaction.component === "markdown" ? (
@@ -487,6 +491,7 @@ export function InteractionCard({
                 onRespond={(feedback) =>
                   onRespond({ action: "accept", value: "dismissed", feedback })
                 }
+                onTypingChange={onTypingChange}
               />
             ) : !interactive ? (
               content.map((l, i) => (
@@ -563,6 +568,7 @@ export function InteractionCard({
             onRespond={(feedback) =>
               onRespond({ action: "accept", value: "dismissed", feedback })
             }
+            onTypingChange={onTypingChange}
           />
         )}
       </Box>

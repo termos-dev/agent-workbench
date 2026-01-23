@@ -13,6 +13,7 @@ export interface LiveOutputEmbedProps {
   maxLines?: number;
   isActive: boolean;
   onRespond: (feedback?: string) => void;
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
 export function LiveOutputEmbed({
@@ -20,6 +21,7 @@ export function LiveOutputEmbed({
   maxLines = 6,
   isActive,
   onRespond,
+  onTypingChange,
 }: LiveOutputEmbedProps) {
   const [lines, setLines] = useState<string[]>(["Waiting for output..."]);
   const [processExited, setProcessExited] = useState(false);
@@ -63,7 +65,11 @@ export function LiveOutputEmbed({
             {line}
           </Text>
         ))}
-        <DisplayFeedbackEmbed isActive={isActive} onRespond={onRespond} />
+        <DisplayFeedbackEmbed
+          isActive={isActive}
+          onRespond={onRespond}
+          onTypingChange={onTypingChange}
+        />
       </Box>
     );
   }

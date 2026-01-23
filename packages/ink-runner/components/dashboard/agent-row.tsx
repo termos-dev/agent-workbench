@@ -45,6 +45,7 @@ export interface AgentRowProps {
   onFocus?: () => void;
   /** Show project name (use in global mode) */
   showProject?: boolean;
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
 export function AgentRow({
@@ -57,6 +58,7 @@ export function AgentRow({
   onTabPrev,
   isAgentSelected,
   showProject,
+  onTypingChange,
 }: AgentRowProps) {
   const statusColor =
     agent.displayStatus === "running"
@@ -113,6 +115,7 @@ export function AgentRow({
               width={width - 4}
               onTabNext={onTabNext}
               onTabPrev={onTabPrev}
+              onTypingChange={onTypingChange}
             />
           ))}
         </Box>
