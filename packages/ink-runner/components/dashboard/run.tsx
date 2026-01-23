@@ -15,7 +15,6 @@ import Dashboard from "./dashboard.js";
 interface Args {
   refresh?: string;
   session?: string;
-  global?: boolean;
   project?: string;
   currentProject?: string;
 }
@@ -36,8 +35,6 @@ function parseArgs(): Args {
       result.session = arg.slice("--session=".length);
     } else if (arg === "--session" && cliArgs[i + 1]) {
       result.session = cliArgs[++i];
-    } else if (arg === "--global") {
-      result.global = true;
     } else if (arg.startsWith("--project=")) {
       result.project = arg.slice("--project=".length);
     } else if (arg === "--project" && cliArgs[i + 1]) {
@@ -84,7 +81,6 @@ async function main(): Promise<void> {
     const { waitUntilExit } = render(
       React.createElement(Dashboard, {
         args: {
-          global: args.global,
           currentProject: args.currentProject,
         },
       }),
@@ -99,7 +95,6 @@ async function main(): Promise<void> {
   const { waitUntilExit } = render(
     React.createElement(Dashboard, {
       args: {
-        global: args.global,
         currentProject: args.currentProject,
       },
     })

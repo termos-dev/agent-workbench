@@ -1,7 +1,6 @@
 import { Box, Static, Text, useInput } from "ink";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTerminalSize } from "../shared/index.js";
-import { AgentRow } from "./agent-row.js";
 import { HelpOverlay } from "./help-overlay.js";
 import { InteractionCard } from "./interaction-card.js";
 import type { DashboardInteraction } from "./types.js";
@@ -13,24 +12,12 @@ import {
 
 // Args type for dependency injection (testability)
 export interface DashboardArgs {
-  global?: boolean;
   currentProject?: string;
 }
 
 // Globals from dashboard-runner.ts (fallback when props not provided)
 const getGlobalArgs = (): DashboardArgs =>
   ((globalThis as Record<string, unknown>).args as DashboardArgs) || {};
-
-// Interactive components that need user response
-const INTERACTIVE = new Set([
-  "confirm",
-  "select",
-  "checklist",
-  "ask",
-  "input",
-  "card",
-]);
-const isInteractive = (c: string) => INTERACTIVE.has(c);
 
 // Completed item for scrollback history
 interface CompletedItem {
@@ -55,11 +42,6 @@ export default function Dashboard(props?: DashboardProps) {
   const [showHelp, setShowHelp] = useState(false);
   const [gPressed, setGPressed] = useState(false);
   const [isFeedbackTyping, setIsFeedbackTyping] = useState(false);
-
-  const [selectedAgentIdx, setSelectedAgentIdx] = useState(0);
-
-  // Tab-based agent selection
-  const [activeAgent, setActiveAgent] = useState<string | null>(null);
 
   // Completed items for scrollback history (using Static)
   const [completedItems, setCompletedItems] = useState<CompletedItem[]>([]);
@@ -87,8 +69,24 @@ export default function Dashboard(props?: DashboardProps) {
     interactions: allInteractions,
   });
 
-  // Filter by current project in local mode
-  const projectFilter = !args.global ? args.currentProject : null;
+  // Auto-detect: show all projects if multiple are active, otherwise filter to single active project
+  const projectFilter = useMemo(() => {
+    // Get unique active projects (from agents)
+    const activeProjects = new Set(agents.map((a) => a.project));
+
+    // Multiple projects active → show all
+    if (activeProjects.size > 1) return null;
+
+    // Single project active → filter to that project
+    if (activeProjects.size === 1) {
+      const [activeProject] = activeProjects;
+      return activeProject;
+    }
+
+    // No agents → filter to current project
+    return args.currentProject ?? null;
+  }, [args.currentProject, agents]);
+
   const interactions = useMemo(
     () =>
       projectFilter
@@ -105,7 +103,7 @@ export default function Dashboard(props?: DashboardProps) {
   );
 
   // Group interactions by agent
-  const { agentRows, orphans } = useMemo(() => {
+  const { agentRows, orphans: _orphans } = useMemo(() => {
     const rows: Array<{
       agent: AgentDisplayStatus;
       interactions: DashboardInteraction[];
@@ -130,26 +128,6 @@ export default function Dashboard(props?: DashboardProps) {
 
     return { agentRows: rows, orphans };
   }, [filteredAgents, interactions]);
-
-  // Find active agent's data
-  const activeAgentData = useMemo(
-    () => agentRows.find(({ agent }) => agent.sessionId === activeAgent),
-    [agentRows, activeAgent]
-  );
-
-  // Initialize activeAgent when agents become available
-  useEffect(() => {
-    if (agentRows.length > 0 && !activeAgent) {
-      setActiveAgent(agentRows[0].agent.sessionId);
-    }
-    // Clear activeAgent if it no longer exists
-    if (
-      activeAgent &&
-      !agentRows.some(({ agent }) => agent.sessionId === activeAgent)
-    ) {
-      setActiveAgent(agentRows[0]?.agent.sessionId ?? null);
-    }
-  }, [agentRows, activeAgent]);
 
   const maxIdx = Math.max(0, interactions.length - 1);
   const selected = interactions[selectedIdx];
@@ -200,14 +178,6 @@ export default function Dashboard(props?: DashboardProps) {
     setSelectedIdx((i) => (i <= 0 ? maxIdx : i - 1));
   }, [maxIdx]);
 
-  // Keep selectedAgentIdx in bounds
-  const maxAgentIdx = Math.max(0, filteredAgents.length - 1);
-  useEffect(() => {
-    if (selectedAgentIdx > maxAgentIdx) {
-      setSelectedAgentIdx(Math.max(0, maxAgentIdx));
-    }
-  }, [selectedAgentIdx, maxAgentIdx]);
-
   useInput((input, key) => {
     // Skip input handling if showing help
     if (showHelp) return;
@@ -230,24 +200,6 @@ export default function Dashboard(props?: DashboardProps) {
       if (input === "r") {
         refresh();
         showStatus("Refreshing...");
-        return;
-      }
-
-      // Agent switching with [ and ]
-      if (input === "[" && agentRows.length > 1) {
-        const currentIdx = agentRows.findIndex(
-          ({ agent }) => agent.sessionId === activeAgent
-        );
-        const prevIdx = currentIdx <= 0 ? agentRows.length - 1 : currentIdx - 1;
-        setActiveAgent(agentRows[prevIdx].agent.sessionId);
-        return;
-      }
-      if (input === "]" && agentRows.length > 1) {
-        const currentIdx = agentRows.findIndex(
-          ({ agent }) => agent.sessionId === activeAgent
-        );
-        const nextIdx = (currentIdx + 1) % agentRows.length;
-        setActiveAgent(agentRows[nextIdx].agent.sessionId);
         return;
       }
 
@@ -275,7 +227,6 @@ export default function Dashboard(props?: DashboardProps) {
       // G = go to last
       if (input === "G") {
         setSelectedIdx(maxIdx);
-        setSelectedAgentIdx(maxAgentIdx);
         setGPressed(false);
         return;
       }
@@ -284,12 +235,10 @@ export default function Dashboard(props?: DashboardProps) {
     // Home/End
     if (key.home) {
       setSelectedIdx(0);
-      setSelectedAgentIdx(0);
       return;
     }
     if (key.end) {
       setSelectedIdx(maxIdx);
-      setSelectedAgentIdx(maxAgentIdx);
       return;
     }
 
@@ -311,17 +260,9 @@ export default function Dashboard(props?: DashboardProps) {
     if (selected?.component !== "input") {
       if (key.upArrow && !skipArrows) {
         setSelectedIdx((i) => Math.max(0, i - 1));
-        // Also navigate agents when no interactions
-        if (interactions.length === 0) {
-          setSelectedAgentIdx((i) => Math.max(0, i - 1));
-        }
       }
       if (key.downArrow && !skipArrows) {
         setSelectedIdx((i) => Math.min(maxIdx, i + 1));
-        // Also navigate agents when no interactions
-        if (interactions.length === 0) {
-          setSelectedAgentIdx((i) => Math.min(maxAgentIdx, i + 1));
-        }
       }
     }
 
@@ -342,7 +283,7 @@ export default function Dashboard(props?: DashboardProps) {
       </Box>
     );
 
-  const currentPath = !args.global ? process.cwd() : null;
+  const currentPath = process.cwd();
   const activePath =
     filteredAgents.find((a) => a.project === projectFilter)?.projectPath ||
     currentPath;
@@ -350,7 +291,7 @@ export default function Dashboard(props?: DashboardProps) {
   // Empty state - no agents at all
   if (agents.length === 0 && allInteractions.length === 0) {
     return (
-      <Box flexDirection="column" width={columns} height={rows}>
+      <Box flexDirection="column" width={columns} height={rows} paddingTop={2}>
         <Box flexDirection="column" padding={1}>
           <Text bold>Termos Dashboard</Text>
           <Text dimColor>No active agents</Text>
@@ -358,11 +299,11 @@ export default function Dashboard(props?: DashboardProps) {
         </Box>
         <Box flexGrow={1} />
         {currentPath && (
-          <Box paddingX={1}>
+          <Box>
             <Text dimColor>{currentPath}</Text>
           </Box>
         )}
-        <Box paddingX={1}>
+        <Box>
           <Text dimColor>r refresh h help</Text>
         </Box>
       </Box>
@@ -372,7 +313,7 @@ export default function Dashboard(props?: DashboardProps) {
   // Empty state - agents exist but none in current project
   if (filteredAgents.length === 0 && agents.length > 0) {
     return (
-      <Box flexDirection="column" width={columns} height={rows}>
+      <Box flexDirection="column" width={columns} height={rows} paddingTop={2}>
         <Box flexDirection="column" padding={1}>
           <Text bold>Termos Dashboard</Text>
           <Text dimColor>
@@ -385,11 +326,11 @@ export default function Dashboard(props?: DashboardProps) {
         </Box>
         <Box flexGrow={1} />
         {currentPath && (
-          <Box paddingX={1}>
+          <Box>
             <Text dimColor>{currentPath}</Text>
           </Box>
         )}
-        <Box paddingX={1}>
+        <Box>
           <Text dimColor>r refresh h help</Text>
         </Box>
       </Box>
@@ -411,27 +352,12 @@ export default function Dashboard(props?: DashboardProps) {
     );
   }
 
-  // Context-aware hints
-  const hints = selected
-    ? selected.component === "confirm"
-      ? "y/n respond  "
-      : selected.component === "select"
-        ? "h/l ←→ select  Enter confirm  "
-        : selected.component === "ask"
-          ? "↑↓ options  Tab questions  Space select  Enter submit  "
-          : selected.component === "input"
-            ? "Enter submit  "
-            : isInteractive(selected.component)
-              ? ""
-              : "d dismiss  "
-    : "";
-
   return (
     <>
       {/* STATIC: Completed items preserved in scrollback */}
       <Static items={completedItems}>
         {(item) => (
-          <Box key={item.id} paddingX={1}>
+          <Box key={item.id}>
             <Text dimColor>
               {new Date(item.timestamp).toLocaleTimeString()} {item.summary}
             </Text>
@@ -440,43 +366,45 @@ export default function Dashboard(props?: DashboardProps) {
       </Static>
 
       {/* DYNAMIC: Current state updates in place */}
-      <Box flexDirection="column" width={columns} height={rows}>
-        <Box flexDirection="column" flexGrow={1} paddingX={1} overflow="hidden">
-          {/* Show active agent's interactions */}
-          {activeAgentData && activeAgentData.interactions.length > 0 && (
+      <Box flexDirection="column" width={columns} height={rows} paddingTop={2}>
+        <Box flexDirection="column" flexGrow={1} overflow="hidden">
+          {/* Unified inbox: show all interactions from all agents */}
+          {interactions.length > 0 ? (
             <Box flexDirection="column">
-              {activeAgentData.interactions.map((i) => (
-                <InteractionCard
-                  key={i.id}
-                  interaction={i}
-                  isSelected={i.id === selected?.id}
-                  onRespond={(r) => handleRespond(i.sessionName, i.id, r)}
-                  width={columns - 4}
-                  onTabNext={handleTabNext}
-                  onTabPrev={handleTabPrev}
-                  onTypingChange={setIsFeedbackTyping}
-                />
-              ))}
+              {interactions.map((i) => {
+                // Find which agent this interaction belongs to
+                const agent = filteredAgents.find(
+                  (a) =>
+                    a.sessionId ===
+                    (i as { agentSessionId?: string }).agentSessionId
+                );
+                const agentLabel = agent
+                  ? `${agent.id}${agentRows.length > 1 ? ` (${agent.project})` : ""}`
+                  : i.project;
+                return (
+                  <Box key={i.id} flexDirection="column">
+                    {/* Show agent label for context */}
+                    {agentRows.length > 1 && (
+                      <Text dimColor color="blue">
+                        └─ {agentLabel}
+                      </Text>
+                    )}
+                    <InteractionCard
+                      interaction={i}
+                      isSelected={i.id === selected?.id}
+                      onRespond={(r) => handleRespond(i.sessionName, i.id, r)}
+                      width={columns - 4}
+                      onTabNext={handleTabNext}
+                      onTabPrev={handleTabPrev}
+                      onTypingChange={setIsFeedbackTyping}
+                    />
+                  </Box>
+                );
+              })}
             </Box>
-          )}
-          {/* Orphan interactions */}
-          {orphans.length > 0 && (
-            <Box
-              flexDirection="column"
-              marginTop={activeAgentData?.interactions.length ? 1 : 0}
-            >
-              {orphans.map((i) => (
-                <InteractionCard
-                  key={i.id}
-                  interaction={i}
-                  isSelected={i.id === selected?.id}
-                  onRespond={(r) => handleRespond(i.sessionName, i.id, r)}
-                  width={columns - 4}
-                  onTabNext={handleTabNext}
-                  onTabPrev={handleTabPrev}
-                  onTypingChange={setIsFeedbackTyping}
-                />
-              ))}
+          ) : (
+            <Box flexDirection="column" padding={1}>
+              <Text dimColor>No pending interactions</Text>
             </Box>
           )}
         </Box>
@@ -486,13 +414,19 @@ export default function Dashboard(props?: DashboardProps) {
           // Show status message if set, otherwise show agent activity
           if (status) {
             return (
-              <Box paddingX={1}>
+              <Box>
                 <Text color="yellow">{status}</Text>
               </Box>
             );
           }
-          // Show agent activity status
-          const agent = activeAgentData?.agent;
+          // Show activity status for selected interaction's agent
+          const selectedAgentId = selected
+            ? (selected as { agentSessionId?: string }).agentSessionId
+            : null;
+          const selectedAgentRow = selectedAgentId
+            ? agentRows.find(({ agent }) => agent.sessionId === selectedAgentId)
+            : agentRows[0];
+          const agent = selectedAgentRow?.agent;
           if (agent) {
             const activityText =
               agent.title ||
@@ -511,7 +445,7 @@ export default function Dashboard(props?: DashboardProps) {
                       ? "yellow"
                       : "gray";
               return (
-                <Box paddingX={1}>
+                <Box>
                   <Text color={activityColor} italic>
                     {activityText}
                   </Text>
@@ -522,61 +456,51 @@ export default function Dashboard(props?: DashboardProps) {
           return null;
         })()}
 
-        {/* Agent status line */}
+        {/* Agent status summary line */}
         {agentRows.length > 0 && (
           <>
-            <Box paddingX={1}>
+            <Box>
               <Text dimColor>{"─".repeat(Math.max(0, columns - 2))}</Text>
             </Box>
-            {activeAgentData && (
-              <Box paddingX={1}>
-                <AgentRow
-                  agent={activeAgentData.agent}
-                  interactions={[]}
-                  selectedId={undefined}
-                  onRespond={handleRespond}
-                  width={columns - 4}
-                  isAgentSelected={true}
-                  showProject={!!args.global}
-                  onTypingChange={setIsFeedbackTyping}
-                />
-              </Box>
-            )}
+            <Box gap={2} flexWrap="wrap">
+              {agentRows.map(({ agent }) => {
+                const statusColor =
+                  agent.displayStatus === "running"
+                    ? "cyan"
+                    : agent.displayStatus === "thinking"
+                      ? "magenta"
+                      : agent.displayStatus === "waiting"
+                        ? "yellow"
+                        : "gray";
+                const statusIcon =
+                  agent.displayStatus === "waiting" ? "!" : "●";
+                return (
+                  <Box key={agent.sessionId}>
+                    <Text color={statusColor}>{statusIcon} </Text>
+                    <Text color={statusColor}>{agent.id.slice(0, 8)}</Text>
+                    {!projectFilter && <Text dimColor> ({agent.project})</Text>}
+                  </Box>
+                );
+              })}
+            </Box>
           </>
         )}
 
-        <Box paddingX={1}>
-          {agentRows.length > 1 ? (
-            <>
-              <Text bold>
-                [
-                {agentRows.findIndex(
-                  ({ agent }) => agent.sessionId === activeAgent
-                ) + 1}
-                /{agentRows.length}]
-              </Text>
-              <Text> </Text>
-            </>
-          ) : null}
-          {activeAgentData && activeAgentData.interactions.length > 0 && (
-            <Text color="yellow">
-              {activeAgentData.interactions.length} pending
-            </Text>
+        <Box>
+          {interactions.length > 0 && (
+            <Text color="yellow">{interactions.length} pending</Text>
           )}
-          {activeAgentData &&
-            activeAgentData.interactions.length > 0 &&
-            completedItems.length > 0 && <Text> • </Text>}
+          {interactions.length > 0 && completedItems.length > 0 && (
+            <Text> • </Text>
+          )}
           {completedItems.length > 0 && (
             <Text color="green">{completedItems.length} done</Text>
           )}
           {activePath && <Text dimColor> {activePath}</Text>}
         </Box>
 
-        <Box paddingX={1}>
-          <Text dimColor>
-            {agentRows.length > 1 ? "[] switch  " : ""}
-            ↑↓ navigate {hints}h help
-          </Text>
+        <Box>
+          <Text dimColor>↑↓ navigate h help</Text>
           {gPressed && (
             <Text color="cyan"> [g pressed - press g again for top]</Text>
           )}

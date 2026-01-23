@@ -40,8 +40,9 @@ Agent Commands:
 
 TUI Options:
   --refresh <sec>    Refresh interval in seconds (default: 1)
-  --global           Show all projects with tabs (default: only current directory)
-  --project <name>   Focus on specific project tab
+  --project <name>   Focus on specific project
+
+  Note: TUI auto-detects active projects. Shows all if multiple are active.
 
 Components:
   Interactive: confirm, select, checklist, ask (user responds)
