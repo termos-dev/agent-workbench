@@ -150,6 +150,16 @@ export function InteractionCard({
         }
         return ((args?.content as string) || "").split("\n");
       }
+      if (interaction.component === "markdown") {
+        if (args?.file) {
+          try {
+            return fs.readFileSync(args.file as string, "utf-8").split("\n");
+          } catch {
+            return [`[Error: ${args.file}]`];
+          }
+        }
+        return ((args?.content as string) || "").split("\n");
+      }
       if (interaction.component === "json") {
         const d = args?.data;
         return (typeof d === "string" ? d : JSON.stringify(d, null, 2)).split(
@@ -441,16 +451,34 @@ export function InteractionCard({
                 <Text dimColor>Open full view to browse tree</Text>
               </Box>
             ) : interaction.component === "diff" ? (
-              // Diff - show file comparison info
+              // Diff - show file info (git diff or file comparison)
               <Box flexDirection="column">
-                <Text>📄 {args?.file1 || args?.old || "file1"}</Text>
-                <Text dimColor>↓</Text>
-                <Text>📄 {args?.file2 || args?.new || "file2"}</Text>
+                {args?.file ? (
+                  // Git diff of a single file
+                  <>
+                    <Text>📄 {args.file as string}{args?.staged ? " (staged)" : ""}</Text>
+                    <Text dimColor>git diff</Text>
+                  </>
+                ) : (
+                  // Before/after file comparison
+                  <>
+                    <Text>📄 {(args?.before as string) || "before"}</Text>
+                    <Text dimColor>↓</Text>
+                    <Text>📄 {(args?.after as string) || "after"}</Text>
+                  </>
+                )}
               </Box>
             ) : interaction.component === "markdown" ? (
-              // Markdown - show file path
+              // Markdown - render content with styling
               <Box flexDirection="column">
-                <Text>📝 {args?.file || "markdown content"}</Text>
+                {content.length > 0 ? (
+                  content.slice(0, 15).map((line, i) => renderMd(line, i))
+                ) : (
+                  <Text dimColor>📝 {args?.file || "(empty)"}</Text>
+                )}
+                {content.length > 15 && (
+                  <Text dimColor>... ({content.length - 15} more lines)</Text>
+                )}
               </Box>
             ) : isLiveOutput ? (
               <LiveOutputEmbed

@@ -2,7 +2,7 @@
 
 Your Command Center for Claude Code.
 
-https://github.com/user-attachments/assets/724385fc-6f1e-4983-b7fc-04801b41a703
+https://github.com/user-attachments/assets/b7882c4f-c2bc-43e6-97bb-eb9353d06f28
 
 ## Agent Inbox
 

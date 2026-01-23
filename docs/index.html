@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Termos - Your Command Center for Claude Code</title>
     <meta name="description" content="Monitor all your Claude sessions in one place. Interact while they run. Stay in the loop with the Agent Inbox." />
+    <meta property="og:title" content="Termos - Your Command Center for Claude Code" />
+    <meta property="og:description" content="Monitor all your Claude sessions in one place. Interact while they run. Stay in the loop with the Agent Inbox." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Termos" />
+    <meta property="og:image" content="recordings/poster.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Termos - Your Command Center for Claude Code" />
+    <meta name="twitter:description" content="Monitor all your Claude sessions in one place. Interact while they run. Stay in the loop with the Agent Inbox." />
+    <meta name="twitter:image" content="recordings/poster.jpg" />
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link
       rel="stylesheet"
@@ -91,27 +100,32 @@
           <span class="text-xl">Termos</span>
           <span class="rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs font-medium text-cyan-400">v0.4.0</span>
         </div>
-        <a
-          class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:-translate-y-0.5 hover:border-cyan-300/50 hover:text-white"
-          href="https://github.com/termos-dev/termos"
-          target="_blank"
-          rel="noreferrer"
-          aria-label="GitHub"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 fill-current">
-            <path
-              d="M12 2C6.48 2 2 6.58 2 12.26c0 4.54 2.87 8.39 6.84 9.75.5.1.68-.22.68-.49
-              0-.24-.01-1.03-.02-1.86-2.78.62-3.37-1.22-3.37-1.22-.46-1.19-1.11-1.5-1.11-1.5
-              -.91-.64.07-.63.07-.63 1 .08 1.53 1.06 1.53 1.06.9 1.58 2.36 1.12 2.94.86
-              .09-.67.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.04 1.03-2.76
-              -.1-.26-.45-1.32.1-2.75 0 0 .84-.27 2.75 1.05.8-.23 1.65-.34 2.5-.34s1.7.12 2.5.34
-              c1.9-1.32 2.74-1.05 2.74-1.05.55 1.43.2 2.49.1 2.75.64.72 1.03 1.64 1.03 2.76
-              0 3.93-2.34 4.8-4.57 5.05.36.32.69.95.69 1.92 0 1.39-.02 2.51-.02 2.86
-              0 .27.18.59.69.49 3.97-1.36 6.83-5.21 6.83-9.75C22 6.58 17.52 2 12 2z"
-            />
-          </svg>
-          <span>GitHub</span>
-        </a>
+        <div class="flex items-center gap-2">
+          <a
+            class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:-translate-y-0.5 hover:border-cyan-300/50 hover:text-white"
+            href="https://github.com/termos-dev/termos/discussions"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Discussions"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 fill-current">
+              <path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
+            </svg>
+            <span>Discussions</span>
+          </a>
+          <a
+            class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:-translate-y-0.5 hover:border-cyan-300/50 hover:text-white"
+            href="https://github.com/termos-dev/termos"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Star on GitHub"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 fill-current">
+              <path d="M12 2l2.62 5.3 5.86.85-4.24 4.13 1 5.83L12 15.9l-5.24 2.76 1-5.83-4.24-4.13 5.86-.85L12 2z" />
+            </svg>
+            <span>Star on GitHub</span>
+          </a>
+        </div>
       </nav>
 
       <!-- Hero Section -->
@@ -120,6 +134,15 @@
           <span class="gradient-text">Your Command Center<br />for Claude Code</span>
         </h1>
         <p class="mt-4 text-lg text-slate-400">Monitor all your Claude sessions in one place. Interact while they run. Stay in the loop.</p>
+
+        <!-- Demo Video (Single) -->
+        <div class="mt-12">
+          <div class="overflow-hidden rounded-2xl border border-white/10 bg-black/40 shadow-2xl">
+            <video class="w-full" autoplay loop muted playsinline controls poster="recordings/poster.jpg">
+              <source src="recordings/tui.mp4" type="video/mp4" />
+            </video>
+          </div>
+        </div>
 
         <!-- Install Commands -->
         <div class="mt-10 mx-auto max-w-2xl">
@@ -140,15 +163,6 @@ claude plugins install termos</code></pre>
             </button>
           </div>
           <p class="mt-3 text-sm text-slate-500">Then run <code class="rounded bg-slate-800 px-2 py-0.5 text-cyan-400">termos tui</code> to launch the dashboard</p>
-        </div>
-
-        <!-- Demo Video (Single) -->
-        <div class="mt-12">
-          <div class="overflow-hidden rounded-2xl border border-white/10 bg-black/40 shadow-2xl">
-            <video class="w-full" autoplay loop muted playsinline controls poster="recordings/poster.jpg">
-              <source src="recordings/tui.mp4" type="video/mp4" />
-            </video>
-          </div>
         </div>
       </section>
 
@@ -205,6 +219,31 @@ claude plugins install termos</code></pre>
             <p class="mt-2 text-sm leading-relaxed text-slate-400">
               Quick check-ins keep you informed. No more "wait, what did Claude just do?"
             </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Use Cases -->
+      <section class="mt-24">
+        <div class="text-center">
+          <h2 class="text-3xl font-bold">Built for real workflows</h2>
+          <p class="mt-3 text-slate-400">Where Termos makes Claude sessions safer, faster, and easier to manage</p>
+        </div>
+        <div class="mt-10 grid gap-6 md:grid-cols-3">
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p class="text-xs uppercase tracking-[0.2em] text-cyan-400">Deploys</p>
+            <h3 class="mt-3 text-lg font-semibold">Approval gates for risky changes</h3>
+            <p class="mt-2 text-sm leading-relaxed text-slate-400">Review diffs and test output before an agent ships anything scary.</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p class="text-xs uppercase tracking-[0.2em] text-amber-400">Code Review</p>
+            <h3 class="mt-3 text-lg font-semibold">Stay in the loop without context-switching</h3>
+            <p class="mt-2 text-sm leading-relaxed text-slate-400">Agents surface summaries, diffs, and questions in one inbox.</p>
+          </div>
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <p class="text-xs uppercase tracking-[0.2em] text-emerald-400">Data Workflows</p>
+            <h3 class="mt-3 text-lg font-semibold">Interactive checks for data-heavy tasks</h3>
+            <p class="mt-2 text-sm leading-relaxed text-slate-400">Tables, charts, and confirmations keep decisions tight.</p>
           </div>
         </div>
       </section>
@@ -303,6 +342,21 @@ claude plugins install termos</code></pre>
         <p class="mt-6 text-center text-sm text-slate-500">
           Need more? Drop a <span class="font-mono text-slate-400">.tsx</span> file in <span class="font-mono text-slate-400">.termos/interactive/</span>
         </p>
+
+        <div class="mt-6 flex justify-center">
+          <a
+            id="tweet-button"
+            class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2 text-sm font-semibold text-slate-200 transition hover:-translate-y-0.5 hover:border-cyan-300/50 hover:text-white"
+            href="https://twitter.com/intent/tweet"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="h-4 w-4 fill-current">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.25 2.25h6.827l4.713 6.231 5.454-6.231Zm-1.16 17.52h1.833L7.084 4.126H5.117L17.085 19.77Z" />
+            </svg>
+            Tweet this
+          </a>
+        </div>
       </section>
 
 
@@ -612,6 +666,14 @@ This is <span class="font-bold text-white">bold</span> and <span class="italic t
       // Select first component by default
       if (componentCards.length > 0) {
         selectComponent(componentCards[0]);
+      }
+
+      const tweetButton = document.getElementById('tweet-button');
+      if (tweetButton) {
+        const tweetText = 'Just set up Termos - a command center for Claude Code. Diffs, approvals, and an agent inbox in one TUI.';
+        const url = window.location.href;
+        const params = new URLSearchParams({ text: tweetText, url });
+        tweetButton.href = `https://twitter.com/intent/tweet?${params.toString()}`;
       }
     </script>
   </body>
