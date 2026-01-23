@@ -5,6 +5,12 @@ export { ErrorView, type ErrorViewProps } from "./error-view.js";
 export { LoadingView, type LoadingViewProps } from "./loading-view.js";
 export { useFileWatch, useMultiFileWatch } from "./use-file-watch.js";
 export {
+  useDebounce,
+  useDebouncedCallback,
+  useThrottle,
+  useThrottledCallback,
+} from "./use-debounce.js";
+export {
   useScrollHandler,
   type UseScrollHandlerOptions,
   type UseScrollHandlerResult,

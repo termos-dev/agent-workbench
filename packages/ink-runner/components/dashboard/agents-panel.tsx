@@ -1,4 +1,5 @@
 import { Box, Text } from "ink";
+import { memo } from "react";
 import type { AgentDisplayStatus } from "./use-agents.js";
 
 interface AgentCardProps {
@@ -38,9 +39,10 @@ function getStatusBadge(agent: AgentDisplayStatus): string {
 }
 
 /**
- * Single agent card component
+ * Single agent card component.
+ * Memoized to prevent re-renders when parent updates but agent data unchanged.
  */
-function AgentCard({ agent }: AgentCardProps) {
+const AgentCard = memo(function AgentCard({ agent }: AgentCardProps) {
   const borderColor = getStatusColor(agent.displayStatus);
   const badge = getStatusBadge(agent);
   const isWaiting = agent.displayStatus === "waiting";
@@ -80,16 +82,20 @@ function AgentCard({ agent }: AgentCardProps) {
       </Box>
     </Box>
   );
-}
+});
 
 interface AgentsPanelProps {
   agents: AgentDisplayStatus[];
 }
 
 /**
- * Panel displaying all registered agents
+ * Panel displaying all registered agents.
+ * Memoized to prevent re-renders when agents array reference changes
+ * but content is the same (handled by hasAgentsChanged in hook).
  */
-export function AgentsPanel({ agents }: AgentsPanelProps) {
+export const AgentsPanel = memo(function AgentsPanel({
+  agents,
+}: AgentsPanelProps) {
   if (agents.length === 0) {
     return null;
   }
@@ -102,12 +108,12 @@ export function AgentsPanel({ agents }: AgentsPanelProps) {
         <Text dimColor> ({agents.length})</Text>
       </Box>
 
-      {/* Agent cards in a row */}
+      {/* Agent cards in a row - use sessionId as key for stable identity */}
       <Box paddingX={1} gap={1} flexWrap="wrap">
         {agents.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} />
+          <AgentCard key={agent.sessionId} agent={agent} />
         ))}
       </Box>
     </Box>
   );
-}
+});

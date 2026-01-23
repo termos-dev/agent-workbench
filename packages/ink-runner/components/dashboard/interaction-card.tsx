@@ -5,7 +5,7 @@
 import * as fs from "node:fs";
 import { formatDistanceToNow } from "date-fns";
 import { Box, Text } from "ink";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import {
   detectDiagramType,
   renderClassAscii,
@@ -79,7 +79,28 @@ export interface InteractionCardProps {
   onTypingChange?: (isTyping: boolean) => void;
 }
 
-export function InteractionCard({
+/**
+ * Custom comparison for InteractionCard memo.
+ * Compares props that affect rendering, skipping function props
+ * (which should be stable via useCallback in parent).
+ */
+function areInteractionPropsEqual(
+  prev: InteractionCardProps,
+  next: InteractionCardProps
+): boolean {
+  return (
+    prev.interaction.id === next.interaction.id &&
+    prev.interaction.ts === next.interaction.ts &&
+    prev.isSelected === next.isSelected &&
+    prev.width === next.width
+  );
+}
+
+/**
+ * Interaction card component - displays a single interaction with its content.
+ * Memoized to prevent unnecessary re-renders on parent state changes.
+ */
+export const InteractionCard = memo(function InteractionCard({
   interaction,
   isSelected,
   onRespond,
@@ -460,7 +481,10 @@ export function InteractionCard({
                 {args?.file ? (
                   // Git diff of a single file
                   <Box flexDirection="column">
-                    <Text>📄 {args.file as string}{args?.staged ? " (staged)" : ""}</Text>
+                    <Text>
+                      📄 {args.file as string}
+                      {args?.staged ? " (staged)" : ""}
+                    </Text>
                     <Text dimColor>git diff</Text>
                   </Box>
                 ) : (
@@ -574,4 +598,4 @@ export function InteractionCard({
       </Box>
     </Box>
   );
-}
+}, areInteractionPropsEqual);

@@ -4,11 +4,9 @@ import { useTerminalSize } from "../shared/index.js";
 import { HelpOverlay } from "./help-overlay.js";
 import { InteractionCard } from "./interaction-card.js";
 import type { DashboardInteraction } from "./types.js";
-import { type AgentDisplayStatus, useAgents } from "./use-agents.js";
-import {
-  type InteractionResponse,
-  useDashboardData,
-} from "./use-dashboard-data.js";
+import type { AgentDisplayStatus } from "./use-agents.js";
+import type { InteractionResponse } from "./use-dashboard-data.js";
+import { useUnifiedData } from "./use-unified-data.js";
 
 // Args type for dependency injection (testability)
 export interface DashboardArgs {
@@ -58,15 +56,16 @@ export default function Dashboard(props?: DashboardProps) {
     [showStatus]
   );
 
-  const { allInteractions, loading, error, refresh, respondToInteraction } =
-    useDashboardData({
-      refreshInterval: 1000,
-      onNewInteraction: handleNew,
-    });
-
-  const { agents } = useAgents({
-    refreshInterval: 1000,
-    interactions: allInteractions,
+  // Use unified hook for consolidated polling with adaptive intervals
+  const {
+    allInteractions,
+    agents,
+    loading,
+    error,
+    refresh,
+    respondToInteraction,
+  } = useUnifiedData({
+    onNewInteraction: handleNew,
   });
 
   // Auto-detect: show all projects if multiple are active, otherwise filter to single active project
@@ -215,7 +214,6 @@ export default function Dashboard(props?: DashboardProps) {
       if (input === "g") {
         if (gPressed) {
           setSelectedIdx(0);
-          setSelectedAgentIdx(0);
           setGPressed(false);
         } else {
           setGPressed(true);

@@ -3,6 +3,59 @@ import { THINKING_GRACE_PERIOD_MS } from "./constants.js";
 import { getEventsFilePath } from "./runtime.js";
 
 /**
+ * Cache entry for parsed events file.
+ * Supports incremental parsing by tracking file offset.
+ */
+interface EventsCacheEntry {
+  mtime: number;
+  size: number;
+  offset: number; // Byte offset of last read position
+  events: TermosEvent[];
+}
+
+/**
+ * In-memory cache for parsed events files.
+ * Key: sessionName, Value: cached events and file metadata
+ */
+const eventsCache = new Map<string, EventsCacheEntry>();
+
+/**
+ * Maximum number of events to cache per session.
+ * Older events are dropped when this limit is exceeded.
+ */
+const MAX_CACHED_EVENTS = 10000;
+
+/**
+ * Parse JSONL content into TermosEvent array.
+ * Handles malformed lines gracefully.
+ */
+function parseJsonlContent(content: string): TermosEvent[] {
+  return content
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line) as TermosEvent;
+      } catch {
+        return null;
+      }
+    })
+    .filter((e): e is TermosEvent => e !== null);
+}
+
+/**
+ * Clear the events cache for a specific session or all sessions.
+ */
+export function clearEventsCache(sessionName?: string): void {
+  if (sessionName) {
+    eventsCache.delete(sessionName);
+  } else {
+    eventsCache.clear();
+  }
+}
+
+/**
  * Component types supported by termos
  */
 export type ComponentType =
@@ -177,25 +230,80 @@ export function getAgentState(sessionName: string): {
   // No events = idle
   return { state: "idle", lastActivity: 0 };
 }
-/** Read all events from the events file */
+/**
+ * Read all events from the events file with caching and incremental parsing.
+ * - Uses mtime/size to detect file changes
+ * - Performs incremental reads for append-only updates
+ * - Handles file truncation/rotation by resetting cache
+ */
 export function readEvents(sessionName: string): TermosEvent[] {
   const filePath = getEventsFilePath(sessionName);
   try {
-    if (!fs.existsSync(filePath)) return [];
-    const content = fs.readFileSync(filePath, "utf-8");
-    return content
-      .trim()
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => {
-        try {
-          return JSON.parse(line) as TermosEvent;
-        } catch {
-          return null;
+    if (!fs.existsSync(filePath)) {
+      eventsCache.delete(sessionName);
+      return [];
+    }
+
+    const stat = fs.statSync(filePath);
+    const cached = eventsCache.get(sessionName);
+
+    // Case 1: Cache hit with no file changes
+    if (cached && stat.size === cached.size && stat.mtimeMs === cached.mtime) {
+      // Return a shallow copy to prevent accidental cache mutation
+      return [...cached.events];
+    }
+
+    // Case 2: File grew (append-only) - incremental read
+    if (cached && stat.size > cached.size && stat.mtimeMs >= cached.mtime) {
+      // Read only the new bytes from the last offset
+      const fd = fs.openSync(filePath, "r");
+      try {
+        const newBytes = stat.size - cached.offset;
+        const buffer = Buffer.alloc(newBytes);
+        fs.readSync(fd, buffer, 0, newBytes, cached.offset);
+        const newContent = buffer.toString("utf-8");
+
+        // Parse new events and append to cache
+        const newEvents = parseJsonlContent(newContent);
+        cached.events.push(...newEvents);
+
+        // Enforce max cache size - drop oldest events if needed
+        if (cached.events.length > MAX_CACHED_EVENTS) {
+          const excess = cached.events.length - MAX_CACHED_EVENTS;
+          cached.events.splice(0, excess);
         }
-      })
-      .filter((e): e is TermosEvent => e !== null);
+
+        cached.mtime = stat.mtimeMs;
+        cached.size = stat.size;
+        cached.offset = stat.size;
+
+        // Return a shallow copy to prevent accidental cache mutation
+        return [...cached.events];
+      } finally {
+        fs.closeSync(fd);
+      }
+    }
+
+    // Case 3: File shrunk (truncated/rotated) or new file - full re-read
+    const content = fs.readFileSync(filePath, "utf-8");
+    let events = parseJsonlContent(content);
+
+    // Enforce max cache size - keep only recent events
+    if (events.length > MAX_CACHED_EVENTS) {
+      events = events.slice(-MAX_CACHED_EVENTS);
+    }
+
+    eventsCache.set(sessionName, {
+      mtime: stat.mtimeMs,
+      size: stat.size,
+      offset: stat.size,
+      events,
+    });
+
+    // Return a shallow copy to prevent accidental cache mutation
+    return [...events];
   } catch {
+    eventsCache.delete(sessionName);
     return [];
   }
 }
@@ -213,9 +321,11 @@ export function findResultEvent(
   return null;
 }
 
-/** Clear the events file */
+/** Clear the events file and its cache */
 export function clearEvents(sessionName: string): void {
   try {
+    // Clear the cache first
+    eventsCache.delete(sessionName);
     fs.writeFileSync(getEventsFilePath(sessionName), "", { flag: "w" });
   } catch {
     // Ignore
