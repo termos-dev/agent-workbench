@@ -2,7 +2,7 @@
 
 ## Quick facts
 
-- Sessions: results are written to `~/.termos/sessions/<session>/events.jsonl`.
+- Sessions: results are written to `~/.awb/sessions/<session>/events.jsonl`.
 - Session names are derived from the current directory path.
 - tmux is not supported.
 
@@ -13,13 +13,13 @@ Session names are auto-generated based on the current directory path.
 **Workflow:**
 ```bash
 # Run an interaction (returns JSON with ID)
-termos run --title "Confirm" confirm --prompt "Proceed?"
+awb run --title "Confirm" confirm --prompt "Proceed?"
 
 # Wait for result (blocking)
-termos wait <id>
+awb wait <id>
 
 # Or get all results (debugging)
-termos wait --all
+awb wait --all
 ```
 
 ## `--wait` hangs
@@ -29,7 +29,7 @@ termos wait --all
 Check the events file directly:
 
 ```bash
-tail -f ~/.termos/sessions/<session>/events.jsonl
+tail -f ~/.awb/sessions/<session>/events.jsonl
 ```
 
 If it stays empty after you answer, the component didn't write results.
@@ -38,18 +38,18 @@ If it stays empty after you answer, the component didn't write results.
 
 ```bash
 # write a fake event
-printf '{"ts":%s,"type":"result","id":"test","action":"accept"}\n' "$(date +%s000)" >> ~/.termos/sessions/<session>/events.jsonl
+printf '{"ts":%s,"type":"result","id":"test","action":"accept"}\n' "$(date +%s000)" >> ~/.awb/sessions/<session>/events.jsonl
 ```
 
-You should see the line when running `termos wait --all` or by tailing the events file.
+You should see the line when running `awb wait --all` or by tailing the events file.
 
 ## Confirm you are using the local build
 
-If you expect local changes but `termos` behaves like an old version:
+If you expect local changes but `awb` behaves like an old version:
 
 ```bash
-which termos
-termos --help
+which awb
+awb --help
 ```
 
-The repo ships a wrapper at `.claude-plugin/scripts/termos` that uses `dist/index.js` when present.
+The repo ships a wrapper at `.claude-plugin/scripts/awb` that uses `dist/index.js` when present.

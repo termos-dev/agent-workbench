@@ -34,12 +34,12 @@ function emitResultEvent(
 }
 
 describe("events", () => {
-  const runtimeRoot = path.join(os.tmpdir(), "termos-events-test");
+  const runtimeRoot = path.join(os.tmpdir(), "awb-events-test");
   const sessionName = "test-session";
-  const originalRuntimeDir = process.env.TERMOS_RUNTIME_DIR;
+  const originalRuntimeDir = process.env.AWB_RUNTIME_DIR;
 
   beforeEach(() => {
-    process.env.TERMOS_RUNTIME_DIR = runtimeRoot;
+    process.env.AWB_RUNTIME_DIR = runtimeRoot;
     const eventsFile = getEventsFilePath(sessionName);
     fs.mkdirSync(path.dirname(eventsFile), { recursive: true });
     clearEvents(sessionName);
@@ -52,9 +52,9 @@ describe("events", () => {
       // Ignore
     }
     if (originalRuntimeDir === undefined) {
-      process.env.TERMOS_RUNTIME_DIR = undefined;
+      process.env.AWB_RUNTIME_DIR = undefined;
     } else {
-      process.env.TERMOS_RUNTIME_DIR = originalRuntimeDir;
+      process.env.AWB_RUNTIME_DIR = originalRuntimeDir;
     }
   });
 

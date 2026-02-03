@@ -9,8 +9,10 @@ import { getEventsFilePath } from "./runtime.js";
 interface EventsCacheEntry {
   mtime: number;
   size: number;
+  ino: number;
+  birthtime: number;
   offset: number; // Byte offset of last read position
-  events: TermosEvent[];
+  events: WorkbenchEvent[];
 }
 
 /**
@@ -26,22 +28,22 @@ const eventsCache = new Map<string, EventsCacheEntry>();
 const MAX_CACHED_EVENTS = 10000;
 
 /**
- * Parse JSONL content into TermosEvent array.
+ * Parse JSONL content into WorkbenchEvent array.
  * Handles malformed lines gracefully.
  */
-function parseJsonlContent(content: string): TermosEvent[] {
+function parseJsonlContent(content: string): WorkbenchEvent[] {
   return content
     .trim()
     .split("\n")
     .filter(Boolean)
     .map((line) => {
       try {
-        return JSON.parse(line) as TermosEvent;
+        return JSON.parse(line) as WorkbenchEvent;
       } catch {
         return null;
       }
     })
-    .filter((e): e is TermosEvent => e !== null);
+    .filter((e): e is WorkbenchEvent => e !== null);
 }
 
 /**
@@ -56,7 +58,7 @@ export function clearEventsCache(sessionName?: string): void {
 }
 
 /**
- * Component types supported by termos
+ * Component types supported by awb
  */
 export type ComponentType =
   | "confirm"
@@ -76,27 +78,28 @@ export type ComponentType =
   | "progress" // Data display
   | "output"
   | "editor" // Command output and file editor
-  | "message"; // User message to agent
+  | "message" // User message to agent
+  | "html"; // Claude-generated HTML with web components
 
 /**
- * Event types for the termos events file
+ * Event types for the awb events file
  */
-type TermosEventType =
+type WorkbenchEventType =
   | "created"
   | "result"
   | "tool_start"
   | "tool_end"
   | "stop";
 
-export interface TermosEventBase {
+export interface WorkbenchEventBase {
   ts: number;
-  type: TermosEventType;
+  type: WorkbenchEventType;
 }
 
 /**
  * Event emitted when a component is created
  */
-export interface CreatedEvent extends TermosEventBase {
+export interface CreatedEvent extends WorkbenchEventBase {
   type: "created";
   id: string;
   component: ComponentType;
@@ -112,7 +115,7 @@ export interface CreatedEvent extends TermosEventBase {
   project?: string; // Project name (last segment of cwd path)
 }
 
-export interface ResultEvent extends TermosEventBase {
+export interface ResultEvent extends WorkbenchEventBase {
   type: "result";
   id: string;
   action: "accept" | "decline" | "cancel" | "timeout";
@@ -124,7 +127,7 @@ export interface ResultEvent extends TermosEventBase {
 /**
  * Event emitted when a tool starts executing
  */
-export interface ToolStartEvent extends TermosEventBase {
+export interface ToolStartEvent extends WorkbenchEventBase {
   type: "tool_start";
   sessionId: string;
   tool?: string;
@@ -133,7 +136,7 @@ export interface ToolStartEvent extends TermosEventBase {
 /**
  * Event emitted when a tool finishes executing
  */
-export interface ToolEndEvent extends TermosEventBase {
+export interface ToolEndEvent extends WorkbenchEventBase {
   type: "tool_end";
   sessionId: string;
   tool?: string;
@@ -142,12 +145,12 @@ export interface ToolEndEvent extends TermosEventBase {
 /**
  * Event emitted when agent yields control (Stop hook)
  */
-export interface StopEvent extends TermosEventBase {
+export interface StopEvent extends WorkbenchEventBase {
   type: "stop";
   sessionId: string;
 }
 
-export type TermosEvent =
+export type WorkbenchEvent =
   | CreatedEvent
   | ResultEvent
   | ToolStartEvent
@@ -236,7 +239,7 @@ export function getAgentState(sessionName: string): {
  * - Performs incremental reads for append-only updates
  * - Handles file truncation/rotation by resetting cache
  */
-export function readEvents(sessionName: string): TermosEvent[] {
+export function readEvents(sessionName: string): WorkbenchEvent[] {
   const filePath = getEventsFilePath(sessionName);
   try {
     if (!fs.existsSync(filePath)) {
@@ -246,15 +249,28 @@ export function readEvents(sessionName: string): TermosEvent[] {
 
     const stat = fs.statSync(filePath);
     const cached = eventsCache.get(sessionName);
+    const fileIdentityChanged =
+      cached &&
+      (stat.ino !== cached.ino || stat.birthtimeMs !== cached.birthtime);
 
     // Case 1: Cache hit with no file changes
-    if (cached && stat.size === cached.size && stat.mtimeMs === cached.mtime) {
+    if (
+      cached &&
+      !fileIdentityChanged &&
+      stat.size === cached.size &&
+      stat.mtimeMs === cached.mtime
+    ) {
       // Return a shallow copy to prevent accidental cache mutation
       return [...cached.events];
     }
 
     // Case 2: File grew (append-only) - incremental read
-    if (cached && stat.size > cached.size && stat.mtimeMs >= cached.mtime) {
+    if (
+      cached &&
+      !fileIdentityChanged &&
+      stat.size > cached.size &&
+      stat.mtimeMs >= cached.mtime
+    ) {
       // Read only the new bytes from the last offset
       const fd = fs.openSync(filePath, "r");
       try {
@@ -296,6 +312,8 @@ export function readEvents(sessionName: string): TermosEvent[] {
     eventsCache.set(sessionName, {
       mtime: stat.mtimeMs,
       size: stat.size,
+      ino: stat.ino,
+      birthtime: stat.birthtimeMs,
       offset: stat.size,
       events,
     });

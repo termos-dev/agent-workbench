@@ -31,17 +31,11 @@ describe("component-registry", () => {
         expect(builtinComponents[component]).toBeDefined();
       }
     });
-
-    it("should support both with and without .tsx extension", () => {
-      expect(builtinComponents.confirm).toBe("confirm.tsx");
-      expect(builtinComponents["confirm.tsx"]).toBe("confirm.tsx");
-    });
   });
 
   describe("positionalArgMap", () => {
     it("should map confirm to prompt", () => {
       expect(positionalArgMap.confirm).toBe("prompt");
-      expect(positionalArgMap["confirm.tsx"]).toBe("prompt");
     });
 
     it("should map checklist to items", () => {

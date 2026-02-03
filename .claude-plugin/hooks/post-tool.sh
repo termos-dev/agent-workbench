@@ -1,5 +1,5 @@
 #!/bin/bash
-# Termos PostToolUse hook - resets status and writes tool_end event
+# AWB PostToolUse hook - resets status and writes tool_end event
 
 INPUT=$(cat)
 
@@ -17,8 +17,8 @@ fi
 [ -z "$SESSION_ID" ] || [ -z "$CWD" ] && exit 0
 
 # Write tool_end event for state tracking
-if command -v termos &> /dev/null; then
-  cd "$CWD" 2>/dev/null && TERMOS_SESSION_ID="$SESSION_ID" termos event tool_end "$TOOL" 2>/dev/null
+if command -v awb &> /dev/null; then
+  cd "$CWD" 2>/dev/null && AWB_SESSION_ID="$SESSION_ID" awb event tool_end "$TOOL" 2>/dev/null
 fi
 
 exit 0

@@ -1,0 +1,6 @@
+[
+  { "name": "Alice", "age": 30, "role": "Engineer" },
+  { "name": "Bob", "age": 25, "role": "Designer" },
+  { "name": "Charlie", "age": 35, "role": "Manager" },
+  { "name": "Diana", "age": 28, "role": "Developer" }
+]

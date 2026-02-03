@@ -1,5 +1,5 @@
 #!/bin/bash
-# Termos Stop hook - marks agent as idle, checks for messages and plan changes
+# AWB Stop hook - marks agent as idle, checks for messages and plan changes
 
 INPUT=$(cat)
 
@@ -17,7 +17,7 @@ fi
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
 
 # Write idle marker
-MARKERS_DIR="$HOME/.termos/markers/idle"
+MARKERS_DIR="$HOME/.awb/markers/idle"
 mkdir -p "$MARKERS_DIR"
 if command -v jq &> /dev/null; then
   jq -n --arg ts "$TIMESTAMP" --arg cwd "${CWD:-unknown}" \
@@ -27,23 +27,23 @@ else
 fi
 
 # Write stop event for state tracking
-if command -v termos &> /dev/null && [ -n "$CWD" ]; then
-  cd "$CWD" 2>/dev/null && TERMOS_SESSION_ID="$SESSION_ID" termos event stop 2>/dev/null
+if command -v awb &> /dev/null && [ -n "$CWD" ]; then
+  cd "$CWD" 2>/dev/null && AWB_SESSION_ID="$SESSION_ID" awb event stop 2>/dev/null
 fi
 
 # Check for pending messages
-if command -v termos &> /dev/null && [ -n "$CWD" ]; then
+if command -v awb &> /dev/null && [ -n "$CWD" ]; then
   cd "$CWD" 2>/dev/null && {
-    PENDING=$(termos listen --count 2>/dev/null || echo "0")
+    PENDING=$(awb listen --count 2>/dev/null || echo "0")
     if [ "$PENDING" -gt 0 ]; then
-      echo "[termos] $PENDING pending message(s) from dashboard." >&2
+      echo "[awb] $PENDING pending message(s) from playground." >&2
     fi
   }
 fi
 
 # Check for plan file changes
 PLAN_DIR="$HOME/.claude/plans"
-MTIME_FILE="$HOME/.termos/markers/plan-mtime/$SESSION_ID"
+MTIME_FILE="$HOME/.awb/markers/plan-mtime/$SESSION_ID"
 
 if [ -d "$PLAN_DIR" ]; then
   mkdir -p "$(dirname "$MTIME_FILE")"
@@ -78,8 +78,8 @@ if [ -d "$PLAN_DIR" ]; then
 
   # Notify if plan changed
   if [ -n "$PLAN_CHANGED" ]; then
-    echo "[termos] Plan file modified: $PLAN_CHANGED" >&2
-    echo "[termos] Review the updated plan before continuing." >&2
+    echo "[awb] Plan file modified: $PLAN_CHANGED" >&2
+    echo "[awb] Review the updated plan before continuing." >&2
   fi
 fi
 

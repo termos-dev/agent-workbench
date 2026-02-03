@@ -1,5 +1,5 @@
 {
-  "name": "termos",
+  "name": "awb",
   "owner": {
     "name": "termos-dev"
   },
@@ -9,9 +9,9 @@
   },
   "plugins": [
     {
-      "name": "termos",
+      "name": "awb",
       "source": "./",
-      "description": "Interactive TUI for Claude Code.",
+      "description": "Interactive UI for Claude Code.",
       "version": "0.3.2",
       "author": {
         "name": "termos-dev"

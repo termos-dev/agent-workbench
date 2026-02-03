@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
  */
 
 describe("CLI smoke tests", () => {
-  const testDir = path.join(os.tmpdir(), `termos-cli-test-${Date.now()}`);
+  const testDir = path.join(os.tmpdir(), `awb-cli-test-${Date.now()}`);
   const _originalCwd = process.cwd();
   const cliPath = path.join(__dirname, "..", "dist", "index.js");
 
@@ -26,7 +26,7 @@ describe("CLI smoke tests", () => {
       cwd: options.cwd || testDir,
       env: {
         ...process.env,
-        TERMOS_RUNTIME_DIR: path.join(testDir, ".termos", "sessions"),
+        AWB_RUNTIME_DIR: path.join(testDir, ".awb", "sessions"),
       },
     });
 
@@ -44,7 +44,7 @@ describe("CLI smoke tests", () => {
 
   beforeEach(() => {
     fs.mkdirSync(testDir, { recursive: true });
-    fs.mkdirSync(path.join(testDir, ".termos", "sessions"), {
+    fs.mkdirSync(path.join(testDir, ".awb", "sessions"), {
       recursive: true,
     });
   });
@@ -61,26 +61,26 @@ describe("CLI smoke tests", () => {
     it("should show help with no arguments", () => {
       const result = runCli([]);
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("termos");
+      expect(result.stdout).toContain("awb");
       expect(result.stdout).toContain("Usage");
     });
 
     it("should show help with --help flag", () => {
       const result = runCli(["--help"]);
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("termos");
+      expect(result.stdout).toContain("awb");
     });
 
     it("should show help with -h flag", () => {
       const result = runCli(["-h"]);
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("termos");
+      expect(result.stdout).toContain("awb");
     });
 
     it("should show help with help command", () => {
       const result = runCli(["help"]);
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("termos");
+      expect(result.stdout).toContain("awb");
     });
   });
 
@@ -88,13 +88,13 @@ describe("CLI smoke tests", () => {
     it("should show run help with no arguments", () => {
       const result = runCli(["run"]);
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("termos run");
+      expect(result.stdout).toContain("awb run");
     });
 
     it("should show run help with --help", () => {
       const result = runCli(["run", "--help"]);
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain("termos run");
+      expect(result.stdout).toContain("awb run");
     });
 
     it("should require --title flag", () => {
@@ -194,7 +194,9 @@ describe("CLI smoke tests", () => {
       ]);
       expect(result.status).toBe(0);
 
-      const output = JSON.parse(result.stdout.trim());
+      // Command mode outputs JSON on first line, then streams command output
+      const firstLine = result.stdout.trim().split("\n")[0];
+      const output = JSON.parse(firstLine);
       expect(output.status).toBe("started");
     });
 
@@ -209,7 +211,9 @@ describe("CLI smoke tests", () => {
       ]);
       expect(result.status).toBe(0);
 
-      const output = JSON.parse(result.stdout.trim());
+      // Command mode outputs JSON on first line, then streams command output
+      const firstLine = result.stdout.trim().split("\n")[0];
+      const output = JSON.parse(firstLine);
       expect(output.status).toBe("started");
     });
 
@@ -312,24 +316,6 @@ describe("CLI smoke tests", () => {
       const result = runCli(["xyz123"], { expectFail: true });
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("Unknown command");
-    });
-  });
-
-  describe("tui command", () => {
-    it("should not fail with React is not defined error", () => {
-      // Run TUI - it will fail because we're not in a TTY, but it should NOT fail
-      // with "React is not defined" which indicates a JSX transform misconfiguration
-      const result = runCli(["tui"], { expectFail: true });
-
-      // The TUI will fail in CI/test environment because there's no TTY
-      // But it should fail with "Raw mode is not supported", NOT "React is not defined"
-      const combinedOutput = result.stdout + result.stderr;
-
-      // This is the critical assertion - if this fails, the JSX transform is broken
-      expect(combinedOutput).not.toContain("React is not defined");
-
-      // Expected error in non-TTY environment
-      expect(combinedOutput).toContain("Raw mode is not supported");
     });
   });
 });

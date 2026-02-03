@@ -1,5 +1,5 @@
 /**
- * Centralized timing constants for termos.
+ * Centralized timing constants for awb.
  */
 
 /** Grace period before transitioning from thinking to idle (ms) */

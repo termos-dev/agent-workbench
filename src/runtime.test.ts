@@ -18,12 +18,12 @@ import {
 } from "./runtime.js";
 
 describe("runtime", () => {
-  const testDir = path.join(os.tmpdir(), `termos-runtime-test-${Date.now()}`);
-  const originalRuntimeDir = process.env.TERMOS_RUNTIME_DIR;
+  const testDir = path.join(os.tmpdir(), `awb-runtime-test-${Date.now()}`);
+  const originalRuntimeDir = process.env.AWB_RUNTIME_DIR;
   const originalHome = process.env.HOME;
 
   beforeEach(() => {
-    process.env.TERMOS_RUNTIME_DIR = path.join(testDir, "sessions");
+    process.env.AWB_RUNTIME_DIR = path.join(testDir, "sessions");
     process.env.HOME = testDir;
     fs.mkdirSync(testDir, { recursive: true });
     fs.mkdirSync(path.join(testDir, "sessions"), { recursive: true });
@@ -37,9 +37,9 @@ describe("runtime", () => {
     }
     if (originalRuntimeDir === undefined) {
       // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
-      delete process.env.TERMOS_RUNTIME_DIR;
+      delete process.env.AWB_RUNTIME_DIR;
     } else {
-      process.env.TERMOS_RUNTIME_DIR = originalRuntimeDir;
+      process.env.AWB_RUNTIME_DIR = originalRuntimeDir;
     }
     if (originalHome === undefined) {
       // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
@@ -97,16 +97,16 @@ describe("runtime", () => {
   });
 
   describe("getRuntimeRoot", () => {
-    it("should use TERMOS_RUNTIME_DIR env var if set", () => {
+    it("should use AWB_RUNTIME_DIR env var if set", () => {
       const result = getRuntimeRoot();
       expect(result).toBe(path.join(testDir, "sessions"));
     });
 
-    it("should fall back to ~/.termos/sessions", () => {
+    it("should fall back to ~/.awb/sessions", () => {
       // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
-      delete process.env.TERMOS_RUNTIME_DIR;
+      delete process.env.AWB_RUNTIME_DIR;
       const result = getRuntimeRoot();
-      expect(result).toBe(path.join(testDir, ".termos", "sessions"));
+      expect(result).toBe(path.join(testDir, ".awb", "sessions"));
     });
   });
 
@@ -170,7 +170,7 @@ describe("runtime", () => {
 
     it("should return true when ended marker exists", async () => {
       const sessionId = "ended-session";
-      const markersDir = path.join(testDir, ".termos", "markers", "ended");
+      const markersDir = path.join(testDir, ".awb", "markers", "ended");
       fs.mkdirSync(markersDir, { recursive: true });
       fs.writeFileSync(path.join(markersDir, sessionId), "");
 

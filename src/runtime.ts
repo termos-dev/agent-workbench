@@ -55,17 +55,17 @@ export interface ActiveSession {
   modified: string; // Last activity timestamp
   messageCount: number;
   gitBranch?: string;
-  title?: string; // Short title (set via termos set-title)
+  title?: string; // Short title (set via awb set-title)
   firstPrompt?: string; // User's initial prompt for this session
   status: "running" | "idle" | "thinking";
   source: "index" | "marker" | "both"; // Where we detected this session
 }
 
 /**
- * Get cached title for a session (set via `termos set-title`).
+ * Get cached title for a session (set via `awb set-title`).
  */
 async function getCachedTitle(sessionId: string): Promise<string | undefined> {
-  const titlePath = path.join(os.homedir(), ".termos", "titles", sessionId);
+  const titlePath = path.join(os.homedir(), ".awb", "titles", sessionId);
   try {
     const content = await fsp.readFile(titlePath, "utf-8");
     return content.trim() || undefined;
@@ -103,7 +103,7 @@ async function cleanupStaleMarkers(dir: string): Promise<void> {
  *
  * Sources:
  * 1. Claude's sessions-index.json - source of truth for session data
- * 2. Our idle markers (~/.termos/markers/idle/) - catches new sessions before index updates
+ * 2. Our idle markers (~/.awb/markers/idle/) - catches new sessions before index updates
  *
  * A session is active if EITHER source shows recent activity AND no ended marker exists.
  */
@@ -385,11 +385,11 @@ async function scanIdleMarkers(
 }
 
 export function getRuntimeRoot(): string {
-  const override = process.env.TERMOS_RUNTIME_DIR;
+  const override = process.env.AWB_RUNTIME_DIR;
   if (override && override.trim().length > 0) {
     return override;
   }
-  return path.join(os.homedir(), ".termos", "sessions");
+  return path.join(os.homedir(), ".awb", "sessions");
 }
 
 /**
@@ -412,6 +412,16 @@ export function getEventsFilePath(sessionName: string): string {
   return path.join(getSessionRuntimeDir(sessionName), "events.jsonl");
 }
 
+export function getProcessInfoPath(
+  sessionName: string,
+  interactionId: string
+): string {
+  return path.join(
+    getSessionRuntimeDir(sessionName),
+    `process-${interactionId}.json`
+  );
+}
+
 export function ensureEventsFile(sessionName: string): string {
   const dir = getSessionRuntimeDir(sessionName);
   fs.mkdirSync(dir, { recursive: true });
@@ -423,30 +433,30 @@ export function ensureEventsFile(sessionName: string): string {
 }
 
 /**
- * Get the path to the global dashboard marker file.
- * This indicates the dashboard is running and can handle interactions.
+ * Get the path to the global playground marker file.
+ * This indicates the playground is running and can handle interactions.
  */
-export function getDashboardMarkerPath(): string {
-  return path.join(getRuntimeRoot(), ".dashboard");
+export function getPlaygroundMarkerPath(): string {
+  return path.join(getRuntimeRoot(), ".playground");
 }
 
 /**
- * Write dashboard marker file with PID.
+ * Write playground marker file with PID.
  */
-export function writeDashboardMarker(): void {
+export function writePlaygroundMarker(): void {
   const dir = getRuntimeRoot();
   fs.mkdirSync(dir, { recursive: true });
-  const markerPath = getDashboardMarkerPath();
+  const markerPath = getPlaygroundMarkerPath();
   fs.writeFileSync(markerPath, `${process.pid}\n${new Date().toISOString()}`, {
     flag: "w",
   });
 }
 
 /**
- * Delete dashboard marker file.
+ * Delete playground marker file.
  */
-export function deleteDashboardMarker(): void {
-  const markerPath = getDashboardMarkerPath();
+export function deletePlaygroundMarker(): void {
+  const markerPath = getPlaygroundMarkerPath();
   try {
     fs.unlinkSync(markerPath);
   } catch {
@@ -458,7 +468,7 @@ export function deleteDashboardMarker(): void {
  * Get the path to the markers directory.
  */
 export function getMarkersDir(): string {
-  return path.join(os.homedir(), ".termos", "markers");
+  return path.join(os.homedir(), ".awb", "markers");
 }
 
 /**
@@ -470,7 +480,7 @@ export function getIdleMarkersDir(): string {
 
 /**
  * Get the path to the ended markers directory.
- * Sessions with ended markers are immediately removed from TUI.
+ * Sessions with ended markers are immediately removed from playground.
  */
 export function getEndedMarkersDir(): string {
   return path.join(getMarkersDir(), "ended");
@@ -560,7 +570,7 @@ export function getAgentStatus(
 
 /**
  * Write or update idle marker for a session.
- * Used by termos run to keep session visible while waiting for user input.
+ * Used by awb run to keep session visible while waiting for user input.
  */
 export function writeIdleMarker(sessionId: string, cwd: string): void {
   const markersDir = getIdleMarkersDir();
@@ -575,7 +585,7 @@ export function writeIdleMarker(sessionId: string, cwd: string): void {
 
 /**
  * Convert a cwd path to project name (last path segment).
- * e.g., "/Users/burakemre/Code/mcp-sidecar" -> "mcp-sidecar"
+ * e.g., "/Users/burakemre/Code/agent-workbench" -> "agent-workbench"
  */
 export function cwdToProject(cwd: string): string {
   const parts = cwd.split("/").filter(Boolean);
@@ -692,7 +702,7 @@ export async function getPlanFileForSession(
 
 /**
  * Convert a session name to project name.
- * e.g., "-Users-burakemre-Code-mcp-sidecar" -> "mcp-sidecar"
+ * e.g., "-Users-burakemre-Code-agent-workbench" -> "agent-workbench"
  */
 export function sessionNameToProject(sessionName: string): string {
   // Convert session name back to path-like string, then use cwdToProject

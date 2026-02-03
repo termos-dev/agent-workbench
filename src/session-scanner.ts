@@ -3,9 +3,9 @@ import { type CreatedEvent, getPendingInteractions } from "./events.js";
 import { getRuntimeRoot, sessionNameToProject } from "./runtime.js";
 
 /**
- * Interaction with project info for dashboard display
+ * Interaction with project info for playground display
  */
-export interface DashboardInteraction extends CreatedEvent {
+export interface PlaygroundInteraction extends CreatedEvent {
   project: string;
   sessionName: string;
   agentSessionId?: string; // Inherited from CreatedEvent
@@ -17,7 +17,7 @@ export interface DashboardInteraction extends CreatedEvent {
 export interface ProjectInteractions {
   project: string;
   sessionName: string;
-  interactions: DashboardInteraction[];
+  interactions: PlaygroundInteraction[];
 }
 
 /**
@@ -30,7 +30,7 @@ export async function discoverSessionDirs(): Promise<string[]> {
     const entries = await fsp.readdir(sessionsRoot, { withFileTypes: true });
     return entries
       .filter((entry) => entry.isDirectory())
-      .filter((entry) => !entry.name.startsWith(".")) // Skip hidden dirs like .dashboard
+      .filter((entry) => !entry.name.startsWith(".")) // Skip hidden dirs
       .map((entry) => entry.name);
   } catch {
     // Directory doesn't exist or read failed
@@ -54,17 +54,19 @@ export async function scanAllSessions(): Promise<ProjectInteractions[]> {
 
     // Add project info to each interaction
     // Use project from event if available, otherwise fall back to sessionNameToProject
-    const dashboardInteractions: DashboardInteraction[] = pending.map((int) => {
-      const project = int.project || sessionNameToProject(sessionName);
-      return {
-        ...int,
-        project,
-        sessionName,
-      };
-    });
+    const playgroundInteractions: PlaygroundInteraction[] = pending.map(
+      (int) => {
+        const project = int.project || sessionNameToProject(sessionName);
+        return {
+          ...int,
+          project,
+          sessionName,
+        };
+      }
+    );
 
     // Group by project (use first interaction's project as the group key)
-    for (const interaction of dashboardInteractions) {
+    for (const interaction of playgroundInteractions) {
       const project = interaction.project;
       const existing = projectsMap.get(project);
       if (existing) {

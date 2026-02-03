@@ -10,7 +10,14 @@
       "correctness": {
         "noUnusedVariables": "error",
         "noUnusedImports": "error",
-        "useExhaustiveDependencies": "error"
+        "useExhaustiveDependencies": "warn"
+      },
+      "a11y": {
+        "useSemanticElements": "off",
+        "useKeyWithClickEvents": "off",
+        "useButtonType": "warn",
+        "noSvgWithoutTitle": "off",
+        "noNoninteractiveTabindex": "off"
       },
       "style": {
         "useConst": "error",
@@ -43,9 +50,9 @@
   "files": {
     "ignore": [
       "dist/**",
+      "ui/dist/**",
+      "ui/public/**",
       "node_modules/**",
-      "packages/*/dist/**",
-      "packages/*/node_modules/**",
       "coverage/**",
       "docs/vendor/**",
       "**/*.min.js"

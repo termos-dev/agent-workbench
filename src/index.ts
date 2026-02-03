@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * Termos CLI - Interactive TUI for Claude Code
+ * Agent Workbench CLI - Interactive UI for Claude Code
  *
  * This is the main entry point that dispatches to individual command handlers.
  */
 
 import {
-  handleDashboard,
   handleEvent,
   handleListen,
   handleRun,
   handleSetTitle,
   handleSetup,
+  handleUI,
   handleWait,
 } from "./commands/index.js";
 import { loadMergedInstructions } from "./instructions-loader.js";
@@ -22,48 +22,45 @@ import { loadMergedInstructions } from "./instructions-loader.js";
  */
 function showHelp(): void {
   console.log(`
-termos - Interactive UI for Claude Code
+awb - Interactive UI for Claude Code
 
 Usage:
-  termos                              Show this help
-  termos setup                        Install plugin for Claude Code
-  termos tui [options]                Launch interactive TUI
+  awb                              Show this help
+  awb setup                        Install plugin for Claude Code
+  awb ui [options]                 Launch web playground
 
 Agent Commands:
-  termos set-title <title>            Set a short title for this session
-  termos run --title <t> <component>  Show interactive component in TUI
-  termos run --title <t> --cmd "..."  Run command, show output in TUI
-  termos wait <id>                    Wait for user response (includes messages)
-  termos wait --all                   Get all results (debugging)
-  termos listen                       Block until message arrives (Ctrl+C to cancel)
-  termos listen --count               Get pending message count (for hooks)
+  awb set-title <title>            Set a short title for this session
+  awb run --title <t> <component>  Show interactive component
+  awb run --title <t> --cmd "..."  Run command, show output
+  awb wait <id>                    Wait for user response (includes messages)
+  awb wait --all                   Get all results (debugging)
+  awb listen                       Block until message arrives (Ctrl+C to cancel)
+  awb listen --count               Get pending message count (for hooks)
 
-TUI Options:
-  --refresh <sec>    Refresh interval in seconds (default: 1)
-  --project <name>   Focus on specific project
-
-  Note: TUI auto-detects active projects. Shows all if multiple are active.
+Playground Options:
+  --port <number>    Port to serve on (default: 3847)
 
 Components:
   Interactive: confirm, select, checklist, ask (user responds)
   Display:     code, diff, table, json, markdown, card, progress, chart,
-               gauge, tree, mermaid, plan-viewer (user dismisses with 'd')
+               gauge, tree, mermaid, plan-viewer
 
 Agent Best Practice:
   At the start of a session, set a descriptive title:
-    termos set-title "Building Auth System"
-  This helps users identify sessions in the TUI dashboard.
+    awb set-title "Building Auth System"
+  This helps users identify sessions in the playground.
 
 Getting Started:
-  1. npm install -g @termosdev/cli    # Install globally
-  2. termos setup                      # Install Claude plugin
+  1. npm install -g agent-workbench    # Install globally
+  2. awb setup                      # Install Claude plugin
   3. Restart Claude Code               # Load the plugin
-  4. termos tui                        # Run TUI in separate terminal
+  4. awb ui                         # Run playground in browser
 
 Examples:
-  termos set-title "Refactoring API"
-  termos run --title "Confirm" confirm --prompt "Delete files?"
-  termos run --title "Status" --cmd "git status"
+  awb set-title "Refactoring API"
+  awb run --title "Confirm" confirm --prompt "Delete files?"
+  awb run --title "Status" --cmd "git status"
 `);
 
   const instructions = loadMergedInstructions(process.cwd());
@@ -80,7 +77,7 @@ function suggestCommand(input: string): string | null {
   const commands = [
     "run",
     "wait",
-    "tui",
+    "ui",
     "setup",
     "set-title",
     "listen",
@@ -138,8 +135,8 @@ async function main() {
 
   // Route to command handlers
   switch (cmd) {
-    case "tui":
-      await handleDashboard(args.slice(1));
+    case "ui":
+      await handleUI(args.slice(1));
       return;
 
     case "setup":
@@ -172,10 +169,10 @@ async function main() {
       const suggestion = suggestCommand(cmd);
       if (suggestion) {
         console.error(`Unknown command: ${cmd}`);
-        console.error(`Did you mean 'termos ${suggestion}'?`);
+        console.error(`Did you mean 'awb ${suggestion}'?`);
       } else {
         console.error(`Unknown command: ${cmd}`);
-        console.error(`Run 'termos help' for usage`);
+        console.error(`Run 'awb help' for usage`);
       }
       process.exit(1);
     }

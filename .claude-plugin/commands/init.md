@@ -1,26 +1,26 @@
 ---
 allowed-tools: Bash, AskUserQuestion, Write, Read
-description: Initialize termos.md with project-specific settings and preferences
+description: Initialize awb.md with project-specific settings and preferences
 ---
 
-Initialize termos.md with project-specific instructions and preferences.
+Initialize awb.md with project-specific instructions and preferences.
 
-# Termos Init
+# Agent Workbench Init
 
-Generate a `termos.md` file in the project root with project-specific instructions.
+Generate a `awb.md` file in the project root with project-specific instructions.
 
-## Step 0: Check for Existing termos.md
+## Step 0: Check for Existing awb.md
 
 ```bash
-if [ -f "termos.md" ]; then
+if [ -f "awb.md" ]; then
   echo "EXISTING_CONFIG=yes"
-  cat termos.md
+  cat awb.md
 else
   echo "EXISTING_CONFIG=no"
 fi
 ```
 
-If `termos.md` exists, parse current settings to use as defaults.
+If `awb.md` exists, parse current settings to use as defaults.
 
 ## Step 1: Environment Detection
 
@@ -28,7 +28,7 @@ If `termos.md` exists, parse current settings to use as defaults.
 # Detect available editors
 EDITORS=""
 
-# TUI editors
+# Terminal editors
 which nvim > /dev/null 2>&1 && EDITORS="$EDITORS nvim"
 which vim > /dev/null 2>&1 && EDITORS="$EDITORS vim"
 which hx > /dev/null 2>&1 && EDITORS="$EDITORS hx"
@@ -54,9 +54,9 @@ Based on detected editors, ask which editor they prefer for opening files.
 Editor reference:
 | Editor | Type | Command | Line Format |
 |--------|------|---------|-------------|
-| nvim | TUI | `nvim` | `+{line}` |
-| vim | TUI | `vim` | `+{line}` |
-| hx | TUI | `hx` | `{file}:{line}` |
+| nvim | Terminal | `nvim` | `+{line}` |
+| vim | Terminal | `vim` | `+{line}` |
+| hx | Terminal | `hx` | `{file}:{line}` |
 | code | GUI | `code` | `-g {file}:{line}` |
 | cursor | GUI | `cursor` | `-g {file}:{line}` |
 
@@ -75,9 +75,9 @@ Editor reference:
 - **Yes (Recommended)**: Display plan file during plan mode
 - **No**: Keep plans in the editor only
 
-## Step 3: Generate termos.md
+## Step 3: Generate awb.md
 
-Based on answers, generate `termos.md`:
+Based on answers, generate `awb.md`:
 
 ```markdown
 # Project: {project_name}
@@ -85,7 +85,7 @@ Based on answers, generate `termos.md`:
 ## Editor
 ```yaml
 editor: {editor}
-type: {tui|gui}
+type: {terminal|gui}
 command: {editor_command}
 lineFormat: "{line_format}"
 ```
@@ -95,14 +95,14 @@ Opens files externally in {editor}. Press `e` in code viewer to open file.
 ## Interaction Preferences
 {based on style choice}
 
-## When to Use Termos
+## When to Use Agent Workbench
 
 ### Confirmations
 {if selected: Use `confirm` before destructive actions.}
 
 Example:
 ```bash
-termos run --title "Delete Files" confirm --prompt "Delete 5 files?"
+awb run --title "Delete Files" confirm --prompt "Delete 5 files?"
 ```
 
 ### Progress Tracking
@@ -110,7 +110,7 @@ termos run --title "Delete Files" confirm --prompt "Delete 5 files?"
 
 Example:
 ```bash
-termos run --title "Setup" progress --steps "Install deps,Build,Test,Deploy"
+awb run --title "Setup" progress --steps "Install deps,Build,Test,Deploy"
 ```
 
 ### Code Review
@@ -118,7 +118,7 @@ termos run --title "Setup" progress --steps "Install deps,Build,Test,Deploy"
 
 Example:
 ```bash
-termos run --title "Review Changes" diff --file path/to/file
+awb run --title "Review Changes" diff --file path/to/file
 ```
 
 ### Data Display
@@ -127,13 +127,13 @@ termos run --title "Review Changes" diff --file path/to/file
 ### Plan Mode
 {if selected: Display plan file during plan mode:}
 ```bash
-termos run --title "Plan" plan-viewer --file <plan-path>
+awb run --title "Plan" plan-viewer --file <plan-path>
 ```
 
 ### Command Output
 Run commands and display output:
 ```bash
-termos run --title "Git Status" --cmd "git status"
+awb run --title "Git Status" --cmd "git status"
 ```
 
 ## Quick Reference
@@ -151,34 +151,34 @@ termos run --title "Git Status" --cmd "git status"
 
 ## Step 4: Write the File
 
-Write `termos.md` to the project root.
+Write `awb.md` to the project root.
 
 Confirm with user before writing:
 ```bash
-termos run --title "Confirm" confirm --prompt "Create termos.md with these settings?"
+awb run --title "Confirm" confirm --prompt "Create awb.md with these settings?"
 ```
 
 ## Step 5: Update CLAUDE.md
 
-If `CLAUDE.md` exists, append termos instructions:
+If `CLAUDE.md` exists, append awb instructions:
 
 ```bash
 if [ -f "CLAUDE.md" ]; then
   cat >> CLAUDE.md << 'EOF'
 
-## Termos Interactive Components
+## Agent Workbench Interactive Components
 
-This project uses termos for interactive UI. Read `termos.md` for interaction preferences.
+This project uses awb for interactive UI. Read `awb.md` for interaction preferences.
 
 Workflow:
-1. `termos run ...` writes event, returns interaction ID
-2. `termos wait <id>` blocks until user responds in TUI
+1. `awb run ...` writes event, returns interaction ID
+2. `awb wait <id>` blocks until user responds in playground
 
-- **USE termos components** for confirmations, progress, and user engagement
-- **Show plan files** during plan mode (if enabled in termos.md)
+- **USE awb components** for confirmations, progress, and user engagement
+- **Show plan files** during plan mode (if enabled in awb.md)
 - **Display task progress** visually for multi-step operations
 
-Run `termos` for help, `termos run --help` for component details. Always use `--title`.
+Run `awb` for help, `awb run --help` for component details. Always use `--title`.
 EOF
 fi
 ```
@@ -186,14 +186,14 @@ fi
 ## Step 6: Final Output
 
 ```
-Termos initialized!
+Agent Workbench initialized!
 
 Created files:
-- termos.md (interaction preferences)
+- awb.md (interaction preferences)
 
 Usage:
-  termos tui     # Launch TUI to respond to interactions
-  termos         # Show help
+  awb ui      # Launch playground to respond to interactions
+  awb         # Show help
 
-Run `termos run --help` for all available components.
+Run `awb run --help` for all available components.
 ```

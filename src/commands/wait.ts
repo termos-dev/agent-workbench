@@ -15,8 +15,8 @@ export async function handleWait(args: string[]): Promise<void> {
   const id = args.find((arg) => !arg.startsWith("--"));
 
   if (!id && !hasAll) {
-    console.error("Usage: termos wait <interaction-id>");
-    console.error("       termos wait --all  (get all results)");
+    console.error("Usage: awb wait <interaction-id>");
+    console.error("       awb wait --all  (get all results)");
     process.exit(1);
   }
 

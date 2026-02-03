@@ -13,7 +13,7 @@ export function handleSetTitle(args: string[]): void {
   const title = args.join(" ").trim();
 
   if (!title) {
-    console.error("Usage: termos set-title <title>");
+    console.error("Usage: awb set-title <title>");
     process.exit(1);
   }
 
@@ -27,7 +27,7 @@ export function handleSetTitle(args: string[]): void {
   }
 
   // Save title to cache
-  const titlesDir = path.join(process.env.HOME || "", ".termos", "titles");
+  const titlesDir = path.join(process.env.HOME || "", ".awb", "titles");
   fs.mkdirSync(titlesDir, { recursive: true });
   fs.writeFileSync(path.join(titlesDir, sessionId), title);
 

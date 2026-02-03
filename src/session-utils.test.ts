@@ -9,14 +9,14 @@ import {
 } from "./session-utils.js";
 
 describe("session-utils", () => {
-  const testDir = path.join(os.tmpdir(), `termos-session-test-${Date.now()}`);
+  const testDir = path.join(os.tmpdir(), `awb-session-test-${Date.now()}`);
   const originalHome = process.env.HOME;
-  const originalSessionId = process.env.TERMOS_SESSION_ID;
+  const originalSessionId = process.env.AWB_SESSION_ID;
 
   beforeEach(() => {
     process.env.HOME = testDir;
     // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
-    delete process.env.TERMOS_SESSION_ID;
+    delete process.env.AWB_SESSION_ID;
     fs.mkdirSync(testDir, { recursive: true });
   });
 
@@ -34,9 +34,9 @@ describe("session-utils", () => {
     }
     if (originalSessionId === undefined) {
       // biome-ignore lint/performance/noDelete: delete is required for process.env to actually unset the variable
-      delete process.env.TERMOS_SESSION_ID;
+      delete process.env.AWB_SESSION_ID;
     } else {
-      process.env.TERMOS_SESSION_ID = originalSessionId;
+      process.env.AWB_SESSION_ID = originalSessionId;
     }
   });
 
@@ -49,7 +49,7 @@ describe("session-utils", () => {
     it("should return undefined for stale markers (older than 5 seconds)", async () => {
       const cwd = process.cwd();
       const encodedPath = cwd.replace(/[/\\]/g, "-");
-      const markerDir = path.join(testDir, ".termos", "markers", "active");
+      const markerDir = path.join(testDir, ".awb", "markers", "active");
       const markerPath = path.join(markerDir, encodedPath);
 
       fs.mkdirSync(markerDir, { recursive: true });
@@ -66,7 +66,7 @@ describe("session-utils", () => {
     it("should return session ID for fresh markers", () => {
       const cwd = process.cwd();
       const encodedPath = cwd.replace(/[/\\]/g, "-");
-      const markerDir = path.join(testDir, ".termos", "markers", "active");
+      const markerDir = path.join(testDir, ".awb", "markers", "active");
       const markerPath = path.join(markerDir, encodedPath);
 
       fs.mkdirSync(markerDir, { recursive: true });
@@ -123,8 +123,8 @@ describe("session-utils", () => {
   });
 
   describe("getAgentSessionId", () => {
-    it("should prioritize TERMOS_SESSION_ID env var", () => {
-      process.env.TERMOS_SESSION_ID = "env-session-id";
+    it("should prioritize AWB_SESSION_ID env var", () => {
+      process.env.AWB_SESSION_ID = "env-session-id";
 
       const result = getAgentSessionId();
       expect(result).toBe("env-session-id");
@@ -138,7 +138,7 @@ describe("session-utils", () => {
     it("should use active marker when env var is not set", () => {
       const cwd = process.cwd();
       const encodedPath = cwd.replace(/[/\\]/g, "-");
-      const markerDir = path.join(testDir, ".termos", "markers", "active");
+      const markerDir = path.join(testDir, ".awb", "markers", "active");
       const markerPath = path.join(markerDir, encodedPath);
 
       fs.mkdirSync(markerDir, { recursive: true });

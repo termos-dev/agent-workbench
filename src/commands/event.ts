@@ -15,7 +15,7 @@ export function handleEvent(args: string[]): void {
   const tool = args[1];
 
   if (!eventType || !["tool_start", "tool_end", "stop"].includes(eventType)) {
-    console.error("Usage: termos event <tool_start|tool_end|stop> [tool_name]");
+    console.error("Usage: awb event <tool_start|tool_end|stop> [tool_name]");
     process.exit(1);
   }
 

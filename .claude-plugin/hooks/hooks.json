@@ -1,5 +1,5 @@
 {
-  "description": "Termos session hooks",
+  "description": "Agent Workbench session hooks",
   "hooks": {
     "PreToolUse": [
       {
@@ -97,7 +97,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"decision\": \"block\", \"reason\": \"Use termos run ask instead of AskUserQuestion. Example: termos run --title \\\"Question\\\" ask --questions \\u0027[{\\\"question\\\":\\\"Your question?\\\",\\\"header\\\":\\\"answer\\\",\\\"options\\\":[{\\\"label\\\":\\\"Option A\\\"},{\\\"label\\\":\\\"Option B\\\"}]}]\\u0027\"}'"
+            "command": "echo '{\"decision\": \"block\", \"reason\": \"Use awb run ask instead of AskUserQuestion. Example: awb run --title \\\"Question\\\" ask --questions \\u0027[{\\\"question\\\":\\\"Your question?\\\",\\\"header\\\":\\\"answer\\\",\\\"options\\\":[{\\\"label\\\":\\\"Option A\\\"},{\\\"label\\\":\\\"Option B\\\"}]}]\\u0027\"}'"
           }
         ]
       }

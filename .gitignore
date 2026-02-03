@@ -4,10 +4,6 @@ node_modules/
 # Build output
 dist/
 *.d.ts
-!packages/shared/**/*.d.ts
-
-# Compiled JS in source directories (should only be in dist/)
-packages/ink-runner/components/**/*.js
 
 # Environment files
 .env
@@ -24,8 +20,8 @@ Thumbs.db
 *.swo
 *~
 
-# Termos runtime data (logs, events)
-.termos/
+# AWB runtime data (logs, events)
+.awb/
 
 # VS Code server data (runtime)
 .vscode-server/data/logs/
@@ -43,6 +39,9 @@ npm-debug.log*
 
 # Test coverage
 coverage/
+
+# Playwright test results
+test-results/
 
 # Temporary files
 *.tmp

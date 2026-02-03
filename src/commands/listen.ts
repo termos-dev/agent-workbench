@@ -84,7 +84,7 @@ export async function handleListen(args: string[]): Promise<void> {
         // Output for Claude to see
         for (const msg of messages) {
           const text = (msg.args as { text?: string })?.text || msg.title;
-          console.log(`[Dashboard Message] ${text}`);
+          console.log(`[Playground Message] ${text}`);
         }
         cleanup();
         return;

@@ -23,7 +23,7 @@ vi.mock("./runtime.js", async () => {
 describe("session-scanner", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(runtime.getRuntimeRoot).mockReturnValue("/tmp/termos");
+    vi.mocked(runtime.getRuntimeRoot).mockReturnValue("/tmp/awb");
   });
 
   describe("discoverSessionDirs", () => {
@@ -48,7 +48,7 @@ describe("session-scanner", () => {
 
     it("filters out hidden directories", async () => {
       vi.mocked(fsp.readdir).mockResolvedValue([
-        { name: ".dashboard", isDirectory: () => true },
+        { name: ".hidden", isDirectory: () => true },
         { name: ".hidden", isDirectory: () => true },
         { name: "visible-session", isDirectory: () => true },
         // biome-ignore lint/suspicious/noExplicitAny: mock typing

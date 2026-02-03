@@ -1,5 +1,5 @@
 /**
- * Setup command handler - installs the termos plugin for Claude Code.
+ * Setup command handler - installs the awb plugin for Claude Code.
  */
 
 import * as fs from "node:fs";
@@ -26,14 +26,14 @@ function copyDirSync(src: string, dest: string): void {
 }
 
 /**
- * Install/setup termos plugin for Claude Code.
+ * Install/setup awb plugin for Claude Code.
  */
 export async function handleSetup(): Promise<void> {
   const os = await import("node:os");
   const homedir = os.default.homedir();
-  const pluginDir = path.join(homedir, ".claude", "plugins", "termos");
+  const pluginDir = path.join(homedir, ".claude", "plugins", "awb");
 
-  // Find where termos is installed
+  // Find where awb is installed
   const packageRoot = path.dirname(
     path.dirname(fileURLToPath(import.meta.url))
   );
@@ -42,7 +42,7 @@ export async function handleSetup(): Promise<void> {
   // Check if source plugin exists
   if (!fs.existsSync(sourcePluginDir)) {
     console.error("Error: Plugin files not found at", sourcePluginDir);
-    console.error("Make sure termos is properly installed.");
+    console.error("Make sure awb is properly installed.");
     process.exit(1);
   }
 
@@ -69,14 +69,14 @@ export async function handleSetup(): Promise<void> {
     }
   }
 
-  console.log("Termos plugin installed!");
+  console.log("Agent Workbench plugin installed!");
   console.log("");
   console.log("Location:", pluginDir);
   console.log("");
   console.log("Next steps:");
   console.log("  1. Restart Claude Code to load the plugin");
-  console.log("  2. Run 'termos tui' in a separate terminal");
-  console.log("  3. Claude will use termos for interactions");
+  console.log("  2. Run 'awb ui' to open the playground");
+  console.log("  3. Claude will use awb for interactions");
   console.log("");
-  console.log("Run 'termos --help' for usage info.");
+  console.log("Run 'awb --help' for usage info.");
 }

@@ -8,35 +8,23 @@
  */
 export const builtinComponents: Record<string, string> = {
   markdown: "markdown.tsx",
-  "markdown.tsx": "markdown.tsx",
   "plan-viewer": "plan-viewer.tsx",
-  "plan-viewer.tsx": "plan-viewer.tsx",
   confirm: "confirm.tsx",
-  "confirm.tsx": "confirm.tsx",
   checklist: "checklist.tsx",
-  "checklist.tsx": "checklist.tsx",
   code: "code.tsx",
-  "code.tsx": "code.tsx",
   diff: "diff.tsx",
-  "diff.tsx": "diff.tsx",
   table: "table.tsx",
-  "table.tsx": "table.tsx",
   progress: "progress.tsx",
-  "progress.tsx": "progress.tsx",
   mermaid: "mermaid.tsx",
-  "mermaid.tsx": "mermaid.tsx",
   chart: "chart.tsx",
-  "chart.tsx": "chart.tsx",
   select: "select.tsx",
-  "select.tsx": "select.tsx",
   tree: "tree.tsx",
-  "tree.tsx": "tree.tsx",
   json: "json.tsx",
-  "json.tsx": "json.tsx",
   gauge: "gauge.tsx",
-  "gauge.tsx": "gauge.tsx",
   card: "card.tsx",
-  "card.tsx": "card.tsx",
+  // Special components handled directly in run.ts
+  ask: "ask",
+  html: "html",
 };
 
 /**
@@ -46,15 +34,10 @@ export const builtinComponents: Record<string, string> = {
  */
 export const positionalArgMap: Record<string, string> = {
   confirm: "prompt",
-  "confirm.tsx": "prompt",
   checklist: "items",
-  "checklist.tsx": "items",
   progress: "steps",
-  "progress.tsx": "steps",
   markdown: "file",
-  "markdown.tsx": "file",
   "plan-viewer": "file",
-  "plan-viewer.tsx": "file",
 };
 
 /**

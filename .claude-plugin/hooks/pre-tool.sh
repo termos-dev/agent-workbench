@@ -1,5 +1,5 @@
 #!/bin/bash
-# Termos PreToolUse hook - updates status and writes session markers
+# AWB PreToolUse hook - updates status and writes session markers
 # Consolidates pre-bash.sh functionality
 
 INPUT=$(cat)
@@ -19,7 +19,7 @@ fi
 
 # For Bash commands: write active session marker (moved from pre-bash.sh)
 if [ "$TOOL" = "Bash" ]; then
-  ACTIVE_DIR="$HOME/.termos/markers/active"
+  ACTIVE_DIR="$HOME/.awb/markers/active"
   mkdir -p "$ACTIVE_DIR"
   ENCODED_PATH=$(echo "$CWD" | sed 's|/|-|g')
   echo "$SESSION_ID" > "$ACTIVE_DIR/$ENCODED_PATH"
@@ -41,13 +41,13 @@ case "$TOOL" in
 esac
 
 # Update status
-if [ -n "$STATUS" ] && command -v termos &> /dev/null; then
-  cd "$CWD" 2>/dev/null && TERMOS_SESSION_ID="$SESSION_ID" termos set-title "$STATUS" 2>/dev/null
+if [ -n "$STATUS" ] && command -v awb &> /dev/null; then
+  cd "$CWD" 2>/dev/null && AWB_SESSION_ID="$SESSION_ID" awb set-title "$STATUS" 2>/dev/null
 fi
 
 # Write tool_start event for state tracking
-if command -v termos &> /dev/null; then
-  cd "$CWD" 2>/dev/null && TERMOS_SESSION_ID="$SESSION_ID" termos event tool_start "$TOOL" 2>/dev/null
+if command -v awb &> /dev/null; then
+  cd "$CWD" 2>/dev/null && AWB_SESSION_ID="$SESSION_ID" awb event tool_start "$TOOL" 2>/dev/null
 fi
 
 exit 0

@@ -1,0 +1,559 @@
+/* Import diff-view library's pure CSS (without bundled Tailwind) to avoid style conflicts */
+@import "@git-diff-view/react/styles/diff-view-pure.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Stone theme from tweakcn.com */
+    --background: 0 0% 100%;
+    --foreground: 20 14.3% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 14.3% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 14.3% 4.1%;
+    --primary: 24 9.8% 10%;
+    --primary-foreground: 60 9.1% 97.8%;
+    --secondary: 60 4.8% 95.9%;
+    --secondary-foreground: 24 9.8% 10%;
+    --muted: 60 4.8% 95.9%;
+    --muted-foreground: 25 5.3% 44.7%;
+    --accent: 60 4.8% 95.9%;
+    --accent-foreground: 24 9.8% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 60 9.1% 97.8%;
+    --border: 20 5.9% 90%;
+    --input: 20 5.9% 90%;
+    --ring: 20 14.3% 4.1%;
+    --radius: 0.5rem;
+
+    /* CodeMirror editor colors - light mode */
+    --cm-background: 0 0% 100%;
+    --cm-foreground: 20 14.3% 4.1%;
+    --cm-gutter-background: 60 4.8% 97%;
+    --cm-gutter-foreground: 25 5.3% 55%;
+    --cm-line-highlight: 60 4.8% 95.9%;
+    --cm-selection: 214 100% 90%;
+    --cm-cursor: 20 14.3% 4.1%;
+    /* Syntax highlighting - light mode */
+    --cm-keyword: 271 81% 56%;
+    --cm-string: 152 69% 31%;
+    --cm-number: 21 90% 48%;
+    --cm-comment: 25 5.3% 55%;
+    --cm-function: 207 82% 43%;
+    --cm-variable: 20 14.3% 4.1%;
+    --cm-type: 35 80% 47%;
+    --cm-operator: 20 14.3% 4.1%;
+    --cm-property: 355 65% 50%;
+
+    /* Code block colors - light mode */
+    --code-background: 220 13% 18%;
+    --code-foreground: 220 14% 96%;
+    --code-line-number: 220 10% 50%;
+    --code-border: 220 13% 26%;
+    --code-highlight: 48 96% 53% / 0.2;
+
+    /* Status colors */
+    --status-success: 160 84% 39%;
+    --status-error: 0 84% 60%;
+    --status-success-foreground: 0 0% 100%;
+    --status-error-foreground: 0 0% 100%;
+
+    /* Semantic colors for UI elements */
+    --folder-open: 217 91% 60%;
+    --folder-closed: 45 93% 47%;
+    --diff-add: 142 76% 36%;
+    --diff-remove: 0 84% 60%;
+    --diff-add-bg: 142 76% 36% / 0.2;
+    --diff-remove-bg: 0 84% 60% / 0.2;
+
+    /* Chart/gauge colors */
+    --chart-1: 217 91% 60%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 0 84% 60%;
+    --chart-muted: 25 5.3% 55%;
+
+    /* Icon colors */
+    --icon-success: 142 76% 36%;
+    --icon-warning: 45 93% 47%;
+    --icon-error: 0 84% 60%;
+  }
+
+  .dark {
+    --background: 20 14.3% 4.1%;
+    --foreground: 60 9.1% 97.8%;
+    --card: 20 14.3% 4.1%;
+    --card-foreground: 60 9.1% 97.8%;
+    --popover: 20 14.3% 4.1%;
+    --popover-foreground: 60 9.1% 97.8%;
+    --primary: 60 9.1% 97.8%;
+    --primary-foreground: 24 9.8% 10%;
+    --secondary: 12 6.5% 15.1%;
+    --secondary-foreground: 60 9.1% 97.8%;
+    --muted: 12 6.5% 15.1%;
+    --muted-foreground: 24 5.4% 63.9%;
+    --accent: 12 6.5% 15.1%;
+    --accent-foreground: 60 9.1% 97.8%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 60 9.1% 97.8%;
+    --border: 12 6.5% 15.1%;
+    --input: 12 6.5% 15.1%;
+    --ring: 24 5.7% 82.9%;
+
+    /* CodeMirror editor colors - dark mode (matches Stone theme) */
+    --cm-background: 20 14.3% 4.1%;
+    --cm-foreground: 60 9.1% 97.8%;
+    --cm-gutter-background: 12 6.5% 10%;
+    --cm-gutter-foreground: 24 5.4% 50%;
+    --cm-line-highlight: 12 6.5% 12%;
+    --cm-selection: 12 6.5% 20%;
+    --cm-cursor: 60 9.1% 97.8%;
+    /* Syntax highlighting - dark mode (Atom One Dark inspired) */
+    --cm-keyword: 286 60% 67%;
+    --cm-string: 95 38% 62%;
+    --cm-number: 29 54% 61%;
+    --cm-comment: 220 10% 40%;
+    --cm-function: 207 82% 66%;
+    --cm-variable: 220 14% 71%;
+    --cm-type: 39 67% 69%;
+    --cm-operator: 220 14% 71%;
+    --cm-property: 355 65% 65%;
+
+    /* Code block colors - dark mode */
+    --code-background: 220 13% 18%;
+    --code-foreground: 220 14% 83%;
+    --code-line-number: 220 10% 45%;
+    --code-border: 220 13% 26%;
+    --code-highlight: 48 96% 53% / 0.2;
+
+    /* Status colors - dark mode */
+    --status-success: 160 84% 39%;
+    --status-error: 0 62% 50%;
+    --status-success-foreground: 0 0% 100%;
+    --status-error-foreground: 0 0% 100%;
+
+    /* Semantic colors for UI elements - dark mode */
+    --folder-open: 217 91% 65%;
+    --folder-closed: 45 93% 55%;
+    --diff-add: 142 76% 46%;
+    --diff-remove: 0 84% 60%;
+    --diff-add-bg: 142 76% 36% / 0.2;
+    --diff-remove-bg: 0 84% 60% / 0.2;
+
+    /* Chart/gauge colors - dark mode */
+    --chart-1: 217 91% 65%;
+    --chart-2: 160 84% 45%;
+    --chart-3: 0 84% 65%;
+    --chart-muted: 24 5.4% 63.9%;
+
+    /* Icon colors - dark mode */
+    --icon-success: 142 76% 46%;
+    --icon-warning: 45 93% 55%;
+    --icon-error: 0 84% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  /* Reset button text-align to inherit from parent (browser default is center) */
+  button {
+    text-align: inherit;
+  }
+}
+
+/* Code highlighting for react-markdown */
+pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1em;
+}
+code.hljs {
+  padding: 3px 5px;
+}
+
+/* Theme-aware code highlighting for react-markdown */
+.hljs {
+  color: hsl(var(--code-foreground));
+  background: hsl(var(--code-background));
+}
+.hljs-comment,
+.hljs-quote {
+  color: hsl(var(--cm-comment));
+  font-style: italic;
+}
+.hljs-doctag,
+.hljs-keyword,
+.hljs-formula {
+  color: hsl(var(--cm-keyword));
+}
+.hljs-section,
+.hljs-name,
+.hljs-selector-tag,
+.hljs-deletion,
+.hljs-subst {
+  color: hsl(var(--cm-property));
+}
+.hljs-literal {
+  color: hsl(var(--chart-1));
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute,
+.hljs-meta .hljs-string {
+  color: hsl(var(--cm-string));
+}
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-type,
+.hljs-selector-class,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-number {
+  color: hsl(var(--cm-number));
+}
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-meta,
+.hljs-selector-id,
+.hljs-title {
+  color: hsl(var(--cm-function));
+}
+.hljs-built_in,
+.hljs-title.class_,
+.hljs-class .hljs-title {
+  color: hsl(var(--cm-type));
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: bold;
+}
+.hljs-link {
+  text-decoration: underline;
+}
+
+/* Markdown styles */
+.markdown-body {
+  @apply text-foreground leading-relaxed;
+}
+.markdown-body h1 {
+  @apply text-2xl font-bold mb-4;
+}
+.markdown-body h2 {
+  @apply text-xl font-semibold mb-3;
+}
+.markdown-body h3 {
+  @apply text-lg font-medium mb-2;
+}
+.markdown-body p {
+  @apply mb-3;
+}
+.markdown-body ul,
+.markdown-body ol {
+  @apply mb-3 pl-6;
+}
+.markdown-body ul {
+  @apply list-disc;
+}
+.markdown-body ol {
+  @apply list-decimal;
+}
+.markdown-body li {
+  @apply mb-1;
+}
+.markdown-body code {
+  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono;
+}
+.markdown-body pre {
+  @apply rounded-lg p-4 mb-4 overflow-x-auto;
+  background-color: hsl(var(--code-background));
+}
+.markdown-body pre code {
+  @apply bg-transparent p-0;
+}
+.markdown-body blockquote {
+  @apply border-l-4 border-muted pl-4 italic text-muted-foreground;
+}
+.markdown-body a {
+  @apply text-primary underline;
+}
+.markdown-body table {
+  @apply w-full border-collapse mb-4;
+}
+.markdown-body th,
+.markdown-body td {
+  @apply border border-border px-3 py-2 text-left;
+}
+.markdown-body th {
+  @apply bg-muted font-medium;
+}
+
+/* CodeMirror overrides - using CSS variables for theming */
+.cm-editor {
+  @apply rounded-lg overflow-hidden;
+  background-color: hsl(var(--cm-background));
+  color: hsl(var(--cm-foreground));
+}
+.cm-editor.cm-focused {
+  outline: none;
+}
+.cm-gutters {
+  background-color: hsl(var(--cm-gutter-background));
+  color: hsl(var(--cm-gutter-foreground));
+  border-right: 1px solid hsl(var(--border));
+}
+.cm-activeLineGutter {
+  background-color: hsl(var(--cm-line-highlight));
+}
+.cm-activeLine {
+  background-color: hsl(var(--cm-line-highlight));
+}
+.cm-selectionBackground,
+.cm-content ::selection {
+  background-color: hsl(var(--cm-selection)) !important;
+}
+.cm-cursor {
+  border-left-color: hsl(var(--cm-cursor));
+}
+.cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+/* Syntax highlighting using CSS variables */
+.cm-editor .tok-keyword {
+  color: hsl(var(--cm-keyword));
+}
+.cm-editor .tok-string,
+.cm-editor .tok-string2 {
+  color: hsl(var(--cm-string));
+}
+.cm-editor .tok-number {
+  color: hsl(var(--cm-number));
+}
+.cm-editor .tok-comment {
+  color: hsl(var(--cm-comment));
+  font-style: italic;
+}
+.cm-editor .tok-function {
+  color: hsl(var(--cm-function));
+}
+.cm-editor .tok-variableName {
+  color: hsl(var(--cm-variable));
+}
+.cm-editor .tok-typeName {
+  color: hsl(var(--cm-type));
+}
+.cm-editor .tok-operator {
+  color: hsl(var(--cm-operator));
+}
+.cm-editor .tok-propertyName {
+  color: hsl(var(--cm-property));
+}
+.cm-editor .tok-definition {
+  color: hsl(var(--cm-function));
+}
+.cm-editor .tok-bool {
+  color: hsl(var(--cm-number));
+}
+.cm-editor .tok-null {
+  color: hsl(var(--cm-number));
+}
+.cm-editor .tok-punctuation {
+  color: hsl(var(--cm-foreground));
+}
+
+/* Tree view styles */
+.react-arborist-tree {
+  @apply text-sm;
+}
+.react-arborist-tree .node-container {
+  @apply flex items-center py-0.5 px-2 cursor-pointer rounded;
+}
+.react-arborist-tree .node-container:hover {
+  @apply bg-accent;
+}
+.react-arborist-tree .node-container.selected {
+  @apply bg-primary text-primary-foreground;
+}
+
+/* JSON viewer styles */
+.json-view-lite {
+  @apply font-mono text-sm;
+}
+
+/* Dockview theme overrides */
+.dockview-theme-light,
+.dockview-theme-dark {
+  --dv-background-color: hsl(var(--background));
+  --dv-paneview-header-border-color: hsl(var(--border));
+  /* Tab bar background - slightly muted */
+  --dv-tabs-and-actions-container-background-color: hsl(var(--muted));
+  /* Active tab matches content for visual continuity */
+  --dv-activegroup-visiblepanel-tab-background-color: hsl(var(--card));
+  --dv-activegroup-visiblepanel-tab-color: hsl(var(--foreground));
+  /* Inactive tabs stay muted (blend with tab bar) */
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-color: hsl(var(--muted-foreground));
+  --dv-inactivegroup-visiblepanel-tab-background-color: hsl(var(--card));
+  --dv-inactivegroup-visiblepanel-tab-color: hsl(var(--foreground));
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-color: hsl(var(--muted-foreground));
+  --dv-tab-divider-color: transparent;
+  --dv-group-view-background-color: hsl(var(--card));
+  --dv-floating-box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  --dv-drag-over-background-color: hsl(var(--primary) / 0.2);
+  --dv-drag-over-border-color: hsl(var(--primary));
+}
+
+/* Floating group styling - use multiple selectors to ensure specificity */
+.dockview-react .floating-group,
+.dockview-react .dv-resize-container,
+.dockview-react [data-dv-floating-group],
+.dv-resize-container {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid hsl(25 5% 40% / 0.5) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .dockview-react .floating-group,
+.dark .dockview-react .dv-resize-container,
+.dark .dockview-react [data-dv-floating-group],
+.dark .dv-resize-container {
+  border: 1px solid hsl(25 5% 50% / 0.6) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+}
+
+.dockview-react .groupview {
+  background-color: hsl(var(--card));
+}
+
+/* Tab styling */
+.dockview-react .tab {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 0;
+}
+
+/* Panel content area */
+.dockview-react .content-container {
+  background-color: hsl(var(--card));
+}
+
+/* Remove default panel padding - panels handle their own */
+.dockview-react .dv-panel-content {
+  padding: 0;
+}
+
+/* === PANEL HEADERS === */
+/* Hide panel-header by default - dockview provides tabs for both docked and floating */
+/* OutputPanel overrides this to show its custom header */
+.panel-header {
+  display: none !important;
+}
+
+/* Allow OutputPanel to show its header for custom controls */
+.output-panel-container .panel-header {
+  display: flex !important;
+}
+
+/* === FLOATING PANELS === */
+/* Style the floating panel's tab bar as a compact drag handle with title */
+.dv-resize-container .dv-tabs-and-actions-container {
+  min-height: 32px;
+  height: 32px;
+  background: hsl(var(--muted));
+  cursor: grab;
+}
+
+.dv-resize-container .dv-tabs-and-actions-container:active {
+  cursor: grabbing;
+}
+
+/* Compact tabs in floating panels */
+.dv-resize-container .tab {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* Tab styling */
+.dockview-react .tabs-container {
+  min-height: 32px;
+  height: 32px;
+}
+
+.dockview-react .tab {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  height: 32px;
+}
+
+/* Dockview header actions alignment */
+.dv-dockview .dv-pre-actions-container,
+.dv-dockview .dv-left-actions-container,
+.dv-dockview .dv-right-actions-container {
+  display: flex !important;
+  align-items: center !important;
+  height: 32px;
+}
+
+/* Ensure the react wrapper inside actions also uses flex for proper centering */
+.dv-dockview .dv-pre-actions-container .dv-react-part,
+.dv-dockview .dv-left-actions-container .dv-react-part,
+.dv-dockview .dv-right-actions-container .dv-react-part {
+  display: flex !important;
+  align-items: center !important;
+  height: 100%;
+}
+
+/* Smaller icon buttons in tab bar */
+.dv-dockview .dv-pre-actions-container button,
+.dv-dockview .dv-left-actions-container button,
+.dv-dockview .dv-right-actions-container button {
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Force smaller icons in header actions */
+.dv-dockview .dv-pre-actions-container svg,
+.dv-dockview .dv-left-actions-container svg,
+.dv-dockview .dv-right-actions-container svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dv-dockview .dv-right-actions-container {
+  padding-right: 4px;
+}
+
+/* Project name label in group header */
+.project-name-label {
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Spinner animation - using rotating character in tab title */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

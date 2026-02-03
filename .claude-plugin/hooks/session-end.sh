@@ -1,5 +1,5 @@
 #!/bin/bash
-# Termos SessionEnd hook - marks session as ended
+# AWB SessionEnd hook - marks session as ended
 
 INPUT=$(cat)
 
@@ -13,11 +13,11 @@ fi
 [ -z "$SESSION_ID" ] && exit 0
 
 # Write ended marker
-mkdir -p "$HOME/.termos/markers/ended"
-date -u +%Y-%m-%dT%H:%M:%S.000Z > "$HOME/.termos/markers/ended/$SESSION_ID"
+mkdir -p "$HOME/.awb/markers/ended"
+date -u +%Y-%m-%dT%H:%M:%S.000Z > "$HOME/.awb/markers/ended/$SESSION_ID"
 
 # Clean up idle and plan-mtime markers
-rm -f "$HOME/.termos/markers/idle/$SESSION_ID"
-rm -f "$HOME/.termos/markers/plan-mtime/$SESSION_ID"
+rm -f "$HOME/.awb/markers/idle/$SESSION_ID"
+rm -f "$HOME/.awb/markers/plan-mtime/$SESSION_ID"
 
 exit 0

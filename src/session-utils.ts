@@ -18,7 +18,7 @@ export function readActiveSessionMarker(): string | undefined {
     const encodedPath = cwd.replace(/[/\\]/g, "-");
     const markerPath = path.join(
       process.env.HOME || "",
-      ".termos",
+      ".awb",
       "markers",
       "active",
       encodedPath
@@ -77,14 +77,14 @@ export function detectClaudeSessionId(): string | undefined {
  * Get the Claude session ID - tries multiple sources.
  *
  * Priority:
- * 1. TERMOS_SESSION_ID environment variable
+ * 1. AWB_SESSION_ID environment variable
  * 2. Active session marker (set by PreToolUse hook)
  * 3. Claude's sessions-index.json (fallback)
  */
 export function getAgentSessionId(): string | undefined {
   // 1. Check our own env var
-  if (process.env.TERMOS_SESSION_ID) {
-    return process.env.TERMOS_SESSION_ID;
+  if (process.env.AWB_SESSION_ID) {
+    return process.env.AWB_SESSION_ID;
   }
 
   // 2. Read from active session marker (set by PreToolUse hook)

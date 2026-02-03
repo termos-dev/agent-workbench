@@ -1,12 +1,12 @@
 {
-  "name": "termos",
+  "name": "awb",
   "version": "0.3.2",
-  "description": "Termos is an interactive TUI that enhances Claude Code with rich visual components. WORKFLOW: 1) `termos run --title \"Title\" <component> [args]` sends an interaction and returns an ID, 2) `termos wait <id>` blocks until user responds. COMPONENTS: confirm (yes/no prompts before destructive actions), progress (multi-step task tracking with --steps), diff (code review before commits), table (structured data display), code (syntax-highlighted file viewer), json (formatted JSON/API responses), ask (quick user questions), chart (data visualization). WHEN TO USE: Before deleting files, deploying, or destructive operations use confirm. For multi-step tasks use progress. Before git commits show diff. For structured output use table/json. Always include --title. Run `termos --help` or `termos run --help` for details. The user runs `termos tui` in a separate terminal to see and respond to interactions.",
+  "description": "Agent Workbench is an interactive UI that enhances Claude Code with rich visual components. WORKFLOW: 1) `awb run --title \"Title\" <component> [args]` sends an interaction and returns an ID, 2) `awb wait <id>` blocks until user responds. COMPONENTS: confirm (yes/no prompts before destructive actions), progress (multi-step task tracking with --steps), diff (code review before commits), table (structured data display), code (syntax-highlighted file viewer), json (formatted JSON/API responses), ask (quick user questions), chart (data visualization). WHEN TO USE: Before deleting files, deploying, or destructive operations use confirm. For multi-step tasks use progress. Before git commits show diff. For structured output use table/json. Always include --title. Run `awb --help` or `awb run --help` for details. The user runs `awb ui` to open the playground and respond to interactions.",
   "author": {
     "name": "termos-dev"
   },
-  "repository": "https://github.com/termos-dev/termos",
+  "repository": "https://github.com/termos-dev/agent-workbench",
   "license": "MIT",
-  "keywords": ["tui", "interactive", "terminal", "claude-code"],
+  "keywords": ["ui", "interactive", "playground", "claude-code"],
   "hooks": "./hooks/hooks.json"
 }
