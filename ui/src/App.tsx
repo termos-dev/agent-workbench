@@ -683,12 +683,14 @@ export default function App() {
             component: resolvedComponent,
             title: params.title as string,
             params,
+            // When no existing docked panel, use direction only to create first grid cell
+            // When existing docked panel, position relative to it
             position: lastDockedPanel
               ? {
                   referencePanel: lastDockedPanel.id,
                   direction: isHorizontal ? "right" : "below",
                 }
-              : undefined,
+              : { direction: isHorizontal ? "right" : "below" },
           });
 
           // Register the newly created group
