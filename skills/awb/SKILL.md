@@ -110,7 +110,7 @@ awb run --title "Flow" mermaid --content "graph TD; A-->B; B-->C;"
 
 ### progress
 ```bash
-awb run --title "Build" progress --steps "Install,Build,Test,Deploy" --current 2
+awb run --title "Build" progress --steps "Install,Build,Test,Deploy" --step 2
 ```
 
 ### chart
