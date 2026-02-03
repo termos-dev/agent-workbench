@@ -78,7 +78,7 @@ awb run --title "Features" ask --questions '[{"question":"Enable?","header":"fea
 
 ### select
 ```bash
-awb run --title "Choose" select --options "Option1,Option2,Option3"
+awb run --title "Choose" select --items "Option1,Option2,Option3"
 ```
 
 ### table
@@ -105,7 +105,7 @@ awb run --title "Notes" markdown --content "# Hello\n\nWorld"
 
 ### mermaid
 ```bash
-awb run --title "Flow" mermaid --content "graph TD; A-->B; B-->C;"
+awb run --title "Flow" mermaid --code "graph TD; A-->B; B-->C;"
 ```
 
 ### progress

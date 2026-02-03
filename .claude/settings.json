@@ -1,5 +1,5 @@
 {
   "permissions": {
-    "allow": ["Bash(\".claude-plugin/scripts/awb\" *)", "Bash(awb *)"]
+    "allow": ["Bash(\".claude-plugin/scripts/awb\" :*)", "Bash(awb :*)"]
   }
 }

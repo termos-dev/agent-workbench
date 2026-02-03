@@ -647,7 +647,7 @@ This is <span class="font-bold text-white">bold</span> and <span class="italic t
       const commandExamples = {
         confirm: '--prompt "Deploy to production?"',
         checklist: '--items "Build,Test,Deploy,Notify"',
-        select: '--prompt "Select environment" --options "Dev,Staging,Prod"',
+        select: '--items "Dev,Staging,Prod"',
         diff: '--file "src/config.ts"',
         code: '--file "utils/format.ts" --lang typescript',
         table: '--data \'[{"name":"Alice","role":"Admin"}]\'',
@@ -658,7 +658,7 @@ This is <span class="font-bold text-white">bold</span> and <span class="italic t
         chart: '--data \'[{"label":"Mon","value":42}]\'',
         gauge: '--label "CPU" --value 78',
         tree: '--path "src/"',
-        mermaid: '--diagram "flowchart TD; A-->B"',
+        mermaid: '--code "flowchart TD; A-->B"',
         'plan-viewer': '--file "plan.md"'
       };
 

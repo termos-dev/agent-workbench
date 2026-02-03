@@ -887,6 +887,53 @@ export async function handleUI(args: string[]): Promise<void> {
               })
             );
           }
+        } else if (message.type === "open-in-editor") {
+          // Open file in external editor (VS Code)
+          const { path: filePath, line } = message;
+          try {
+            const pathCheck = await resolveAllowedPath(filePath, {
+              requireFile: true,
+            });
+            if (!pathCheck.ok || !pathCheck.resolved) {
+              ws.send(
+                JSON.stringify({
+                  type: "editor-opened",
+                  path: filePath,
+                  success: false,
+                  error: pathCheck.error || "Access denied",
+                })
+              );
+              return;
+            }
+
+            // Use VS Code by default, with optional line number
+            const lineArg = line
+              ? `-g ${pathCheck.resolved}:${line}`
+              : pathCheck.resolved;
+            const { spawn } = await import("node:child_process");
+            spawn("code", [lineArg], {
+              detached: true,
+              stdio: "ignore",
+            }).unref();
+
+            ws.send(
+              JSON.stringify({
+                type: "editor-opened",
+                path: filePath,
+                success: true,
+              })
+            );
+          } catch (err) {
+            ws.send(
+              JSON.stringify({
+                type: "editor-opened",
+                path: filePath,
+                success: false,
+                error:
+                  err instanceof Error ? err.message : "Failed to open editor",
+              })
+            );
+          }
         }
       } catch (err) {
         console.error("[WebSocket] Failed to handle message:", err);

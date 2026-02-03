@@ -92,6 +92,11 @@ export default function CodePanel({
   const [copyState, setCopyState] = useState<"idle" | "success" | "error">(
     "idle"
   );
+  // Reserved for future inline editing feature
+  const [_isEditing, _setIsEditing] = useState(false);
+  const [_saveState, _setSaveState] = useState<
+    "idle" | "saving" | "success" | "error"
+  >("idle");
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
