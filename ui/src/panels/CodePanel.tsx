@@ -14,49 +14,68 @@ import { EditorState } from "@codemirror/state";
 import { classHighlighter } from "@lezer/highlight";
 import { EditorView, basicSetup } from "codemirror";
 import type { IDockviewPanelProps } from "dockview";
-import { AlertTriangle, Check, Code, Copy, FileCode, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Code,
+  Copy,
+  ExternalLink,
+  FileCode,
+  Pencil,
+  Save,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-// Create a dark theme that matches our design system
-const darkTheme = EditorView.theme(
-  {
-    "&": {
-      height: "100%",
-      fontSize: "13px",
-      backgroundColor: "hsl(20 14.3% 4.1%)", // --background dark
-      color: "hsl(60 9.1% 97.8%)", // --foreground dark
-    },
-    ".cm-scroller": {
-      overflow: "auto",
-      height: "100%",
-      fontFamily:
-        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-    },
-    ".cm-gutters": {
-      backgroundColor: "hsl(12 6.5% 10%)", // --cm-gutter-background dark
-      color: "hsl(24 5.4% 50%)", // --cm-gutter-foreground dark
-      border: "none",
-      borderRight: "1px solid hsl(12 6.5% 15.1%)", // --border dark
-    },
-    ".cm-activeLineGutter": {
-      backgroundColor: "hsl(12 6.5% 12%)", // --cm-line-highlight dark
-    },
-    ".cm-activeLine": {
-      backgroundColor: "hsl(12 6.5% 12%)", // --cm-line-highlight dark
-    },
-    ".cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection":
-      {
-        backgroundColor: "hsl(12 6.5% 20%)", // --cm-selection dark
+// Helper to get CSS variable as hsl color string
+const getCssVar = (name: string): string => {
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return value ? `hsl(${value})` : "";
+};
+
+// Create theme from CSS variables at runtime
+const createThemeFromCssVars = () =>
+  EditorView.theme(
+    {
+      "&": {
+        height: "100%",
+        fontSize: "13px",
+        backgroundColor: getCssVar("--cm-background"),
+        color: getCssVar("--cm-foreground"),
       },
-    ".cm-cursor": {
-      borderLeftColor: "hsl(60 9.1% 97.8%)", // --cm-cursor dark
+      ".cm-scroller": {
+        overflow: "auto",
+        height: "100%",
+        fontFamily:
+          "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+      },
+      ".cm-gutters": {
+        backgroundColor: getCssVar("--cm-gutter-background"),
+        color: getCssVar("--cm-gutter-foreground"),
+        border: "none",
+        borderRight: `1px solid ${getCssVar("--border")}`,
+      },
+      ".cm-activeLineGutter": {
+        backgroundColor: getCssVar("--cm-line-highlight"),
+      },
+      ".cm-activeLine": {
+        backgroundColor: getCssVar("--cm-line-highlight"),
+      },
+      ".cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection":
+        {
+          backgroundColor: getCssVar("--cm-selection"),
+        },
+      ".cm-cursor": {
+        borderLeftColor: getCssVar("--cm-cursor"),
+      },
+      ".cm-foldGutter": {
+        color: getCssVar("--cm-gutter-foreground"),
+      },
     },
-    ".cm-foldGutter": {
-      color: "hsl(24 5.4% 50%)",
-    },
-  },
-  { dark: true }
-);
+    { dark: true }
+  );
 
 export interface CodePanelParams {
   interactionId: string;
@@ -92,11 +111,11 @@ export default function CodePanel({
   const [copyState, setCopyState] = useState<"idle" | "success" | "error">(
     "idle"
   );
-  // Reserved for future inline editing feature
-  const [_isEditing, _setIsEditing] = useState(false);
-  const [_saveState, _setSaveState] = useState<
+  const [isEditing, setIsEditing] = useState(false);
+  const [saveState, setSaveState] = useState<
     "idle" | "saving" | "success" | "error"
   >("idle");
+  const [editedCode, setEditedCode] = useState(code);
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -116,9 +135,74 @@ export default function CodePanel({
   };
 
   const handleCopy = async () => {
-    const success = await copyToClipboard(code);
+    const success = await copyToClipboard(isEditing ? editedCode : code);
     setCopyState(success ? "success" : "error");
     setTimeout(() => setCopyState("idle"), 2000);
+  };
+
+  const handleOpenInEditor = () => {
+    if (!file) return;
+    const sendMessage = (
+      window as unknown as {
+        awbSendMessage?: (message: unknown) => void;
+      }
+    ).awbSendMessage;
+    if (sendMessage) {
+      sendMessage({ type: "open-in-editor", path: file });
+    }
+  };
+
+  const handleSave = () => {
+    if (!file || !isEditing) return;
+    setSaveState("saving");
+    const sendMessage = (
+      window as unknown as {
+        awbSendMessage?: (message: unknown) => void;
+      }
+    ).awbSendMessage;
+    if (sendMessage) {
+      sendMessage({
+        type: "write-file",
+        path: file,
+        content: editedCode,
+      });
+    }
+  };
+
+  // Listen for file write responses
+  useEffect(() => {
+    if (saveState !== "saving") return;
+
+    const handler = (event: MessageEvent) => {
+      try {
+        const data =
+          typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+        if (
+          (data.type === "file-saved" || data.type === "file-written") &&
+          data.path === file
+        ) {
+          setSaveState(data.success ? "success" : "error");
+          setTimeout(() => setSaveState("idle"), 2000);
+          if (data.success) {
+            setIsEditing(false);
+          }
+        }
+      } catch {
+        // Ignore non-JSON messages
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [saveState, file]);
+
+  const toggleEdit = () => {
+    if (isEditing) {
+      // Cancel editing, revert to original
+      setEditedCode(code);
+      setIsEditing(false);
+    } else {
+      setIsEditing(true);
+    }
   };
 
   // Initialize CodeMirror
@@ -131,17 +215,28 @@ export default function CodePanel({
       viewRef.current = null;
     }
 
+    const extensions = [
+      basicSetup,
+      EditorState.readOnly.of(!isEditing),
+      getLanguageExtension(language),
+      syntaxHighlighting(classHighlighter),
+      createThemeFromCssVars(),
+    ];
+
+    // Add update listener when editing to track changes
+    if (isEditing) {
+      extensions.push(
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            setEditedCode(update.state.doc.toString());
+          }
+        })
+      );
+    }
+
     const state = EditorState.create({
-      doc: code,
-      extensions: [
-        basicSetup,
-        EditorState.readOnly.of(true),
-        getLanguageExtension(language),
-        // Use classHighlighter to generate .tok-* classes for CSS-based syntax highlighting
-        syntaxHighlighting(classHighlighter),
-        // Apply our dark theme (overrides basicSetup's default light theme)
-        darkTheme,
-      ],
+      doc: isEditing ? editedCode : code,
+      extensions,
     });
 
     viewRef.current = new EditorView({
@@ -153,15 +248,12 @@ export default function CodePanel({
       viewRef.current?.destroy();
       viewRef.current = null;
     };
-  }, [code, language]);
-
-  // Extract filename from path
-  const _fileName = file ? file.split("/").pop() : null;
+  }, [code, language, isEditing]);
 
   return (
-    <Card className="w-full h-full border-0 rounded-none shadow-none flex flex-col">
-      <CardHeader className="panel-header pb-2">
-        <div className="flex items-center gap-2">
+    <Card className="w-full h-full border-0 rounded-none shadow-none flex flex-col bg-background">
+      <CardHeader className="panel-header py-2 px-3 flex-shrink-0 bg-background">
+        <div className="flex items-center gap-2 ml-2">
           <Code className="h-5 w-5 text-muted-foreground" />
           <CardTitle className="text-sm flex-1">{title}</CardTitle>
           <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -194,8 +286,8 @@ export default function CodePanel({
       </CardHeader>
       {/* File info bar - visible even when panel-header is hidden */}
       {file && (
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/30 flex-shrink-0">
-          <FileCode className="h-3.5 w-3.5 text-muted-foreground" />
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-background flex-shrink-0">
+          <FileCode className="h-3.5 w-3.5 text-muted-foreground ml-2" />
           <span
             className="text-xs text-muted-foreground truncate flex-1"
             title={file}
@@ -219,6 +311,52 @@ export default function CodePanel({
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 w-5 p-0"
+            onClick={toggleEdit}
+            title={isEditing ? "Cancel editing" : "Edit in place"}
+          >
+            {isEditing ? (
+              <X className="h-3.5 w-3.5" />
+            ) : (
+              <Pencil className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          {isEditing && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 w-5 p-0"
+              onClick={handleSave}
+              disabled={saveState === "saving"}
+              title={
+                saveState === "saving"
+                  ? "Saving..."
+                  : saveState === "error"
+                    ? "Save failed"
+                    : "Save changes"
+              }
+            >
+              {saveState === "success" ? (
+                <Check className="h-3.5 w-3.5 text-green-500" />
+              ) : saveState === "error" ? (
+                <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 w-5 p-0"
+            onClick={handleOpenInEditor}
+            title="Open in VS Code"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
           </Button>
         </div>
       )}

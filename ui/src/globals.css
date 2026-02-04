@@ -79,6 +79,25 @@
     --icon-success: 142 76% 36%;
     --icon-warning: 45 93% 47%;
     --icon-error: 0 84% 60%;
+
+    /* Terminal (xterm) colors - light mode */
+    --xterm-selection: 0 0% 0% / 0.3;
+    --xterm-black: 240 21% 15%;
+    --xterm-red: 343 81% 75%;
+    --xterm-green: 115 54% 76%;
+    --xterm-yellow: 40 90% 84%;
+    --xterm-blue: 217 92% 76%;
+    --xterm-magenta: 316 72% 86%;
+    --xterm-cyan: 170 57% 73%;
+    --xterm-white: 232 97% 85%;
+    --xterm-bright-black: 234 13% 31%;
+    --xterm-bright-red: 343 81% 75%;
+    --xterm-bright-green: 115 54% 76%;
+    --xterm-bright-yellow: 40 90% 84%;
+    --xterm-bright-blue: 217 92% 76%;
+    --xterm-bright-magenta: 316 72% 86%;
+    --xterm-bright-cyan: 170 57% 73%;
+    --xterm-bright-white: 232 20% 72%;
   }
 
   .dark {
@@ -105,7 +124,7 @@
     /* CodeMirror editor colors - dark mode (matches Stone theme) */
     --cm-background: 20 14.3% 4.1%;
     --cm-foreground: 60 9.1% 97.8%;
-    --cm-gutter-background: 12 6.5% 10%;
+    --cm-gutter-background: 20 14.3% 4.1%;
     --cm-gutter-foreground: 24 5.4% 50%;
     --cm-line-highlight: 12 6.5% 12%;
     --cm-selection: 12 6.5% 20%;
@@ -152,6 +171,25 @@
     --icon-success: 142 76% 46%;
     --icon-warning: 45 93% 55%;
     --icon-error: 0 84% 65%;
+
+    /* Terminal (xterm) colors - dark mode (Catppuccin Mocha inspired) */
+    --xterm-selection: 0 0% 100% / 0.3;
+    --xterm-black: 240 21% 15%;
+    --xterm-red: 343 81% 75%;
+    --xterm-green: 115 54% 76%;
+    --xterm-yellow: 40 90% 84%;
+    --xterm-blue: 217 92% 76%;
+    --xterm-magenta: 316 72% 86%;
+    --xterm-cyan: 170 57% 73%;
+    --xterm-white: 232 97% 85%;
+    --xterm-bright-black: 234 13% 31%;
+    --xterm-bright-red: 343 81% 75%;
+    --xterm-bright-green: 115 54% 76%;
+    --xterm-bright-yellow: 40 90% 84%;
+    --xterm-bright-blue: 217 92% 76%;
+    --xterm-bright-magenta: 316 72% 86%;
+    --xterm-bright-cyan: 170 57% 73%;
+    --xterm-bright-white: 232 20% 72%;
   }
 }
 
@@ -299,36 +337,14 @@ code.hljs {
   @apply bg-muted font-medium;
 }
 
-/* CodeMirror overrides - using CSS variables for theming */
+/* CodeMirror overrides - base styles only, theme applied via JS extension */
 .cm-editor {
   @apply rounded-lg overflow-hidden;
-  background-color: hsl(var(--cm-background));
-  color: hsl(var(--cm-foreground));
 }
 .cm-editor.cm-focused {
   outline: none;
 }
-.cm-gutters {
-  background-color: hsl(var(--cm-gutter-background));
-  color: hsl(var(--cm-gutter-foreground));
-  border-right: 1px solid hsl(var(--border));
-}
-.cm-activeLineGutter {
-  background-color: hsl(var(--cm-line-highlight));
-}
-.cm-activeLine {
-  background-color: hsl(var(--cm-line-highlight));
-}
-.cm-selectionBackground,
-.cm-content ::selection {
-  background-color: hsl(var(--cm-selection)) !important;
-}
-.cm-cursor {
-  border-left-color: hsl(var(--cm-cursor));
-}
-.cm-scroller {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
+
 /* Syntax highlighting using CSS variables */
 .cm-editor .tok-keyword {
   color: hsl(var(--cm-keyword));
@@ -458,14 +474,8 @@ code.hljs {
 
 /* === PANEL HEADERS === */
 /* Hide panel-header by default - dockview provides tabs for both docked and floating */
-/* OutputPanel overrides this to show its custom header */
 .panel-header {
   display: none !important;
-}
-
-/* Allow OutputPanel to show its header for custom controls */
-.output-panel-container .panel-header {
-  display: flex !important;
 }
 
 /* === FLOATING PANELS === */
@@ -556,4 +566,18 @@ code.hljs {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* xterm.js theme - use CSS variables for consistency */
+.xterm {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.xterm-viewport {
+  background-color: hsl(var(--background)) !important;
+}
+
+.xterm-screen {
+  background-color: hsl(var(--background));
 }

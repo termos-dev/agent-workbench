@@ -6,6 +6,7 @@ import { defineConfig } from "vite";
 const isWebComponentsBuild = process.env.BUILD_TARGET === "web-components";
 
 export default defineConfig({
+  base: "./",
   plugins: isWebComponentsBuild ? [] : [react()],
   css: {
     postcss: path.resolve(__dirname, "postcss.config.js"),
@@ -41,9 +42,13 @@ export default defineConfig({
         sourcemap: true,
       },
   server: {
-    port: 3847,
+    port: 5173,
     fs: {
       allow: [path.resolve(__dirname, "..")],
+    },
+    headers: {
+      "X-Frame-Options": "ALLOWALL",
+      "Content-Security-Policy": "frame-ancestors *",
     },
   },
 });

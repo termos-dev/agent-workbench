@@ -2,7 +2,7 @@
  * UI command handler - serves the web-based playground.
  */
 
-import { exec } from "node:child_process";
+import { exec, execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import {
@@ -13,11 +13,145 @@ import {
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import type * as pty from "node-pty";
 import { WebSocket, WebSocketServer } from "ws";
-import { writeEvent } from "../events.js";
-import { getProcessInfoPath } from "../runtime.js";
+import { findResultEvent, writeEvent } from "../events.js";
+import {
+  getAliveProcesses,
+  scan as scanProcesses,
+} from "../process-tracker.js";
+import { isTmuxAvailable } from "../runtime.js";
 import { cleanupPidFile, writePidFile } from "../server-manager.js";
-import { discoverSessionDirs, scanAllSessions } from "../session-scanner.js";
+import {
+  scanAllSessions,
+  scanAllSessionsWithProcesses,
+} from "../session-scanner.js";
+import { focusByPid, focusByTty } from "../terminal-focus.js";
+
+type PtyModule = typeof import("node-pty");
+type PtyProcess = pty.IPty;
+
+// Tmux attachment tracking
+interface TmuxAttachment {
+  pty?: PtyProcess;
+  ws: WebSocket;
+  tmuxSession: string;
+  windowIndex: number;
+  // Fallback mode uses polling instead of pty
+  fallbackMode?: boolean;
+  pollInterval?: ReturnType<typeof setInterval>;
+  lastContent?: string;
+}
+
+const tmuxAttachments = new Map<string, TmuxAttachment>();
+
+// Track which attachId owns each session:window (for "last wins" behavior)
+const tmuxOwnership = new Map<string, string>(); // "session:window" -> attachId
+
+// Disconnect an existing tmux attachment
+function disconnectTmuxAttachment(attachId: string, reason: string): void {
+  const attachment = tmuxAttachments.get(attachId);
+  if (!attachment) return;
+
+  // Clear ownership
+  const ownershipKey = `${attachment.tmuxSession}:${attachment.windowIndex}`;
+  if (tmuxOwnership.get(ownershipKey) === attachId) {
+    tmuxOwnership.delete(ownershipKey);
+  }
+
+  if (attachment.pollInterval) {
+    clearInterval(attachment.pollInterval);
+  }
+  if (attachment.pty) {
+    attachment.pty.kill();
+  }
+
+  // Notify the client they've been disconnected
+  if (attachment.ws.readyState === WebSocket.OPEN) {
+    attachment.ws.send(
+      JSON.stringify({
+        type: "tmux-detached",
+        attachId,
+        reason,
+      })
+    );
+  }
+
+  tmuxAttachments.delete(attachId);
+  console.log(`[tmux] Disconnected ${attachId}: ${reason}`);
+}
+
+// Capture pane content using tmux command
+function captureTmuxPane(tmuxSession: string, windowIndex: number): string {
+  try {
+    const output = execSync(
+      `tmux capture-pane -t "${tmuxSession}:${windowIndex}" -p -e`,
+      {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+        maxBuffer: 1024 * 1024,
+      }
+    );
+    return output;
+  } catch {
+    return "";
+  }
+}
+
+// Send keys to tmux pane
+function sendTmuxKeys(
+  tmuxSession: string,
+  windowIndex: number,
+  keys: string
+): void {
+  try {
+    // Use -l for literal text (handles special characters properly)
+    // For control characters like Enter, we need to handle them specially
+    if (keys === "\r" || keys === "\n") {
+      execSync(`tmux send-keys -t "${tmuxSession}:${windowIndex}" Enter`, {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } else if (keys === "\x03") {
+      // Ctrl+C
+      execSync(`tmux send-keys -t "${tmuxSession}:${windowIndex}" C-c`, {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } else if (keys === "\x04") {
+      // Ctrl+D
+      execSync(`tmux send-keys -t "${tmuxSession}:${windowIndex}" C-d`, {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } else if (keys === "\x1b") {
+      // Escape
+      execSync(`tmux send-keys -t "${tmuxSession}:${windowIndex}" Escape`, {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } else {
+      // For regular text, use -l for literal mode
+      // Escape single quotes in the input
+      const escaped = keys.replace(/'/g, "'\\''");
+      execSync(
+        `tmux send-keys -t "${tmuxSession}:${windowIndex}" -l '${escaped}'`,
+        {
+          stdio: ["pipe", "pipe", "pipe"],
+        }
+      );
+    }
+  } catch {
+    // Ignore send errors
+  }
+}
+let ptyModule: PtyModule | null = null;
+
+async function loadPtyModule(): Promise<PtyModule | null> {
+  if (ptyModule) return ptyModule;
+  try {
+    ptyModule = await import("node-pty");
+    return ptyModule;
+  } catch {
+    return null;
+  }
+}
 
 const DEFAULT_PORT = 3847;
 const POLL_INTERVAL = 500; // 500ms polling for file changes
@@ -410,31 +544,6 @@ async function handleApi(
     }
   }
 
-  // POST /api/kill - Kill a running process by interaction ID
-  if (pathname === "/api/kill" && req.method === "POST") {
-    try {
-      const body = await readBody(req);
-      const data = JSON.parse(body);
-      const { interactionId, sessionName } = data;
-
-      if (!interactionId) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Missing interactionId" }));
-        return true;
-      }
-
-      const killed = await killProcessByInteraction(interactionId, sessionName);
-
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ success: killed }));
-      return true;
-    } catch (err) {
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: String(err) }));
-      return true;
-    }
-  }
-
   // GET /api/git-diff - Get git diff for the current project
   if (pathname === "/api/git-diff" && req.method === "GET") {
     try {
@@ -535,6 +644,50 @@ async function handleApi(
     return true;
   }
 
+  // GET /api/processes - Get all running agent processes
+  if (pathname === "/api/processes" && req.method === "GET") {
+    try {
+      // Refresh process list
+      scanProcesses();
+      const processes = getAliveProcesses();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ processes }));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: String(err) }));
+      return true;
+    }
+  }
+
+  // POST /api/focus-terminal - Focus terminal for a process
+  if (pathname === "/api/focus-terminal" && req.method === "POST") {
+    try {
+      const body = await readBody(req);
+      const data = JSON.parse(body);
+      const { pid, tty } = data;
+
+      let result: ReturnType<typeof focusByPid> | null = null;
+      if (pid) {
+        result = focusByPid(pid);
+      } else if (tty) {
+        result = focusByTty(tty);
+      } else {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Missing pid or tty" }));
+        return true;
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
+      return true;
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: String(err) }));
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -550,60 +703,6 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-async function findProcessInfoPath(
-  interactionId: string,
-  sessionName?: string
-): Promise<string | null> {
-  if (sessionName) {
-    const directPath = getProcessInfoPath(sessionName, interactionId);
-    if (fs.existsSync(directPath)) return directPath;
-    return null;
-  }
-
-  const sessions = await discoverSessionDirs();
-  for (const session of sessions) {
-    const candidate = getProcessInfoPath(session, interactionId);
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return null;
-}
-
-async function killProcessByInteraction(
-  interactionId: string,
-  sessionName?: string
-): Promise<boolean> {
-  const infoPath = await findProcessInfoPath(interactionId, sessionName);
-  if (!infoPath) return false;
-
-  try {
-    const raw = await fsp.readFile(infoPath, "utf-8");
-    const parsed = JSON.parse(raw) as { pid?: number };
-    const pid = parsed.pid;
-    if (typeof pid !== "number") {
-      await fsp.unlink(infoPath).catch(() => {});
-      return false;
-    }
-
-    try {
-      process.kill(pid, "SIGTERM");
-      await fsp.unlink(infoPath).catch(() => {});
-      return true;
-    } catch (err) {
-      if (err instanceof Error && "code" in err && err.code === "ESRCH") {
-        // Stale PID file - process already gone
-        await fsp.unlink(infoPath).catch(() => {});
-        return true;
-      }
-      return false;
-    }
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Start the UI server.
- */
 /**
  * Open URL in default browser (cross-platform).
  */
@@ -628,13 +727,16 @@ function openBrowser(url: string): void {
 }
 
 export async function handleUI(args: string[]): Promise<void> {
-  // Parse port argument
-  let port = DEFAULT_PORT;
-  const portIndex = args.indexOf("--port");
-  if (portIndex !== -1 && args[portIndex + 1]) {
-    port = Number.parseInt(args[portIndex + 1], 10);
-    if (Number.isNaN(port)) port = DEFAULT_PORT;
+  // Custom ports are intentionally unsupported to avoid UI/WS drift.
+  if (args.some((arg) => arg === "--port" || arg.startsWith("--port="))) {
+    console.error("Error: Custom ports are not supported.");
+    console.error(
+      `Agent Workbench UI always runs on http://localhost:${DEFAULT_PORT}`
+    );
+    process.exit(1);
   }
+
+  const port = DEFAULT_PORT;
 
   // Parse --open flag
   const shouldOpen = args.includes("--open");
@@ -680,10 +782,16 @@ export async function handleUI(args: string[]): Promise<void> {
 
   // Server URL for browser opening
   const serverUrl = `http://localhost:${port}`;
+  // Allow connections from any localhost port (for docs server, dev servers, etc.)
   const allowedOrigins = new Set([
     `http://localhost:${port}`,
     `http://127.0.0.1:${port}`,
   ]);
+  // Also allow common dev ports for docs/landing page
+  for (const devPort of [8005, 8006, 3000, 5173, 4321]) {
+    allowedOrigins.add(`http://localhost:${devPort}`);
+    allowedOrigins.add(`http://127.0.0.1:${devPort}`);
+  }
 
   // API context
   const apiContext: ApiContext = {
@@ -743,11 +851,21 @@ export async function handleUI(args: string[]): Promise<void> {
 
         if (message.type === "respond") {
           const { interactionId, sessionName, response } = message;
+          const action = response.action || "accept";
+
+          // Deduplicate: skip dismiss if an accept result already exists
+          if (action === "dismiss") {
+            const existingResult = findResultEvent(sessionName, interactionId);
+            if (existingResult && existingResult.action === "accept") {
+              // Already have an accept response, skip dismiss
+              return;
+            }
+          }
 
           writeEvent(sessionName, {
             type: "result",
             id: interactionId,
-            action: response.action || "accept",
+            action,
             answers: response.answers,
             result: response.result,
             feedback: response.feedback,
@@ -871,22 +989,6 @@ export async function handleUI(args: string[]): Promise<void> {
           if (project && layout) {
             await writeProjectLayout(project, layout as LayoutData);
           }
-        } else if (message.type === "kill-process") {
-          // Kill a running process
-          const { interactionId, sessionName } = message;
-          if (interactionId) {
-            const killed = await killProcessByInteraction(
-              interactionId,
-              sessionName
-            );
-            ws.send(
-              JSON.stringify({
-                type: "process-killed",
-                interactionId,
-                success: killed,
-              })
-            );
-          }
         } else if (message.type === "open-in-editor") {
           // Open file in external editor (VS Code)
           const { path: filePath, line } = message;
@@ -907,11 +1009,11 @@ export async function handleUI(args: string[]): Promise<void> {
             }
 
             // Use VS Code by default, with optional line number
-            const lineArg = line
-              ? `-g ${pathCheck.resolved}:${line}`
-              : pathCheck.resolved;
             const { spawn } = await import("node:child_process");
-            spawn("code", [lineArg], {
+            const args = line
+              ? ["-g", `${pathCheck.resolved}:${line}`]
+              : [pathCheck.resolved];
+            spawn("code", args, {
               detached: true,
               stdio: "ignore",
             }).unref();
@@ -934,6 +1036,230 @@ export async function handleUI(args: string[]): Promise<void> {
               })
             );
           }
+        } else if (message.type === "focus-terminal") {
+          // Focus terminal for a process
+          const { pid, tty } = message;
+          let result: ReturnType<typeof focusByPid> | null = null;
+          if (pid) {
+            result = focusByPid(pid);
+          } else if (tty) {
+            result = focusByTty(tty);
+          } else {
+            result = { success: false, error: "Missing pid or tty" };
+          }
+          ws.send(
+            JSON.stringify({
+              type: "focus-terminal-result",
+              ...result,
+            })
+          );
+        } else if (message.type === "tmux-attach") {
+          // Attach to a tmux window
+          const { attachId, tmuxSession, windowIndex, cols, rows } = message;
+
+          if (!isTmuxAvailable()) {
+            ws.send(
+              JSON.stringify({
+                type: "tmux-error",
+                attachId,
+                error: "tmux is not available",
+              })
+            );
+            return;
+          }
+
+          // "Last wins" - disconnect any existing attachment to this session:window
+          const ownershipKey = `${tmuxSession}:${windowIndex}`;
+          const existingAttachId = tmuxOwnership.get(ownershipKey);
+          if (existingAttachId && existingAttachId !== attachId) {
+            disconnectTmuxAttachment(
+              existingAttachId,
+              "replaced by new client"
+            );
+          }
+          tmuxOwnership.set(ownershipKey, attachId);
+
+          // Try node-pty first, fall back to polling if it fails
+          const pty = await loadPtyModule();
+          let useFallback = !pty;
+          let ptyProcess: PtyProcess | undefined;
+
+          if (pty) {
+            try {
+              // Attach to specific window
+              ptyProcess = pty.spawn(
+                "tmux",
+                ["attach-session", "-t", `${tmuxSession}:${windowIndex}`],
+                {
+                  name: "xterm-256color",
+                  cols: cols || 80,
+                  rows: rows || 24,
+                  cwd: process.cwd(),
+                  env: {
+                    ...(process.env as { [key: string]: string }),
+                    TERM: "xterm-256color",
+                  },
+                }
+              );
+
+              // Track this attachment
+              tmuxAttachments.set(attachId, {
+                pty: ptyProcess,
+                ws,
+                tmuxSession,
+                windowIndex,
+              });
+
+              // Stream output to client
+              ptyProcess.onData((data: string) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(
+                    JSON.stringify({
+                      type: "tmux-output",
+                      attachId,
+                      data,
+                    })
+                  );
+                }
+              });
+
+              // Handle exit
+              ptyProcess.onExit(() => {
+                tmuxAttachments.delete(attachId);
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(
+                    JSON.stringify({
+                      type: "tmux-detached",
+                      attachId,
+                    })
+                  );
+                }
+              });
+
+              console.log(
+                `[tmux] Attached to ${tmuxSession}:${windowIndex} (pty mode)`
+              );
+            } catch (err) {
+              // node-pty spawn failed (e.g., posix_spawnp error on Node v25+)
+              console.log(
+                `[tmux] pty spawn failed: ${err instanceof Error ? err.message : err}, using fallback`
+              );
+              useFallback = true;
+            }
+          }
+
+          // Fallback: use capture-pane polling
+          if (useFallback) {
+            console.log(
+              `[tmux] Using capture-pane fallback for ${tmuxSession}:${windowIndex}`
+            );
+
+            // Notify client we're in fallback mode
+            ws.send(
+              JSON.stringify({
+                type: "tmux-fallback",
+                attachId,
+              })
+            );
+
+            // Get initial content
+            const initialContent = captureTmuxPane(tmuxSession, windowIndex);
+            if (initialContent) {
+              ws.send(
+                JSON.stringify({
+                  type: "tmux-output",
+                  attachId,
+                  data: initialContent,
+                  fullRefresh: true, // Signal to clear and replace content
+                })
+              );
+            }
+
+            // Set up polling interval
+            const pollInterval = setInterval(() => {
+              if (ws.readyState !== WebSocket.OPEN) {
+                clearInterval(pollInterval);
+                tmuxAttachments.delete(attachId);
+                return;
+              }
+
+              const attachment = tmuxAttachments.get(attachId);
+              if (!attachment) {
+                clearInterval(pollInterval);
+                return;
+              }
+
+              const content = captureTmuxPane(tmuxSession, windowIndex);
+              if (content !== attachment.lastContent) {
+                attachment.lastContent = content;
+                ws.send(
+                  JSON.stringify({
+                    type: "tmux-output",
+                    attachId,
+                    data: content,
+                    fullRefresh: true,
+                  })
+                );
+              }
+            }, 200); // Poll every 200ms
+
+            tmuxAttachments.set(attachId, {
+              ws,
+              tmuxSession,
+              windowIndex,
+              fallbackMode: true,
+              pollInterval,
+              lastContent: initialContent,
+            });
+
+            console.log(
+              `[tmux] Fallback attached to ${tmuxSession}:${windowIndex}`
+            );
+          }
+        } else if (message.type === "tmux-input") {
+          // Send input to tmux pane
+          const { attachId, data } = message;
+          const attachment = tmuxAttachments.get(attachId);
+          if (attachment) {
+            if (attachment.fallbackMode) {
+              // In fallback mode, use send-keys
+              sendTmuxKeys(
+                attachment.tmuxSession,
+                attachment.windowIndex,
+                data
+              );
+            } else if (attachment.pty) {
+              attachment.pty.write(data);
+            }
+          }
+        } else if (message.type === "tmux-resize") {
+          // Resize tmux pane
+          const { attachId, cols, rows } = message;
+          const attachment = tmuxAttachments.get(attachId);
+          if (attachment && cols && rows && attachment.pty) {
+            // Resize only works in pty mode
+            attachment.pty.resize(cols, rows);
+          }
+          // In fallback mode, resize is ignored (tmux pane has its own size)
+        } else if (message.type === "tmux-detach") {
+          // Detach from tmux
+          const { attachId } = message;
+          const attachment = tmuxAttachments.get(attachId);
+          if (attachment) {
+            // Clear ownership
+            const ownershipKey = `${attachment.tmuxSession}:${attachment.windowIndex}`;
+            if (tmuxOwnership.get(ownershipKey) === attachId) {
+              tmuxOwnership.delete(ownershipKey);
+            }
+            if (attachment.pollInterval) {
+              clearInterval(attachment.pollInterval);
+            }
+            if (attachment.pty) {
+              attachment.pty.kill();
+            }
+            tmuxAttachments.delete(attachId);
+            console.log(`[tmux] Detached ${attachId}`);
+          }
         }
       } catch (err) {
         console.error("[WebSocket] Failed to handle message:", err);
@@ -942,15 +1268,35 @@ export async function handleUI(args: string[]): Promise<void> {
 
     ws.on("close", () => {
       clients.delete(ws);
+      // Clean up any tmux attachments for this client
+      for (const [attachId, attachment] of tmuxAttachments) {
+        if (attachment.ws === ws) {
+          // Clear ownership
+          const ownershipKey = `${attachment.tmuxSession}:${attachment.windowIndex}`;
+          if (tmuxOwnership.get(ownershipKey) === attachId) {
+            tmuxOwnership.delete(ownershipKey);
+          }
+          if (attachment.pollInterval) {
+            clearInterval(attachment.pollInterval);
+          }
+          if (attachment.pty) {
+            attachment.pty.kill();
+          }
+          tmuxAttachments.delete(attachId);
+          console.log(
+            `[tmux] Cleaned up attachment ${attachId} on client disconnect`
+          );
+        }
+      }
       console.log("[WebSocket] Client disconnected");
     });
   });
 
-  // Polling for file changes (simpler than chokidar, fewer dependencies)
+  // Polling for file changes, tmux windows, and agent processes
   let lastState = "";
   const pollInterval = setInterval(async () => {
     try {
-      const projects = await scanAllSessions();
+      const projects = await scanAllSessionsWithProcesses();
       const state = JSON.stringify(projects);
 
       if (state !== lastState) {

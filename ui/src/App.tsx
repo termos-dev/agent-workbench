@@ -4,6 +4,7 @@ import {
   type DockviewGroupPanel,
   DockviewReact,
   type IDockviewHeaderActionsProps,
+  type IDockviewPanelHeaderProps,
   type IDockviewPanelProps,
 } from "dockview";
 import {
@@ -42,13 +43,19 @@ import HtmlPanel from "./panels/HtmlPanel";
 import JsonPanel from "./panels/JsonPanel";
 import MarkdownPanel from "./panels/MarkdownPanel";
 import MermaidPanel from "./panels/MermaidPanel";
-import OutputPanel from "./panels/OutputPanel";
 import PlanViewerPanel from "./panels/PlanViewerPanel";
 import ProgressPanel from "./panels/ProgressPanel";
 import ScratchpadPanel from "./panels/ScratchpadPanel";
 import SelectPanel from "./panels/SelectPanel";
 import TablePanel from "./panels/TablePanel";
+import TmuxPanel from "./panels/TmuxPanel";
 import TreePanel from "./panels/TreePanel";
+
+// Enable demo mode when: ?demo param present, or embedded in iframe (landing page)
+const urlDemoMode =
+  typeof window !== "undefined" &&
+  (new URLSearchParams(window.location.search).has("demo") ||
+    window.self !== window.top);
 
 // Panel components map for dockview - using unknown with type assertion for dockview compatibility
 const components: Record<
@@ -72,11 +79,17 @@ const components: Record<
   mermaid: MermaidPanel,
   gauge: GaugePanel,
   scratchpad: ScratchpadPanel,
-  output: OutputPanel,
   gitdiff: GitDiffPanel,
   html: HtmlPanel,
   "plan-viewer": PlanViewerPanel,
+  tmux: TmuxPanel,
 };
+
+// Tab components for panels that need custom tab behavior
+const tabComponents: Record<
+  string,
+  React.ComponentType<IDockviewPanelHeaderProps>
+> = {};
 
 // Interactive panels = floating (quick responses)
 // Content panels = docked (display/review)
@@ -99,8 +112,8 @@ const DOCKED_COMPONENTS = new Set([
   "table",
   "tree",
   "chart",
-  "output",
   "html",
+  "scratchpad",
   "plan-viewer",
 ]);
 
@@ -161,13 +174,120 @@ function getProjectNameFromGroup(group: DockviewGroupPanel): string | null {
 
 // Prefix header action - project name + git diff button (BEFORE tabs)
 // Only shown for docked panels, not floating ones
+// Agent icons - use real favicons where available
+const AGENT_ICONS: Record<string, string> = {
+  claude: "/icons/claude.ico",
+  codex: "/icons/openai.ico",
+  chatgpt: "/icons/openai.ico",
+};
+
+const AgentIcon = ({
+  agent,
+  className,
+}: { agent: string; className?: string }) => {
+  const iconClass = className || "w-3 h-3";
+  const iconSrc = AGENT_ICONS[agent];
+
+  if (iconSrc) {
+    return (
+      <img
+        src={iconSrc}
+        alt={agent}
+        className={`${iconClass} object-contain`}
+      />
+    );
+  }
+
+  // Fallback: generic terminal icon for unknown agents
+  return (
+    <svg viewBox="0 0 24 24" className={iconClass} fill="currentColor">
+      <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm0 2v12h16V6H4zm4 3l3 3-3 3-1.5-1.5L8 12l-1.5-1.5L8 9zm5 5h4v2h-4v-2z" />
+    </svg>
+  );
+};
+
+// Agent badge styles
+const AGENT_STYLES: Record<string, string> = {
+  claude: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  codex: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  chatgpt: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  opencode: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  aider: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+};
+
+interface ProcessInfo {
+  pid: number;
+  tty: string;
+  title: string | null;
+  detectedAt: number;
+}
+
+interface AgentGroup {
+  agent: string;
+  processes: ProcessInfo[];
+}
+
 function PrefixHeaderActions({
   containerApi,
   group,
 }: IDockviewHeaderActionsProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isFocusing, setIsFocusing] = useState(false);
+  const [agents, setAgents] = useState<AgentGroup[]>([]);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const projectName = getProjectNameFromGroup(group);
   const displayName = projectName ? projectName.split("/").pop() : null;
+
+  // Fetch agents for this project
+  useEffect(() => {
+    if (!displayName) return;
+
+    const fetchAgents = async () => {
+      try {
+        const response = await fetch("/api/processes");
+        const data = await response.json();
+        if (data.processes) {
+          // Filter processes for this project and group by agent type
+          const projectProcesses = data.processes.filter(
+            (p: { project: string; alive: boolean }) =>
+              p.project === displayName && p.alive
+          );
+          const agentMap = new Map<string, ProcessInfo[]>();
+          for (const p of projectProcesses) {
+            const existing = agentMap.get(p.agent) || [];
+            existing.push({
+              pid: p.pid,
+              tty: p.tty,
+              title: p.title,
+              detectedAt: p.detectedAt,
+            });
+            agentMap.set(p.agent, existing);
+          }
+          setAgents(
+            Array.from(agentMap.entries()).map(([agent, processes]) => ({
+              agent,
+              processes,
+            }))
+          );
+        }
+      } catch {
+        // Ignore fetch errors
+      }
+    };
+
+    fetchAgents();
+    const interval = setInterval(fetchAgents, 3000); // Refresh every 3s
+    return () => clearInterval(interval);
+  }, [displayName]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setOpenDropdown(null);
+    if (openDropdown) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [openDropdown]);
 
   // Check if this is a floating group - hide actions for floating panels
   const isFloating = group?.api?.location?.type === "floating";
@@ -222,6 +342,33 @@ function PrefixHeaderActions({
     }
   };
 
+  const handleFocusPid = async (pid: number) => {
+    if (isFocusing) return;
+    setIsFocusing(true);
+    setOpenDropdown(null);
+
+    try {
+      const focusResponse = await fetch("/api/focus-terminal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pid }),
+      });
+      const focusResult = await focusResponse.json();
+      if (!focusResult.success) {
+        console.error("[Focus] Failed:", focusResult.error);
+      }
+    } catch (err) {
+      console.error("[Focus] Failed:", err);
+    } finally {
+      setIsFocusing(false);
+    }
+  };
+
+  const formatTime = (ts: number) => {
+    const date = new Date(ts);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
   return (
     <div className="flex items-center gap-2">
       {displayName && (
@@ -229,6 +376,60 @@ function PrefixHeaderActions({
           {displayName}
         </span>
       )}
+      {/* Clickable agent badges with dropdown */}
+      {agents.map(({ agent, processes }) => (
+        <div key={agent} className="relative">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpenDropdown(openDropdown === agent ? null : agent);
+            }}
+            disabled={isFocusing}
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border cursor-pointer hover:opacity-80 transition-opacity ${AGENT_STYLES[agent] || "bg-gray-500/20 text-gray-400 border-gray-500/30"} ${isFocusing ? "opacity-50" : ""}`}
+            title={`${processes.length} ${agent} session${processes.length > 1 ? "s" : ""}`}
+          >
+            <AgentIcon agent={agent} className="w-3 h-3" />
+            {processes.length > 1 && (
+              <span className="opacity-70">×{processes.length}</span>
+            )}
+          </button>
+
+          {/* Dropdown */}
+          {openDropdown === agent && (
+            <div
+              className="absolute top-full left-0 mt-1 z-50 min-w-[180px] bg-popover border border-border rounded-md shadow-lg py-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-2 py-1 text-[10px] text-muted-foreground border-b border-border mb-1">
+                {agent} sessions
+              </div>
+              {processes.map((proc) => (
+                <button
+                  key={proc.pid}
+                  type="button"
+                  onClick={() => handleFocusPid(proc.pid)}
+                  className="w-full px-2 py-1.5 text-left text-xs hover:bg-accent"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-muted-foreground text-[10px]">
+                      {proc.tty.replace("/dev/", "")}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatTime(proc.detectedAt)}
+                    </span>
+                  </div>
+                  {proc.title && (
+                    <div className="text-[11px] text-foreground truncate mt-0.5">
+                      {proc.title}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
       <button
         type="button"
         className="p-1.5 hover:bg-accent rounded"
@@ -359,12 +560,20 @@ function RightHeaderActions({
 // Width threshold for horizontal vs vertical layout
 const HORIZONTAL_LAYOUT_THRESHOLD = 800;
 
-export default function App() {
+interface AppProps {
+  demoMode?: boolean;
+  classTarget?: HTMLElement;
+}
+
+export default function App({ demoMode, classTarget }: AppProps) {
   const apiRef = useRef<DockviewApi | null>(null);
+  const pendingProjectsRef = useRef<ProjectInteractions[] | null>(null);
   const syncedInteractionsRef = useRef<Map<string, InteractionInfo>>(new Map());
+  const syncedTmuxWindowsRef = useRef<Set<string>>(new Set());
+  const respondedInteractionsRef = useRef<Set<string>>(new Set());
   const projectGroupsRef = useRef<Map<string, DockviewGroupPanel>>(new Map());
-  const floatingGroupRef = useRef<DockviewGroupPanel | null>(null);
   const panelCountRef = useRef(0);
+  const isDemoMode = demoMode ?? urlDemoMode;
 
   // Auto dark mode based on system preference
   const [darkMode, setDarkMode] = useState(
@@ -381,8 +590,12 @@ export default function App() {
 
   // Apply dark mode class
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode);
-  }, [darkMode]);
+    const target = classTarget ?? document.documentElement;
+    target.classList.toggle("dark", darkMode);
+    return () => {
+      target.classList.remove("dark");
+    };
+  }, [classTarget, darkMode]);
 
   // Event log state
   const [eventLog, setEventLog] = useState<EventLogEntry[]>([]);
@@ -523,6 +736,12 @@ export default function App() {
             content: args.content || args.text || "",
           };
           break;
+        case "scratchpad":
+          params = {
+            ...baseParams,
+            initialContent: args.initialContent || args.content || "",
+          };
+          break;
         case "code":
           params = {
             ...baseParams,
@@ -607,13 +826,6 @@ export default function App() {
             thresholds: parseJsonData<unknown[]>(args.thresholds, []),
           };
           break;
-        case "output":
-          params = {
-            ...baseParams,
-            command: args.command || "",
-            outputFile: args.outputFile || "",
-          };
-          break;
         case "explorer":
           params = {
             ...baseParams,
@@ -666,6 +878,10 @@ export default function App() {
           api.addPanel({
             id: interaction.id,
             component: resolvedComponent,
+            tabComponent:
+              resolvedComponent in tabComponents
+                ? resolvedComponent
+                : undefined,
             title: params.title as string,
             params,
             position: { referenceGroup: projectGroup, direction: "within" },
@@ -681,6 +897,10 @@ export default function App() {
           api.addPanel({
             id: interaction.id,
             component: resolvedComponent,
+            tabComponent:
+              resolvedComponent in tabComponents
+                ? resolvedComponent
+                : undefined,
             title: params.title as string,
             params,
             // When no existing docked panel, use direction only to create first grid cell
@@ -711,52 +931,21 @@ export default function App() {
           floatingTitle = `[${shortName}] ${floatingTitle}`;
         }
 
-        // Check if we have an existing floating group to add to
-        let existingFloatingGroup = floatingGroupRef.current;
-        if (existingFloatingGroup) {
-          // Verify the group still exists
-          const foundGroup = api.groups.find(
-            (g) => g.id === existingFloatingGroup?.id
-          );
-          if (!foundGroup || foundGroup.api.location.type !== "floating") {
-            floatingGroupRef.current = null;
-            existingFloatingGroup = null;
-          }
-        }
-
-        if (existingFloatingGroup) {
-          // Add as a new tab to the existing floating group
-          api.addPanel({
-            id: interaction.id,
-            component: resolvedComponent,
-            title: floatingTitle,
-            params,
-            position: {
-              referenceGroup: existingFloatingGroup,
-              direction: "within",
-            },
-          });
-        } else {
-          // Create a new floating panel
-          api.addPanel({
-            id: interaction.id,
-            component: resolvedComponent,
-            title: floatingTitle,
-            floating: {
-              x,
-              y,
-              width: 400,
-              height: 300,
-            },
-            params,
-          });
-
-          // Track this as the floating group for subsequent panels
-          const newPanel = api.getPanel(interaction.id);
-          if (newPanel) {
-            floatingGroupRef.current = newPanel.group as DockviewGroupPanel;
-          }
-        }
+        // Create a new floating panel for each interaction
+        api.addPanel({
+          id: interaction.id,
+          component: resolvedComponent,
+          tabComponent:
+            resolvedComponent in tabComponents ? resolvedComponent : undefined,
+          title: floatingTitle,
+          floating: {
+            x,
+            y,
+            width: 400,
+            height: 300,
+          },
+          params,
+        });
       }
     },
     []
@@ -766,7 +955,10 @@ export default function App() {
   const handleUpdate = useCallback(
     (projectsData: ProjectInteractions[]) => {
       const api = apiRef.current;
-      if (!api) return;
+      if (!api) {
+        pendingProjectsRef.current = projectsData;
+        return;
+      }
 
       const currentInteractionIds = new Set<string>();
       const activeProjects = new Set<string>();
@@ -774,7 +966,10 @@ export default function App() {
       // Track multiple projects for floating panel prefixes
       const projectCount = projectsData.length;
 
-      // Process each project's interactions
+      // Track current tmux windows
+      const currentTmuxWindowIds = new Set<string>();
+
+      // Process each project's interactions and tmux windows
       for (const project of projectsData) {
         activeProjects.add(project.project);
 
@@ -787,6 +982,55 @@ export default function App() {
             projectCount
           );
         }
+
+        // Add tmux window panels
+        if (project.tmuxWindows && project.tmuxSession) {
+          for (const tmuxWindow of project.tmuxWindows) {
+            const tmuxPanelId = `tmux-${project.tmuxSession}-${tmuxWindow.index}`;
+            currentTmuxWindowIds.add(tmuxPanelId);
+
+            // Skip if already synced
+            if (syncedTmuxWindowsRef.current.has(tmuxPanelId)) continue;
+
+            // Get existing group for this project if available
+            const projectGroup = projectGroupsRef.current.get(project.project);
+
+            if (projectGroup) {
+              // Add to existing group
+              api.addPanel({
+                id: tmuxPanelId,
+                component: "tmux",
+                title: tmuxWindow.name || `tmux:${tmuxWindow.index}`,
+                params: {
+                  tmuxSession: project.tmuxSession,
+                  windowIndex: tmuxWindow.index,
+                  windowName: tmuxWindow.name,
+                  command: tmuxWindow.command,
+                },
+                position: { referenceGroup: projectGroup, direction: "within" },
+              });
+            } else {
+              // Create new group by adding panel without position
+              const panel = api.addPanel({
+                id: tmuxPanelId,
+                component: "tmux",
+                title: tmuxWindow.name || `tmux:${tmuxWindow.index}`,
+                params: {
+                  tmuxSession: project.tmuxSession,
+                  windowIndex: tmuxWindow.index,
+                  windowName: tmuxWindow.name,
+                  command: tmuxWindow.command,
+                },
+              });
+              // Track the group created by this panel
+              if (panel.group) {
+                projectGroupsRef.current.set(project.project, panel.group);
+              }
+            }
+
+            syncedTmuxWindowsRef.current.add(tmuxPanelId);
+          }
+        }
       }
 
       // Remove panels for resolved interactions
@@ -795,8 +1039,21 @@ export default function App() {
           const panel = api.getPanel(id);
           if (panel) {
             panel.api.close();
+            // Don't delete from respondedInteractionsRef here - let onDidRemovePanel handle cleanup
+            // This ensures the check in onDidRemovePanel works correctly
           }
           syncedInteractionsRef.current.delete(id);
+        }
+      }
+
+      // Remove panels for closed tmux windows
+      for (const id of syncedTmuxWindowsRef.current) {
+        if (!currentTmuxWindowIds.has(id)) {
+          const panel = api.getPanel(id);
+          if (panel) {
+            panel.api.close();
+          }
+          syncedTmuxWindowsRef.current.delete(id);
         }
       }
 
@@ -827,23 +1084,47 @@ export default function App() {
   );
 
   // Initialize WebSocket with event logging
-  const { connected, connecting, retryIn, respond, sendMessage } = useWebSocket(
-    {
+  const { projects, connected, connecting, retryIn, respond, sendMessage } =
+    useWebSocket({
+      demoMode: isDemoMode,
       onUpdate: handleUpdate,
       onFocus: handleFocus,
       onConnect: () =>
         addEventLog("ws", "Connected", "WebSocket connected to server"),
       onDisconnect: () =>
         addEventLog("ws", "Disconnected", "WebSocket connection lost"),
+    });
+
+  // Demo mode: apply projects once Dockview is ready.
+  useEffect(() => {
+    if (!isDemoMode || projects.length === 0) {
+      return;
     }
-  );
+
+    if (!apiRef.current) {
+      pendingProjectsRef.current = projects;
+      return;
+    }
+
+    handleUpdate(projects);
+  }, [projects, handleUpdate]);
 
   // Track if we have any panels (excluding scratchpads)
   const [hasPanels, setHasPanels] = useState(false);
 
-  // Make respond available globally for panels
+  // Make respond available globally for panels (with tracking)
   useEffect(() => {
-    (window as unknown as { awbRespond: typeof respond }).awbRespond = respond;
+    const wrappedRespond = (
+      interactionId: string,
+      sessionName: string,
+      response: unknown
+    ) => {
+      // Track that this interaction has been responded to
+      respondedInteractionsRef.current.add(interactionId);
+      respond(interactionId, sessionName, response);
+    };
+    (window as unknown as { awbRespond: typeof respond }).awbRespond =
+      wrappedRespond;
     (
       window as unknown as { awbSendMessage: typeof sendMessage }
     ).awbSendMessage = sendMessage;
@@ -871,10 +1152,43 @@ export default function App() {
     addEventLogRef.current = addEventLog;
   }, [addEventLog]);
 
+  // Listen for postMessage from parent for tab switching (landing page scroll interaction)
+  useEffect(() => {
+    if (!isDemoMode) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "awb-switch-tab" && event.data?.tabId) {
+        const api = apiRef.current;
+        if (api) {
+          const panel = api.getPanel(event.data.tabId);
+          if (panel) {
+            panel.api.setActive();
+          }
+        }
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [isDemoMode]);
+
   // Dockview ready handler
   const onReady = useCallback(
     (event: { api: DockviewApi }) => {
       apiRef.current = event.api;
+      if (event.api.panels.length === 0) {
+        syncedInteractionsRef.current.clear();
+        projectGroupsRef.current.clear();
+        groupToProjectMap.clear();
+        panelCountRef.current = 0;
+      }
+      const pending = pendingProjectsRef.current;
+      pendingProjectsRef.current = null;
+      if (pending) {
+        handleUpdate(pending);
+      } else if (projects.length > 0) {
+        handleUpdate(projects);
+      }
 
       // Handle panel add - track real panels and log
       event.api.onDidAddPanel((e) => {
@@ -899,6 +1213,15 @@ export default function App() {
           addEventLogRef.current("panel", "Removed", panelId);
         }
         if (panelId.includes("scratchpad")) return; // Ignore scratchpads for dismiss
+
+        // Check if this interaction already has a response (e.g., user submitted form)
+        if (respondedInteractionsRef.current.has(panelId)) {
+          // Already responded, just clean up without sending duplicate dismiss
+          syncedInteractionsRef.current.delete(panelId);
+          respondedInteractionsRef.current.delete(panelId);
+          return;
+        }
+
         const info = syncedInteractionsRef.current.get(panelId);
         if (info && respondRef.current) {
           // Send dismiss response for docked panels closed via dockview's X button
@@ -924,7 +1247,7 @@ export default function App() {
         }
       });
     },
-    [updateHasPanels]
+    [handleUpdate, projects, updateHasPanels]
   );
 
   return (
@@ -939,6 +1262,12 @@ export default function App() {
               React.FunctionComponent<IDockviewPanelProps>
             >
           }
+          tabComponents={
+            tabComponents as Record<
+              string,
+              React.FunctionComponent<IDockviewPanelHeaderProps>
+            >
+          }
           onReady={onReady}
           floatingGroupBounds="boundedWithinViewport"
           prefixHeaderActionsComponent={PrefixHeaderActions}
@@ -946,8 +1275,8 @@ export default function App() {
           rightHeaderActionsComponent={RightHeaderActions}
         />
 
-        {/* Connection status floating pane */}
-        {connecting && (
+        {/* Connection status floating pane - hidden in demo mode */}
+        {!isDemoMode && connecting && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
             <div className="bg-card border rounded-lg shadow-lg p-6 max-w-md text-center">
               <Loader2 className="h-12 w-12 mx-auto mb-4 text-primary animate-spin" />
@@ -959,8 +1288,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Disconnection floating pane - only show after we've tried connecting */}
-        {!connected && !connecting && (
+        {/* Disconnection floating pane - only show after we've tried connecting, hidden in demo mode */}
+        {!isDemoMode && !connected && !connecting && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
             <div className="bg-card border rounded-lg shadow-lg p-6 max-w-md text-center">
               <WifiOff className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -993,8 +1322,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Welcome dialog when connected but no interactions */}
-        {connected && !hasPanels && (
+        {/* Welcome dialog when connected but no interactions - hidden in demo mode */}
+        {!isDemoMode && connected && !hasPanels && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-50">
             <div className="bg-card border rounded-lg shadow-lg p-6 max-w-lg">
               <div className="text-center mb-6">
@@ -1053,110 +1382,114 @@ export default function App() {
           </div>
         )}
 
-        {/* Event Log Toggle Button - bottom right */}
-        <button
-          type="button"
-          onClick={() => setShowEventLog(!showEventLog)}
-          className={`absolute bottom-4 right-4 z-40 flex items-center gap-1 p-2 rounded-lg border shadow-lg transition-all ${
-            showEventLog
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-card text-foreground border-border hover:bg-accent"
-          }`}
-          title={showEventLog ? "Hide Events Log" : "Show Events Log"}
-        >
-          <ScrollText className="h-4 w-4" />
-          {eventLog.length > 0 && !showEventLog && (
-            <span className="px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full min-w-[20px] text-center">
-              {eventLog.length}
-            </span>
-          )}
-        </button>
-
-        {/* Event Log Panel - slides in from right */}
-        <div
-          className={`absolute top-0 right-0 bottom-0 w-80 bg-card border-l shadow-xl z-30 transition-transform duration-300 flex flex-col ${
-            showEventLog ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/50">
-            <div className="flex items-center gap-2">
-              <ScrollText className="h-4 w-4 text-primary" />
-              <span className="font-medium text-sm">Events Log</span>
-              <span className="text-xs text-muted-foreground">
-                ({eventLog.length})
+        {/* Event Log Toggle Button - bottom right, hidden in demo mode */}
+        {!isDemoMode && (
+          <button
+            type="button"
+            onClick={() => setShowEventLog(!showEventLog)}
+            className={`absolute bottom-4 right-4 z-40 flex items-center gap-1 p-2 rounded-lg border shadow-lg transition-all ${
+              showEventLog
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-foreground border-border hover:bg-accent"
+            }`}
+            title={showEventLog ? "Hide Events Log" : "Show Events Log"}
+          >
+            <ScrollText className="h-4 w-4" />
+            {eventLog.length > 0 && !showEventLog && (
+              <span className="px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full min-w-[20px] text-center">
+                {eventLog.length}
               </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={clearEventLog}
-                className="p-1.5 hover:bg-accent rounded"
-                title="Clear log"
-              >
-                <Trash2 className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowEventLog(false)}
-                className="p-1.5 hover:bg-accent rounded"
-                title="Close"
-              >
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
-          </div>
-
-          {/* Event List */}
-          <div ref={eventLogRef} className="flex-1 overflow-y-auto">
-            {eventLog.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                No events yet. Interact with panels to see events.
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {eventLog.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="px-3 py-2 hover:bg-muted/50 text-xs"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-muted-foreground font-mono">
-                        {entry.timestamp.toLocaleTimeString("en-US", {
-                          hour12: false,
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                          fractionalSecondDigits: 3,
-                        })}
-                      </span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${
-                          entry.type === "ws"
-                            ? "bg-blue-500/20 text-blue-500"
-                            : entry.type === "panel"
-                              ? "bg-green-500/20 text-green-500"
-                              : entry.type === "group"
-                                ? "bg-purple-500/20 text-purple-500"
-                                : "bg-orange-500/20 text-orange-500"
-                        }`}
-                      >
-                        {entry.type}
-                      </span>
-                      <span className="font-medium">{entry.action}</span>
-                    </div>
-                    <div
-                      className="text-muted-foreground truncate pl-[72px]"
-                      title={entry.details}
-                    >
-                      {entry.details}
-                    </div>
-                  </div>
-                ))}
-              </div>
             )}
+          </button>
+        )}
+
+        {/* Event Log Panel - slides in from right, hidden in demo mode */}
+        {!isDemoMode && (
+          <div
+            className={`absolute top-0 right-0 bottom-0 w-80 bg-card border-l shadow-xl z-30 transition-transform duration-300 flex flex-col ${
+              showEventLog ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/50">
+              <div className="flex items-center gap-2">
+                <ScrollText className="h-4 w-4 text-primary" />
+                <span className="font-medium text-sm">Events Log</span>
+                <span className="text-xs text-muted-foreground">
+                  ({eventLog.length})
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={clearEventLog}
+                  className="p-1.5 hover:bg-accent rounded"
+                  title="Clear log"
+                >
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEventLog(false)}
+                  className="p-1.5 hover:bg-accent rounded"
+                  title="Close"
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+
+            {/* Event List */}
+            <div ref={eventLogRef} className="flex-1 overflow-y-auto">
+              {eventLog.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  No events yet. Interact with panels to see events.
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {eventLog.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="px-3 py-2 hover:bg-muted/50 text-xs"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-muted-foreground font-mono">
+                          {entry.timestamp.toLocaleTimeString("en-US", {
+                            hour12: false,
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                            fractionalSecondDigits: 3,
+                          })}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${
+                            entry.type === "ws"
+                              ? "bg-blue-500/20 text-blue-500"
+                              : entry.type === "panel"
+                                ? "bg-green-500/20 text-green-500"
+                                : entry.type === "group"
+                                  ? "bg-purple-500/20 text-purple-500"
+                                  : "bg-orange-500/20 text-orange-500"
+                          }`}
+                        >
+                          {entry.type}
+                        </span>
+                        <span className="font-medium">{entry.action}</span>
+                      </div>
+                      <div
+                        className="text-muted-foreground truncate pl-[72px]"
+                        title={entry.details}
+                      >
+                        {entry.details}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

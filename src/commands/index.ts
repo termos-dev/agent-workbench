@@ -9,3 +9,4 @@ export { handleSetup } from "./setup.js";
 export { handleSetTitle } from "./set-title.js";
 export { handleEvent } from "./event.js";
 export { handleUI } from "./ui.js";
+export { handleStatus } from "./status.js";

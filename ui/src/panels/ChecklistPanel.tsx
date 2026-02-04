@@ -7,10 +7,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { IDockviewPanelProps } from "dockview";
 import { CheckSquare } from "lucide-react";
 import { useState } from "react";
+
+const OTHER_VALUE = "__other__";
 
 export interface ChecklistPanelParams {
   interactionId: string;
@@ -25,6 +28,7 @@ export default function ChecklistPanel({
 }: IDockviewPanelProps<ChecklistPanelParams>) {
   const { interactionId, sessionName, title, prompt, options } = params;
   const [selected, setSelected] = useState<string[]>([]);
+  const [otherText, setOtherText] = useState<string>("");
 
   const toggleOption = (value: string) => {
     setSelected((prev) =>
@@ -43,9 +47,17 @@ export default function ChecklistPanel({
       }
     ).awbRespond;
     if (respond) {
+      // Resolve "other" value to its text input
+      const result = selected
+        .filter((v) => v !== OTHER_VALUE)
+        .concat(
+          selected.includes(OTHER_VALUE) && otherText.trim()
+            ? [otherText.trim()]
+            : []
+        );
       respond(interactionId, sessionName, {
         action: "accept",
-        result: selected,
+        result,
       });
     }
   };
@@ -103,6 +115,38 @@ export default function ChecklistPanel({
               </Label>
             </div>
           ))}
+          {/* "Other" option */}
+          <div
+            role="checkbox"
+            tabIndex={0}
+            aria-checked={selected.includes(OTHER_VALUE)}
+            className="flex items-center space-x-2 cursor-pointer"
+            onClick={() => toggleOption(OTHER_VALUE)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleOption(OTHER_VALUE);
+              }
+            }}
+          >
+            <Checkbox
+              id="checklist-other"
+              checked={selected.includes(OTHER_VALUE)}
+              onCheckedChange={() => toggleOption(OTHER_VALUE)}
+            />
+            <Label htmlFor="checklist-other" className="text-sm cursor-pointer">
+              Other
+            </Label>
+          </div>
+          {selected.includes(OTHER_VALUE) && (
+            <Input
+              placeholder="Enter your response..."
+              value={otherText}
+              onChange={(e) => setOtherText(e.target.value)}
+              className="mt-2 ml-6"
+              autoFocus
+            />
+          )}
         </div>
       </CardContent>
       <CardFooter className="flex justify-end gap-2 pt-2">

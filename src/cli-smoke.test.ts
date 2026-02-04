@@ -114,15 +114,6 @@ describe("CLI smoke tests", () => {
       expect(result.stdout).toContain("Unknown CLI option");
     });
 
-    it("should reject mutually exclusive command options", () => {
-      const result = runCli(
-        ["run", "--title", "Test", "--cmd", "echo hi", "--cmd-file", "file.sh"],
-        { expectFail: true }
-      );
-      expect(result.status).toBe(1);
-      expect(result.stdout).toContain("only one of");
-    });
-
     it("should validate required component args for checklist", () => {
       // checklist requires --items as per schema
       const result = runCli(["run", "--title", "Test", "checklist"], {
@@ -166,55 +157,6 @@ describe("CLI smoke tests", () => {
       expect(output.status).toBe("started");
       expect(output.id).toMatch(/^interaction-/);
       expect(output.session).toBeTruthy();
-    });
-
-    it("should start select interaction and return JSON", () => {
-      const result = runCli([
-        "run",
-        "--title",
-        "Test Select",
-        "select",
-        "--items",
-        "a,b,c",
-      ]);
-      expect(result.status).toBe(0);
-
-      const output = JSON.parse(result.stdout.trim());
-      expect(output.status).toBe("started");
-      expect(output.id).toMatch(/^interaction-/);
-    });
-
-    it("should run command mode with --cmd", () => {
-      const result = runCli([
-        "run",
-        "--title",
-        "Echo Test",
-        "--cmd",
-        "echo hello",
-      ]);
-      expect(result.status).toBe(0);
-
-      // Command mode outputs JSON on first line, then streams command output
-      const firstLine = result.stdout.trim().split("\n")[0];
-      const output = JSON.parse(firstLine);
-      expect(output.status).toBe("started");
-    });
-
-    it("should run command mode with -- separator", () => {
-      const result = runCli([
-        "run",
-        "--title",
-        "Echo Test",
-        "--",
-        "echo",
-        "hello",
-      ]);
-      expect(result.status).toBe(0);
-
-      // Command mode outputs JSON on first line, then streams command output
-      const firstLine = result.stdout.trim().split("\n")[0];
-      const output = JSON.parse(firstLine);
-      expect(output.status).toBe("started");
     });
 
     it("should validate JSON arguments", () => {

@@ -1,32 +1,34 @@
 ---
 name: awb
-description: Workbench runs interactive UI components and background processes. UI: confirmations, checklists, questions, tables, code views - ALWAYS use `awb wait <id>` after. Background: `--cmd` blocks until complete, so run with `&` for dev servers and long tasks. Triggers: "show table", "ask user", "confirm before", "run server", "workbench".
+description: Run Agent Workbench (awb) interactive UI components from Codex or the CLI. Use when the user needs a confirmation, checklist, input, table, code or markdown view, or a visual playground. Always follow interactive runs with awb wait and the returned ID. Use tmux for long-running commands (see awb --help).
 ---
 
-# Workbench
+# Agent Workbench (awb)
 
-## Available Components
+## Quick Start
 
-`ask`, `confirm`, `checklist`, `select`, `table`, `code`, `diff`, `markdown`, `mermaid`, `chart`, `progress`, `gauge`, `tree`, `json`, `card`, `plan-viewer`, `html`
+1. Ensure the user has the playground open with `awb ui`.
+2. Run a component with `awb run --title "..." <component> [args]`.
+3. Always call `awb wait <id>` and read the JSON response.
 
-## Quick Reference
+## Components
 
-```bash
-awb --help              # all commands
-awb run --help          # component args (REQUIRED before using)
-awb run --title "X" <component> [args]
-awb wait <id>           # blocks until user responds, returns JSON
-```
+Interactive: `confirm`, `checklist`, `ask`
+Display: `code`, `table`, `markdown`, `plan-viewer`, `html`
 
-`--title` is required for all `awb run` invocations.
+## Essential Rules
 
-## Interactive Components (ALWAYS wait)
+- Require `--title` for every `awb run`.
+- Run `awb run --help` before using a component you are unsure about.
+- If `awb` is not on PATH, ask the user to install or run the local CLI.
 
-`awb run` for UI components returns immediately with an ID. You **MUST** call `awb wait <id>` to get the user's response:
+## Interactive Runs (Always wait)
+
+`awb run` returns immediately with an ID. Always call `awb wait <id>` to get the response.
 
 ```bash
 ID=$(awb run --title "Q1" confirm --prompt "Approve?")
-awb wait $ID  # REQUIRED - blocks until user responds
+awb wait $ID
 ```
 
 Fire multiple at once, then wait for each:
@@ -34,114 +36,73 @@ Fire multiple at once, then wait for each:
 ```bash
 ID1=$(awb run --title "Q1" confirm --prompt "Approve?")
 ID2=$(awb run --title "Q2" checklist --items "A,B,C")
-# Continue working, then collect results:
 awb wait $ID1
 awb wait $ID2
 ```
-
-**Anti-pattern:** Forgetting to `awb wait` - user response is lost
 
 ## Wait Results
 
 `awb wait <id>` returns JSON with the user's response:
 
 ```json
-{"confirmed": true}                    // confirm
-{"items": [{"text":"A","checked":true}]}  // checklist
-{"selected": "Option1"}                // select
-{"answers": {"key": "value"}}          // ask
+{"confirmed": true}
+{"items": [{"text":"A","checked":true}]}
+{"answers": {"key": "value"}}
 ```
 
-## Component Examples
+## Examples
 
-### confirm
+confirm
 ```bash
 awb run --title "Deploy" confirm --prompt "Deploy to production?"
 ```
 
-### checklist
+checklist
 ```bash
 awb run --title "Tasks" checklist --items "Build,Test,Deploy"
 ```
 
-### ask (1-4 questions)
+ask (1-4 questions)
 ```bash
-# Text input
 awb run --title "Name" ask --questions '[{"question":"Your name?","header":"name"}]'
-
-# Single choice
 awb run --title "Pick" ask --questions '[{"question":"Language?","header":"lang","options":[{"label":"TypeScript"},{"label":"Python"}]}]'
-
-# Multi-select
 awb run --title "Features" ask --questions '[{"question":"Enable?","header":"feat","multiSelect":true,"options":[{"label":"Auth"},{"label":"API"}]}]'
 ```
 
-### select
-```bash
-awb run --title "Choose" select --items "Option1,Option2,Option3"
-```
-
-### table
+table
 ```bash
 awb run --title "Data" table --data '[{"name":"Alice","age":30},{"name":"Bob","age":25}]'
 ```
 
-### code
+code (file only)
 ```bash
 awb run --title "Source" code --file ./src/index.ts
-awb run --title "Snippet" code --content "console.log('hello')" --language typescript
 ```
 
-### diff
-```bash
-awb run --title "Changes" diff --file ./changes.patch
-```
-
-### markdown
+markdown
 ```bash
 awb run --title "Docs" markdown --file ./README.md
 awb run --title "Notes" markdown --content "# Hello\n\nWorld"
 ```
 
-### mermaid
+html
 ```bash
-awb run --title "Flow" mermaid --code "graph TD; A-->B; B-->C;"
+awb run --title "Config" html --content '<html>...</html>'
 ```
 
-### progress
+plan-viewer
 ```bash
-awb run --title "Build" progress --steps "Install,Build,Test,Deploy" --step 2
+awb run --title "Plan" plan-viewer --file ./plan.md
 ```
 
-### chart
-```bash
-awb run --title "Stats" chart --data '[{"label":"Jan","value":10},{"label":"Feb","value":20}]'
-```
+## Background Processes with tmux
 
-### gauge
-```bash
-awb run --title "CPU" gauge --value 75 --max 100
-```
-
-### tree
-```bash
-awb run --title "Files" tree --path ./src
-```
-
-### json
-```bash
-awb run --title "Config" json --file ./package.json
-```
-
-## Running Shell Commands (Background Processes)
-
-`--cmd` blocks until the command completes. For long-running processes, run in background with `&`:
+Use tmux for long-running processes. Run `awb --help` to see your tmux session name.
 
 ```bash
-# Short tasks (blocking is fine)
-awb run --title "Build" --cmd "npm run build"
-
-# Long-running servers - MUST use & to avoid blocking
-awb run --title "Dev Server" --cmd "npm run dev" &
-awb run --title "API" -- python3 -m http.server 8080 &
+tmux new-session -A -d -s <session-name>
+tmux new-window -t <session-name> -n "dev" "npm run dev"
+tmux capture-pane -t <session-name>:dev -p
+tmux send-keys -t <session-name>:dev "npm test" Enter
+tmux kill-window -t <session-name>:dev
 ```

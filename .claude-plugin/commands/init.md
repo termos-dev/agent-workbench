@@ -61,15 +61,14 @@ Editor reference:
 | cursor | GUI | `cursor` | `-g {file}:{line}` |
 
 ### Question 2: Interaction Style
-- **Proactive**: Show confirmations, progress, and status frequently
+- **Proactive**: Show confirmations and status frequently
 - **Minimal**: Only show interactions when essential
 - **Balanced**: Show for important decisions, skip trivial ones
 
 ### Question 3: Use Cases (multi-select)
 - **Confirmations**: Before destructive actions (delete, overwrite, deploy)
-- **Multi-step tasks**: Show progress for long-running operations
-- **Code review**: Show diffs before commits
-- **Data display**: Tables, charts, JSON viewers
+- **File viewing**: Show code/markdown files in the playground
+- **Data display**: Tables for structured data
 
 ### Question 4: Plan Mode Display
 - **Yes (Recommended)**: Display plan file during plan mode
@@ -105,24 +104,16 @@ Example:
 awb run --title "Delete Files" confirm --prompt "Delete 5 files?"
 ```
 
-### Progress Tracking
-{if selected: Use `progress` for multi-step tasks.}
-
-Example:
-```bash
-awb run --title "Setup" progress --steps "Install deps,Build,Test,Deploy"
-```
-
-### Code Review
-{if selected: Use `diff` before committing changes.}
-
-Example:
-```bash
-awb run --title "Review Changes" diff --file path/to/file
-```
-
 ### Data Display
-{if selected: Use `table`, `json`, `chart` for structured data.}
+{if selected: Use `table` for structured data.}
+
+### File Viewing
+{if selected: Use `code` or `markdown` to show files in the playground.}
+
+Example:
+```bash
+awb run --title "Source" code --file path/to/file
+```
 
 ### Plan Mode
 {if selected: Display plan file during plan mode:}
@@ -130,23 +121,25 @@ awb run --title "Review Changes" diff --file path/to/file
 awb run --title "Plan" plan-viewer --file <plan-path>
 ```
 
-### Command Output
-Run commands and display output:
+### Background Processes with tmux
+For long-running processes, use tmux directly:
 ```bash
-awb run --title "Git Status" --cmd "git status"
+tmux new-window -t <session> -n "dev" "npm run dev"
+tmux capture-pane -t <session>:dev -p              # Get output
 ```
+Run `awb --help` to see your tmux session name.
 
 ## Quick Reference
 
 | Component | Use Case |
 |-----------|----------|
 | confirm | Before destructive actions |
-| progress | Multi-step operations |
-| diff | Code review before commits |
 | table | Structured data display |
 | ask | Multi-question forms (1-4 questions) |
 | code | Display file contents |
-| json | API responses, configs |
+| html | Interactive HTML playgrounds |
+| markdown | Render markdown content |
+| plan-viewer | Plan mode display |
 ```
 
 ## Step 4: Write the File
@@ -174,9 +167,8 @@ Workflow:
 1. `awb run ...` writes event, returns interaction ID
 2. `awb wait <id>` blocks until user responds in playground
 
-- **USE awb components** for confirmations, progress, and user engagement
+- **USE awb components** for confirmations and user engagement
 - **Show plan files** during plan mode (if enabled in awb.md)
-- **Display task progress** visually for multi-step operations
 
 Run `awb` for help, `awb run --help` for component details. Always use `--title`.
 EOF

@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as os from "node:os";
@@ -708,4 +709,177 @@ export function sessionNameToProject(sessionName: string): string {
   // Convert session name back to path-like string, then use cwdToProject
   const asPath = sessionName.replace(/-/g, "/");
   return cwdToProject(asPath);
+}
+
+/**
+ * Maximum length for tmux session names.
+ * Keep it reasonable for display and CLI usage.
+ */
+const TMUX_SESSION_MAX_LENGTH = 50;
+
+/**
+ * Generate a short hash of a string (first 4 chars of hex).
+ */
+function shortHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(16).slice(0, 4).padStart(4, "0");
+}
+
+/**
+ * Generate a deterministic tmux session name from a path.
+ * Format: awb-{path-segments}-{hash}
+ *
+ * Includes as many path segments as fit within max length,
+ * starting from the end (most specific) of the path.
+ *
+ * @example
+ * "/Users/bob/Code/ai-experiments/mcp-sidecar"
+ * → "awb-Code-ai-experiments-mcp-sidecar-a3f2"
+ */
+export function pathToTmuxSession(cwd: string): string {
+  const normalized = path.resolve(cwd);
+  const hash = shortHash(normalized);
+  const prefix = "awb-";
+  const suffix = `-${hash}`;
+  const reserved = prefix.length + suffix.length;
+  const available = TMUX_SESSION_MAX_LENGTH - reserved;
+
+  // Split path into segments, filter empty
+  const segments = normalized.split(path.sep).filter(Boolean);
+
+  // Build from end, include as many segments as fit
+  const included: string[] = [];
+  let length = 0;
+
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const segment = segments[i];
+    const segmentLength = segment.length + (included.length > 0 ? 1 : 0); // +1 for separator
+
+    if (length + segmentLength <= available) {
+      included.unshift(segment);
+      length += segmentLength;
+    } else {
+      break;
+    }
+  }
+
+  // Join with dashes (tmux-safe)
+  const pathPart = included.join("-");
+  return `${prefix}${pathPart}${suffix}`;
+}
+
+/**
+ * Get the tmux session name for the current environment.
+ *
+ * If running inside tmux ($TMUX is set), returns the current session name.
+ * Otherwise, generates a deterministic session name from the cwd.
+ */
+export function getTmuxSessionName(cwd: string = process.cwd()): string | null {
+  // Check if already in tmux
+  if (process.env.TMUX) {
+    try {
+      const sessionName = execSync("tmux display-message -p '#S'", {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      }).trim();
+      if (sessionName) {
+        return sessionName;
+      }
+    } catch {
+      // Failed to get tmux session, fall through to generate
+    }
+  }
+
+  return pathToTmuxSession(cwd);
+}
+
+/**
+ * Check if tmux is available on the system.
+ */
+export function isTmuxAvailable(): boolean {
+  try {
+    execSync("tmux -V", { stdio: ["pipe", "pipe", "pipe"] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a tmux session exists.
+ */
+export function tmuxSessionExists(sessionName: string): boolean {
+  try {
+    execSync(`tmux has-session -t ${sessionName}`, {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * List windows in a tmux session.
+ */
+export interface TmuxWindow {
+  index: number;
+  name: string;
+  command: string;
+  active: number; // timestamp
+}
+
+export function listTmuxWindows(sessionName: string): TmuxWindow[] {
+  try {
+    const output = execSync(
+      `tmux list-windows -t ${sessionName} -F '#{window_index}|#{window_name}|#{pane_current_command}|#{window_activity}'`,
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }
+    );
+
+    return output
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line: string) => {
+        const [index, name, command, active] = line.split("|");
+        return {
+          index: Number.parseInt(index, 10),
+          name,
+          command,
+          active: Number.parseInt(active, 10),
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * List all tmux sessions that start with "awb-" prefix.
+ * Returns session names.
+ */
+export function listAwbTmuxSessions(): string[] {
+  if (!isTmuxAvailable()) {
+    return [];
+  }
+
+  try {
+    const output = execSync("tmux list-sessions -F '#{session_name}'", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    return output
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .filter((name: string) => name.startsWith("awb-"));
+  } catch {
+    return [];
+  }
 }

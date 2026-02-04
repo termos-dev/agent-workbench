@@ -136,25 +136,6 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     ],
   },
 
-  diff: {
-    name: "diff",
-    description: "Show file changes (git diff or file comparison)",
-    args: {
-      file: { type: "string", description: "File path for git diff" },
-      staged: { type: "boolean", description: "Show staged changes" },
-      before: { type: "string", description: "Before file for comparison" },
-      after: { type: "string", description: "After file for comparison" },
-    },
-    returns: {
-      action: "accept",
-    },
-    examples: [
-      'awb run --title "Diff" diff --file src/index.ts',
-      'awb run --title "Diff" diff --file src/index.ts --staged',
-      'awb run --title "Diff" diff --before old.txt --after new.txt',
-    ],
-  },
-
   table: {
     name: "table",
     description: "Display tabular data from JSON or CSV",
@@ -179,66 +160,6 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
       'awb run --title "Table" table --file data.json',
       'awb run --title "Table" table --file data.csv --columns "name,status,date"',
       'awb run --title "Table" table --data \'[{"name":"Alice","age":30},{"name":"Bob","age":25}]\'',
-    ],
-  },
-
-  progress: {
-    name: "progress",
-    description: "Progress indicator with steps",
-    args: {
-      steps: {
-        type: "string",
-        required: true,
-        description: "Comma-separated list of steps",
-      },
-      tasks: { type: "string", description: "Alias for steps" },
-      items: { type: "string", description: "Alias for steps" },
-      step: { type: "string", description: "Current step number (1-indexed)" },
-      status: {
-        type: "string",
-        description: "Status message for current step",
-      },
-      stateFile: {
-        type: "string",
-        description: "File to watch for state updates (JSON)",
-      },
-      title: { type: "string", description: "Progress title" },
-    },
-    returns: {
-      action: "accept",
-    },
-    examples: [
-      'awb run --title "Progress" progress --steps "Build,Test,Deploy"',
-      'awb run --title "Progress" progress --steps "Step 1,Step 2" --step 2',
-    ],
-  },
-
-  mermaid: {
-    name: "mermaid",
-    description:
-      "Render Mermaid diagrams as ASCII art. SUPPORTED: flowchart/graph, sequenceDiagram, classDiagram, stateDiagram (renders as ASCII boxes/arrows). NOT SUPPORTED (shows source only): erDiagram, pie, gantt, journey, gitGraph, mindmap, timeline, quadrantChart, xychart, sankey, packet, block. Accepts raw mermaid or markdown with code fences.",
-    args: {
-      file: { type: "string", description: "Path to .mmd or .md file" },
-      code: { type: "string", description: "Inline mermaid code" },
-      title: { type: "string", description: "Title above diagram" },
-      editor: {
-        type: "string",
-        description: "Editor command to open file (e.g. 'code', 'vim')",
-      },
-    },
-    validation: {
-      oneOf: ["file", "code"],
-    },
-    returns: {
-      action: "accept | edit",
-      file: "string - path to file (when action=edit)",
-      editor: "string - editor command (when action=edit)",
-    },
-    examples: [
-      'awb run --title "Flow" mermaid --code "flowchart LR; A-->B-->C"',
-      'awb run --title "Sequence" mermaid --code "sequenceDiagram; A->>B: Hello; B->>A: Hi"',
-      'awb run --title "Class" mermaid --code "classDiagram; class Animal { +name +eat() }; class Dog; Animal <|-- Dog"',
-      'awb run --title "State" mermaid --code "stateDiagram-v2; [*] --> Active; Active --> [*]"',
     ],
   },
 
@@ -280,223 +201,11 @@ Navigation: ↑↓ options, Tab/Shift+Tab questions, Space toggle, Enter submit`
     examples: ['awb run --title "Plan" plan-viewer --file /path/to/plan.md'],
   },
 
-  chart: {
-    name: "chart",
-    description: "Terminal charts (bar, sparkline, line, stacked)",
-    args: {
-      file: { type: "string", description: "Path to JSON or CSV data file" },
-      data: { type: "json", description: "Inline JSON data array" },
-      type: {
-        type: "string",
-        default: "bar",
-        description: "Chart type: bar | sparkline | line | stacked",
-      },
-      title: { type: "string", description: "Chart title" },
-      height: {
-        type: "number",
-        default: "8",
-        description: "Chart height in rows (for line graphs)",
-      },
-      sort: {
-        type: "string",
-        default: "none",
-        description: "Sort order: none | asc | desc (for bar charts)",
-      },
-      showValues: {
-        type: "boolean",
-        default: "true",
-        description: "Show values next to bars",
-      },
-    },
-    validation: {
-      oneOf: ["file", "data"],
-    },
-    returns: {
-      action: "accept",
-      type: "string - chart type used",
-    },
-    examples: [
-      'awb run --title "Sales" chart --file data.json',
-      'awb run --title "Trend" chart --data "[5,10,15,8,12]" --type sparkline',
-      'awb run --title "Revenue" chart --file sales.csv --type bar --sort desc',
-      'awb run --title "Languages" chart --data \'[{"label":"TS","value":60},{"label":"JS","value":30}]\' --type stacked',
-    ],
-  },
-
-  select: {
-    name: "select",
-    description: "Single-item picker with optional fuzzy search",
-    args: {
-      items: {
-        type: "string",
-        required: true,
-        description: "Comma-separated items or JSON array",
-      },
-      title: { type: "string", description: "Title above list" },
-      search: {
-        type: "boolean",
-        default: "false",
-        description: "Enable fuzzy search filtering",
-      },
-      file: { type: "string", description: "JSON file with items array" },
-    },
-    returns: {
-      action: "accept | cancel",
-      selected: "string - selected item value",
-      selectedLabel: "string - selected item label",
-      selectedIndex: "number - index of selected item",
-    },
-    examples: [
-      'awb run --title "Select" select --items "Option A,Option B,Option C"',
-      'awb run --title "Select" select --items \'[{"label":"Node","value":"node"},{"label":"Python","value":"python"}]\' --search true',
-      'awb run --title "Select" select --file options.json --search true',
-    ],
-  },
-
-  tree: {
-    name: "tree",
-    description: "Directory/hierarchy tree viewer with expand/collapse",
-    args: {
-      path: {
-        type: "string",
-        description: "Directory path to display (default: cwd)",
-      },
-      file: { type: "string", description: "JSON file with tree structure" },
-      depth: { type: "number", default: "5", description: "Max depth to show" },
-      showHidden: {
-        type: "boolean",
-        default: "false",
-        description: "Show hidden files",
-      },
-      title: { type: "string", description: "Title above tree" },
-    },
-    returns: {
-      action: "accept | cancel",
-      selected: "string - path of selected item",
-      type: "string - 'file' or 'directory'",
-    },
-    examples: [
-      'awb run --title "Tree" tree',
-      'awb run --title "Tree" tree --path ./src --depth 3',
-      'awb run --title "Tree" tree --path . --showHidden true',
-    ],
-  },
-
-  json: {
-    name: "json",
-    description: "Interactive JSON explorer with collapsible nodes",
-    args: {
-      file: { type: "string", description: "Path to JSON file" },
-      data: { type: "json", description: "Inline JSON data" },
-      title: { type: "string", description: "Title above viewer" },
-      expandDepth: {
-        type: "number",
-        default: "2",
-        description: "Initial expand depth",
-      },
-    },
-    validation: {
-      oneOf: ["file", "data"],
-    },
-    returns: {
-      action: "accept | cancel",
-    },
-    examples: [
-      'awb run --title "JSON" json --file config.json',
-      'awb run --title "JSON" json --data \'{"name":"test","items":[1,2,3]}\'',
-      'awb run --title "JSON" json --file data.json --expandDepth 1',
-    ],
-  },
-
-  gauge: {
-    name: "gauge",
-    description: "Visual meter/progress indicator for single values",
-    args: {
-      value: { type: "number", description: "Current value" },
-      min: { type: "number", default: "0", description: "Minimum value" },
-      max: { type: "number", default: "100", description: "Maximum value" },
-      label: { type: "string", description: "Gauge label" },
-      unit: {
-        type: "string",
-        default: "%",
-        description: "Unit suffix (%, MB, °C, etc.)",
-      },
-      style: {
-        type: "string",
-        default: "bar",
-        description: "Style: bar | arc | blocks | dots",
-      },
-      color: {
-        type: "string",
-        description: "Bar color (or 'auto' for threshold-based)",
-      },
-      thresholds: {
-        type: "json",
-        description: 'Color thresholds: {"warning":70,"danger":90}',
-      },
-      file: {
-        type: "string",
-        description: "JSON file to watch for value updates",
-      },
-      data: {
-        type: "json",
-        description: "JSON with single or multiple gauges",
-      },
-      width: { type: "number", default: "30", description: "Gauge bar width" },
-      title: { type: "string", description: "Title above gauge" },
-    },
-    returns: {
-      action: "accept",
-      gauges: "array of {value, label} for each gauge",
-    },
-    examples: [
-      'awb run --title "CPU" gauge --value 75 --label "CPU Usage"',
-      'awb run --title "Memory" gauge --value 8 --max 16 --unit "GB" --style blocks',
-      'awb run --title "Temp" gauge --value 65 --unit "°C" --thresholds \'{"warning":60,"danger":80}\'',
-      'awb run --title "Stats" gauge --data \'[{"label":"CPU","value":45},{"label":"Memory","value":72}]\'',
-    ],
-  },
-
-  card: {
-    name: "card",
-    description: "Display markdown content with custom action buttons",
-    args: {
-      content: {
-        type: "string",
-        description: "Markdown/text content to display",
-      },
-      file: { type: "string", description: "Path to markdown file" },
-      actions: {
-        type: "json",
-        description: 'Action buttons: [{"label":"Ok","key":"o","value":"ok"}]',
-      },
-      layout: {
-        type: "string",
-        default: "auto",
-        description: "Button layout: horizontal | vertical | auto",
-      },
-    },
-    validation: {
-      oneOf: ["content", "file"],
-    },
-    returns: {
-      action: "accept | cancel",
-      selected: "string - value of selected action",
-      selectedLabel: "string - label of selected action",
-    },
-    examples: [
-      'awb run --title "Joke" card --content "Why do programmers prefer dark mode?\\n\\nBecause light attracts bugs!"',
-      'awb run --title "Notice" card --content "# Important\\n\\nMaintenance tonight."',
-      'awb run --title "Rate" card --content "How was it?" --actions \'[{"label":"Good","key":"g","value":"good"},{"label":"Bad","key":"b","value":"bad"}]\'',
-      'awb run --title "Review" card --file notes.md --layout vertical',
-    ],
-  },
-
   html: {
     name: "html",
-    description: `Render Claude-generated HTML with awb web components.
+    description: `Render interactive HTML playgrounds with awb web components.
 
-Claude generates full HTML pages that use <awb-*> web components:
+Claude generates full HTML pages that can use <awb-*> web components:
 - <awb-tree> - Interactive tree view
 - <awb-table> - Data table with row selection
 - <awb-mermaid> - Mermaid diagram renderer
@@ -506,7 +215,38 @@ Claude generates full HTML pages that use <awb-*> web components:
 - <awb-json> - JSON tree viewer
 - <awb-gauge> - Circular progress gauge
 
-The components.js script is auto-injected if not present.`,
+## Interactive HTML API
+
+HTML content has access to the \`window.awb\` API for interactivity:
+
+### awb.submit(data)
+Send data back to the agent and close the panel. The data will be returned
+in the wait command's result.
+
+\`\`\`javascript
+// Example: Submit user configuration back to agent
+window.awb.submit({
+  theme: selectedTheme,
+  options: { darkMode: true, fontSize: 14 }
+});
+\`\`\`
+
+### awb.copyToClipboard(text, button)
+Copy text to clipboard with visual feedback on the button.
+
+\`\`\`javascript
+// Example: Copy with button feedback
+<button onclick="awb.copyToClipboard(generatedCode, this)">Copy Code</button>
+\`\`\`
+
+## Creating Interactive Playgrounds
+
+1. Create HTML with controls (inputs, buttons, selectors)
+2. Add JavaScript to handle user interactions
+3. Call awb.submit(data) when user confirms their selection
+4. The agent receives the data via \`awb wait\`
+
+The components.js script and awb API are auto-injected.`,
     args: {
       content: {
         type: "string",
@@ -519,6 +259,7 @@ The components.js script is auto-injected if not present.`,
     },
     returns: {
       action: "accept | cancel",
+      result: "Data submitted via awb.submit() (if any)",
     },
     validation: {
       oneOf: ["content", "file"],
@@ -526,6 +267,7 @@ The components.js script is auto-injected if not present.`,
     examples: [
       'awb run --title "Dashboard" html --content \'<awb-mermaid code="graph TD; A-->B"></awb-mermaid>\'',
       'awb run --title "Report" html --file ./dashboard.html',
+      'awb run --title "Theme Picker" html --content \'<button onclick="awb.submit({theme: \\"dark\\"})">Dark</button>\'',
     ],
   },
 };
@@ -538,16 +280,6 @@ export const globalOptionsSchema: Record<string, ArgSchema> = {
     type: "string",
     required: true,
     description: "Title for the interaction",
-  },
-  cmd: {
-    type: "string",
-    required: false,
-    description: "Inline shell command (supports &&, |, ||, etc.)",
-  },
-  "cmd-file": {
-    type: "string",
-    required: false,
-    description: "Read command from file",
   },
 };
 
@@ -632,19 +364,13 @@ export function generateFullHelp(): string {
 
 Usage:
   awb run <component> [options]           Run a built-in component
-  awb run --cmd "<command>"               Run a shell command (recommended for agents)
-  awb run --cmd-file <path>               Run a shell command from file
-  awb run -- <command>                    Run a shell command (passthrough)
   awb run --help                          Show this help
 
-Command Execution:
-  Use --cmd for commands with shell operators (&&, |, ||):
-    awb run --title "Build" --cmd "npm run build && echo Done"
-    awb run --title "Deploy" --cmd "ssh user@host 'deploy.sh && restart'"
-  Use --cmd-file for complex multi-line scripts:
-    awb run --title "Setup" --cmd-file ./scripts/setup.sh
-  Use -- passthrough for simple commands (no operators):
-    awb run --title "List" -- ls -la
+Background Processes:
+  Use tmux for long-running commands (dev servers, builds, watchers).
+  Run 'awb --help' to see your tmux session name.
+  Example:
+    tmux new-window -t <session> -n "dev" "npm run dev"
 
 Global Options:
 ${generateGlobalOptionsHelp()}

@@ -7,6 +7,18 @@ import * as path from "node:path";
 import { getAgentSessionId } from "../session-utils.js";
 
 /**
+ * Get the parent process ID (the Claude process).
+ */
+function getParentPid(): number | null {
+  try {
+    const ppid = process.ppid;
+    return ppid || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Set a title for the current session.
  */
 export function handleSetTitle(args: string[]): void {
@@ -26,10 +38,27 @@ export function handleSetTitle(args: string[]): void {
     process.exit(1);
   }
 
-  // Save title to cache
+  // Get parent PID (Claude process)
+  const ppid = getParentPid();
+
+  // Save title to cache by sessionId
   const titlesDir = path.join(process.env.HOME || "", ".awb", "titles");
   fs.mkdirSync(titlesDir, { recursive: true });
   fs.writeFileSync(path.join(titlesDir, sessionId), title);
 
-  console.log(JSON.stringify({ sessionId, title, status: "set" }));
+  // Also save title by PID for easy lookup
+  if (ppid) {
+    const pidTitlesDir = path.join(
+      process.env.HOME || "",
+      ".awb",
+      "pid-titles"
+    );
+    fs.mkdirSync(pidTitlesDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(pidTitlesDir, String(ppid)),
+      JSON.stringify({ title, sessionId, ts: Date.now() })
+    );
+  }
+
+  console.log(JSON.stringify({ sessionId, ppid, title, status: "set" }));
 }

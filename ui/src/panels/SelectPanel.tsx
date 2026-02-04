@@ -6,11 +6,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { IDockviewPanelProps } from "dockview";
 import { List } from "lucide-react";
 import { useState } from "react";
+
+const OTHER_VALUE = "__other__";
 
 export interface SelectPanelParams {
   interactionId: string;
@@ -25,6 +28,7 @@ export default function SelectPanel({
 }: IDockviewPanelProps<SelectPanelParams>) {
   const { interactionId, sessionName, title, prompt, options } = params;
   const [selected, setSelected] = useState<string>("");
+  const [otherText, setOtherText] = useState<string>("");
 
   const handleSubmit = () => {
     const respond = (
@@ -37,9 +41,11 @@ export default function SelectPanel({
       }
     ).awbRespond;
     if (respond) {
+      // Resolve "other" value to its text input
+      const result = selected === OTHER_VALUE ? otherText : selected;
       respond(interactionId, sessionName, {
         action: "accept",
-        result: selected,
+        result,
       });
     }
   };
@@ -84,13 +90,35 @@ export default function SelectPanel({
               </Label>
             </div>
           ))}
+          {/* "Other" option */}
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value={OTHER_VALUE} id="select-other" />
+            <Label htmlFor="select-other" className="text-sm cursor-pointer">
+              Other
+            </Label>
+          </div>
         </RadioGroup>
+        {selected === OTHER_VALUE && (
+          <Input
+            placeholder="Enter your response..."
+            value={otherText}
+            onChange={(e) => setOtherText(e.target.value)}
+            className="mt-2"
+            autoFocus
+          />
+        )}
       </CardContent>
       <CardFooter className="flex justify-end gap-2 pt-2">
         <Button variant="outline" size="sm" onClick={handleCancel}>
           Cancel
         </Button>
-        <Button size="sm" disabled={!selected} onClick={handleSubmit}>
+        <Button
+          size="sm"
+          disabled={
+            !selected || (selected === OTHER_VALUE && !otherText.trim())
+          }
+          onClick={handleSubmit}
+        >
           Select
         </Button>
       </CardFooter>

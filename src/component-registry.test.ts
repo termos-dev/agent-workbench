@@ -14,17 +14,10 @@ describe("component-registry", () => {
         "confirm",
         "checklist",
         "code",
-        "diff",
         "table",
-        "progress",
-        "mermaid",
-        "chart",
-        "select",
-        "tree",
-        "json",
-        "gauge",
-        "card",
         "plan-viewer",
+        "ask",
+        "html",
       ];
 
       for (const component of expected) {
@@ -44,10 +37,6 @@ describe("component-registry", () => {
 
     it("should map markdown to file", () => {
       expect(positionalArgMap.markdown).toBe("file");
-    });
-
-    it("should map progress to steps", () => {
-      expect(positionalArgMap.progress).toBe("steps");
     });
   });
 

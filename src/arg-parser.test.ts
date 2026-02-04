@@ -35,12 +35,12 @@ describe("arg-parser", () => {
     });
 
     it("should handle multiple flags", () => {
-      const args = ["--title", "Test", "--cmd", "echo hello", "output"];
-      const specs: FlagSpec[] = [{ name: "title" }, { name: "cmd" }];
+      const args = ["--title", "Test", "--format", "json", "output"];
+      const specs: FlagSpec[] = [{ name: "title" }, { name: "format" }];
       const result = extractFlags(args, specs);
 
       expect(result.title).toBe("Test");
-      expect(result.cmd).toBe("echo hello");
+      expect(result.format).toBe("json");
       expect(args).toEqual(["output"]);
     });
 

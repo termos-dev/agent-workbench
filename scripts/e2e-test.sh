@@ -47,17 +47,7 @@ run_tests() {
   local failed=0
   local passed=0
 
-  echo -n "Test 1: --cmd execution... "
-  result=$(awb run --title "E2E-CMD" --cmd "echo hello" 2>&1)
-  if echo "$result" | grep -q '"status":"started"'; then
-    echo "✓ PASS"
-    ((passed++))
-  else
-    echo "✗ FAIL"
-    ((failed++))
-  fi
-
-  echo -n "Test 2: confirm component... "
+  echo -n "Test 1: confirm component... "
   result=$(awb run confirm --title "E2E-Confirm" --prompt "Test?" 2>&1)
   if echo "$result" | grep -q '"status":"started"'; then
     echo "✓ PASS"
@@ -67,8 +57,18 @@ run_tests() {
     ((failed++))
   fi
 
-  echo -n "Test 3: checklist component... "
+  echo -n "Test 2: checklist component... "
   result=$(awb run checklist --title "E2E-Checklist" --items '["A","B"]' 2>&1)
+  if echo "$result" | grep -q '"status":"started"'; then
+    echo "✓ PASS"
+    ((passed++))
+  else
+    echo "✗ FAIL"
+    ((failed++))
+  fi
+
+  echo -n "Test 3: ask component... "
+  result=$(awb run ask --title "E2E-Ask" --questions '[{"question":"Name?","header":"name"}]' 2>&1)
   if echo "$result" | grep -q '"status":"started"'; then
     echo "✓ PASS"
     ((passed++))
@@ -87,8 +87,8 @@ run_tests() {
     ((failed++))
   fi
 
-  echo -n "Test 5: progress component... "
-  result=$(awb run progress --title "E2E-Progress" --steps '["Step 1"]' 2>&1)
+  echo -n "Test 5: code component... "
+  result=$(awb run code --title "E2E-Code" --file package.json 2>&1)
   if echo "$result" | grep -q '"status":"started"'; then
     echo "✓ PASS"
     ((passed++))
@@ -97,8 +97,8 @@ run_tests() {
     ((failed++))
   fi
 
-  echo -n "Test 6: code component... "
-  result=$(awb run code --title "E2E-Code" --file package.json 2>&1)
+  echo -n "Test 6: markdown component... "
+  result=$(awb run markdown --title "E2E-Markdown" --file README.md 2>&1)
   if echo "$result" | grep -q '"status":"started"'; then
     echo "✓ PASS"
     ((passed++))
@@ -168,21 +168,14 @@ capture_screenshots() {
   echo ""
 
   # Capture each component with sample data
-  capture_component "confirm" "awb run confirm --title 'Deploy' --prompt 'Deploy to production?'"
-  capture_component "ask" "awb run ask --title 'Name' --prompt 'What is your name?'"
-  capture_component "checklist" "awb run checklist --title 'Tasks' --items '[\"Build application\",\"Run tests\",\"Deploy to staging\",\"Notify team\"]'"
-  capture_component "select" "awb run select --title 'Choose' --prompt 'Select environment' --items '[\"Development\",\"Staging\",\"Production\"]'"
-  capture_component "table" "awb run table --title 'Users' --data '[{\"name\":\"Alice\",\"role\":\"Admin\",\"status\":\"Active\"},{\"name\":\"Bob\",\"role\":\"User\",\"status\":\"Active\"},{\"name\":\"Charlie\",\"role\":\"User\",\"status\":\"Inactive\"}]'"
-  capture_component "progress" "awb run progress --title 'Build' --steps '[\"Installing dependencies\",\"Compiling TypeScript\",\"Running tests\",\"Building bundle\"]'"
-  capture_component "code" "awb run code --title 'Code' --content 'function hello(name: string) {\n  console.log(\"Hello, \" + name);\n}\n\nhello(\"World\");' --lang typescript"
-  capture_component "diff" "awb run diff --title 'Changes' --content '--- a/config.ts\n+++ b/config.ts\n@@ -1,3 +1,4 @@\n export const config = {\n   port: 3000,\n+  debug: true,\n };'"
-  capture_component "markdown" "awb run markdown --title 'Docs' --content '# Welcome\n\nThis is **bold** and *italic* text.\n\n- Item 1\n- Item 2\n\n\`\`\`js\nconsole.log(\"hi\");\n\`\`\`'"
-  capture_component "mermaid" "awb run mermaid --title 'Flow' --content 'graph LR\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Action]\n  B -->|No| D[End]'"
-  capture_component "chart" "awb run chart --title 'Stats' --type bar --data '[{\"label\":\"Mon\",\"value\":10},{\"label\":\"Tue\",\"value\":25},{\"label\":\"Wed\",\"value\":15},{\"label\":\"Thu\",\"value\":30},{\"label\":\"Fri\",\"value\":20}]'"
-  capture_component "json" "awb run json --title 'Data' --data '{\"user\":{\"name\":\"Alice\",\"email\":\"alice@example.com\"},\"settings\":{\"theme\":\"dark\",\"notifications\":true}}'"
-  capture_component "tree" "awb run tree --title 'Files' --data '{\"src\":{\"index.ts\":null,\"utils\":{\"helper.ts\":null,\"format.ts\":null}},\"package.json\":null}'"
-  capture_component "gauge" "awb run gauge --title 'CPU' --value 75 --max 100 --label 'CPU Usage'"
-  capture_component "plan-viewer" "awb run plan-viewer --title 'Plan' --file README.md"
+  capture_component "confirm" "awb run confirm --title \"Deploy\" --prompt \"Deploy to production?\""
+  capture_component "ask" "awb run ask --title \"Name\" --questions \"[{\\\"question\\\":\\\"What is your name?\\\",\\\"header\\\":\\\"name\\\"}]\""
+  capture_component "checklist" "awb run checklist --title \"Tasks\" --items \"[\\\"Build application\\\",\\\"Run tests\\\",\\\"Deploy to staging\\\",\\\"Notify team\\\"]\""
+  capture_component "table" "awb run table --title \"Users\" --data \"[{\\\"name\\\":\\\"Alice\\\",\\\"role\\\":\\\"Admin\\\",\\\"status\\\":\\\"Active\\\"},{\\\"name\\\":\\\"Bob\\\",\\\"role\\\":\\\"User\\\",\\\"status\\\":\\\"Active\\\"},{\\\"name\\\":\\\"Charlie\\\",\\\"role\\\":\\\"User\\\",\\\"status\\\":\\\"Inactive\\\"}]\""
+  capture_component "code" "awb run code --title \"Code\" --file README.md"
+  capture_component "markdown" "awb run markdown --title \"Docs\" --file README.md"
+  capture_component "html" "awb run html --title \"Dashboard\" --content \"<!DOCTYPE html><html><body><h1>Dashboard</h1></body></html>\""
+  capture_component "plan-viewer" "awb run plan-viewer --title \"Plan\" --file README.md"
 
   echo ""
   echo "=========================================="

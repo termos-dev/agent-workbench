@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -93,66 +93,5 @@ test.describe("Agent Workbench UI", () => {
     await expect(
       page.getByRole("heading", { name: "Plan Title" })
     ).toBeVisible();
-  });
-
-  test("kills a running command via API", async ({ page }) => {
-    const child = spawn(
-      nodeBin,
-      [cliPath, "run", "--title", "Sleep", "--cmd", "sleep 10"],
-      {
-        cwd: repoRoot,
-        env: { ...process.env, AWB_RUNTIME_DIR: runtimeDir },
-        stdio: ["ignore", "pipe", "pipe"],
-      }
-    );
-
-    let buffer = "";
-    const interaction = await new Promise<{ id: string; session: string }>(
-      (resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error("Timed out waiting for CLI output"));
-        }, 5000);
-
-        child.stdout?.on("data", (data) => {
-          buffer += data.toString();
-          const match = buffer.match(/\{[^}]*"status":"started"[^}]*\}/);
-          if (match) {
-            clearTimeout(timeout);
-            resolve(JSON.parse(match[0]) as { id: string; session: string });
-          }
-        });
-
-        child.on("error", reject);
-      }
-    );
-
-    await expect
-      .poll(
-        async () => {
-          const response = await page.request.post("/api/kill", {
-            data: {
-              interactionId: interaction.id,
-              sessionName: interaction.session,
-            },
-          });
-          const result = await response.json();
-          return result.success === true;
-        },
-        { timeout: 5000 }
-      )
-      .toBe(true);
-
-    const exitCode = await new Promise<number | null>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error("Process did not exit after kill"));
-      }, 5000);
-
-      child.on("exit", (code) => {
-        clearTimeout(timeout);
-        resolve(code);
-      });
-    });
-
-    expect(exitCode).not.toBeNull();
   });
 });

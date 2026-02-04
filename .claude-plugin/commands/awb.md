@@ -35,6 +35,66 @@ The user runs `awb ui` to open the playground and respond to interactions.
 | mermaid | ASCII diagrams | `awb run --title "Flow" mermaid --code "flowchart LR; A-->B"` |
 | card | Markdown with action buttons | `awb run --title "Notice" card --content "# Alert"` |
 | plan-viewer | Plan mode display | `awb run --title "Plan" plan-viewer --file plan.md` |
+| html | Interactive HTML playgrounds | `awb run --title "Config" html --content '<html>...'` |
+
+## Interactive HTML Playgrounds
+
+The `html` component lets you create interactive UI experiences. HTML content has access to the `window.awb` API:
+
+### awb.submit(data)
+Send data back to the agent and close the panel:
+```javascript
+awb.submit({ theme: "dark", fontSize: 14 });
+```
+
+### awb.copyToClipboard(text, button)
+Copy text with visual feedback:
+```javascript
+awb.copyToClipboard(generatedCode, this);
+```
+
+### Example: Color Picker
+```bash
+awb run --title "Pick Color" html --content '<!DOCTYPE html>
+<html><body>
+  <button onclick="awb.submit({color: \"red\"})">Red</button>
+  <button onclick="awb.submit({color: \"blue\"})">Blue</button>
+</body></html>'
+```
+
+The wait command returns the submitted data:
+```json
+{"action": "accept", "result": {"color": "blue"}}
+```
+
+## Background Processes with tmux
+
+For long-running processes (dev servers, watchers, builds), use tmux. The playground auto-discovers and displays tmux windows with full interactive terminal support.
+
+**Get your tmux session name:**
+```bash
+awb --help  # Shows tmux session name for current directory
+```
+
+**Run background processes:**
+```bash
+# Create session (idempotent)
+tmux new-session -A -d -s <session-name>
+
+# Start a dev server in a new window
+tmux new-window -t <session-name> -n "dev" "npm run dev"
+
+# Kill a window when done
+tmux kill-window -t <session-name>:dev
+```
+
+## User Messages (Playground → Agent)
+
+Users can send messages from the playground to notify or wake the agent. The agent-idle hook automatically checks for pending messages and notifies you when they arrive.
+
+- Messages appear in the playground chat input
+- Hook notifies: `[awb] N pending message(s) from playground.`
+- No action needed - just read the message and respond
 
 ## When to Use Agent Workbench
 
@@ -44,6 +104,7 @@ The user runs `awb ui` to open the playground and respond to interactions.
 - **Table/JSON**: For displaying structured data in a readable format
 - **Code**: For showing file contents with syntax highlighting
 - **Ask**: When you need specific input from the user
+- **Background processes**: Use tmux (windows auto-appear in playground)
 
 Always include `--title` for context. Run `awb --help` or `awb run --help` for full details.
 

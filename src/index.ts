@@ -12,10 +12,16 @@ import {
   handleRun,
   handleSetTitle,
   handleSetup,
+  handleStatus,
   handleUI,
   handleWait,
 } from "./commands/index.js";
 import { loadMergedInstructions } from "./instructions-loader.js";
+import {
+  getTmuxSessionName,
+  isTmuxAvailable,
+  tmuxSessionExists,
+} from "./runtime.js";
 
 /**
  * Show main help message.
@@ -28,40 +34,71 @@ Usage:
   awb                              Show this help
   awb setup                        Install plugin for Claude Code
   awb ui [options]                 Launch web playground
+  awb status [--json]              Show all sessions and processes
 
 Agent Commands:
   awb set-title <title>            Set a short title for this session
   awb run --title <t> <component>  Show interactive component
-  awb run --title <t> --cmd "..."  Run command, show output
-  awb wait <id>                    Wait for user response (includes messages)
-  awb wait --all                   Get all results (debugging)
-  awb listen                       Block until message arrives (Ctrl+C to cancel)
-  awb listen --count               Get pending message count (for hooks)
+  awb wait <id>                    Wait for user response
 
-Playground Options:
-  --port <number>    Port to serve on (default: 3847)
+User Messages (playground → agent):
+  Users can send messages from playground to notify/wake the agent.
+  The agent-idle hook checks for pending messages automatically.
+  awb listen --count               Get pending message count (used by hooks)
+  awb listen                       Block until message arrives (rarely needed)
+
+UI Options:
+  awb ui --open      Auto-open browser
 
 Components:
-  Interactive: confirm, select, checklist, ask (user responds)
-  Display:     code, diff, table, json, markdown, card, progress, chart,
-               gauge, tree, mermaid, plan-viewer
+  Interactive: confirm, checklist, ask (user responds)
+  Display:     code, table, markdown, html, plan-viewer
 
 Agent Best Practice:
   At the start of a session, set a descriptive title:
     awb set-title "Building Auth System"
   This helps users identify sessions in the playground.
 
-Getting Started:
-  1. npm install -g agent-workbench    # Install globally
-  2. awb setup                      # Install Claude plugin
-  3. Restart Claude Code               # Load the plugin
-  4. awb ui                         # Run playground in browser
-
 Examples:
   awb set-title "Refactoring API"
   awb run --title "Confirm" confirm --prompt "Delete files?"
-  awb run --title "Status" --cmd "git status"
 `);
+
+  // Show tmux information if available
+  if (isTmuxAvailable()) {
+    const sessionName = getTmuxSessionName();
+    const inTmux = !!process.env.TMUX;
+    const sessionExists = sessionName ? tmuxSessionExists(sessionName) : false;
+
+    console.log("## tmux Integration\n");
+    if (inTmux) {
+      console.log(`  Currently in tmux session: ${sessionName}`);
+    } else {
+      console.log(`  tmux session for this directory: ${sessionName}`);
+      console.log(`  Session exists: ${sessionExists ? "yes" : "no"}`);
+    }
+    console.log(`
+  tmux Commands for Background Processes:
+
+  Setup & Create:
+    tmux new-session -A -d -s ${sessionName}
+    tmux new-window -t ${sessionName} -n "dev" "npm run dev"
+
+  Capture Output (no PTY needed):
+    tmux capture-pane -t ${sessionName}:dev -p              # Get current pane content
+    tmux capture-pane -t ${sessionName}:dev -p -S -100      # Last 100 lines
+
+  Send Input:
+    tmux send-keys -t ${sessionName}:dev "npm test" Enter   # Run a command
+
+  Status:
+    tmux list-windows -t ${sessionName}                     # List windows
+    tmux list-panes -t ${sessionName}:dev                   # List panes
+
+  Cleanup:
+    tmux kill-window -t ${sessionName}:dev
+`);
+  }
 
   const instructions = loadMergedInstructions(process.cwd());
   if (instructions) {
@@ -82,6 +119,7 @@ function suggestCommand(input: string): string | null {
     "set-title",
     "listen",
     "event",
+    "status",
     "help",
   ];
 
@@ -162,6 +200,10 @@ async function main() {
 
     case "event":
       handleEvent(args.slice(1));
+      return;
+
+    case "status":
+      await handleStatus(args.slice(1));
       return;
 
     default: {

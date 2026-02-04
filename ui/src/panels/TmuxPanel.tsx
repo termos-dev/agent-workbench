@@ -6,31 +6,38 @@ import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import type { IDockviewPanelProps } from "dockview";
-import { AlertTriangle, ArrowDown, Check, Copy, Search, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowDown,
+  Check,
+  Copy,
+  Search,
+  Terminal as TerminalIcon,
+  X,
+  XCircle,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { copyToClipboard } from "@/lib/clipboard";
 
-export interface OutputPanelParams {
-  interactionId: string;
-  sessionName: string;
-  title: string;
+export interface TmuxPanelParams {
+  tmuxSession: string;
+  windowIndex: number;
+  windowName: string;
   command: string;
-  outputFile: string;
 }
 
-export default function OutputPanel({
+export default function TmuxPanel({
   params,
   api,
-}: IDockviewPanelProps<OutputPanelParams>) {
-  const { interactionId, sessionName, title, command, outputFile } = params;
-  const [isComplete, setIsComplete] = useState(false);
-  const [exitCode, setExitCode] = useState<number | null>(null);
+}: IDockviewPanelProps<TmuxPanelParams>) {
+  const { tmuxSession, windowIndex, windowName, command } = params;
+  const [isAttached, setIsAttached] = useState(false);
+  const [isFallbackMode, setIsFallbackMode] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "success" | "error">(
     "idle"
   );
   const [autoScroll, setAutoScroll] = useState(true);
-  const [showKillConfirm, setShowKillConfirm] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -38,43 +45,56 @@ export default function OutputPanel({
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const searchAddonRef = useRef<SearchAddon | null>(null);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const writtenLengthRef = useRef(0);
   const fullContentRef = useRef("");
+  const attachIdRef = useRef<string | null>(null);
+  const autoScrollRef = useRef(autoScroll);
+
+  // Keep autoScrollRef in sync
+  useEffect(() => {
+    autoScrollRef.current = autoScroll;
+  }, [autoScroll]);
+
+  // Helper to get CSS variable as hsl color string
+  const getCssVar = (name: string): string => {
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim();
+    return value ? `hsl(${value})` : "";
+  };
 
   // Initialize xterm.js
   useEffect(() => {
     if (!terminalRef.current) return;
 
     const terminal = new Terminal({
-      cursorBlink: false,
+      cursorBlink: true,
       cursorStyle: "bar",
-      disableStdin: true,
+      disableStdin: false, // Allow input for tmux
       fontSize: 12,
       fontFamily:
         "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
       theme: {
-        background: "hsl(224, 71%, 4%)", // Dark background matching card
-        foreground: "hsl(213, 31%, 91%)",
-        cursor: "transparent",
-        cursorAccent: "transparent",
-        selectionBackground: "rgba(255, 255, 255, 0.3)",
-        black: "#1e1e2e",
-        red: "#f38ba8",
-        green: "#a6e3a1",
-        yellow: "#f9e2af",
-        blue: "#89b4fa",
-        magenta: "#f5c2e7",
-        cyan: "#94e2d5",
-        white: "#cdd6f4",
-        brightBlack: "#585b70",
-        brightRed: "#f38ba8",
-        brightGreen: "#a6e3a1",
-        brightYellow: "#f9e2af",
-        brightBlue: "#89b4fa",
-        brightMagenta: "#f5c2e7",
-        brightCyan: "#94e2d5",
-        brightWhite: "#a6adc8",
+        background: getCssVar("--background"),
+        foreground: getCssVar("--foreground"),
+        cursor: getCssVar("--foreground"),
+        cursorAccent: getCssVar("--background"),
+        selectionBackground: getCssVar("--xterm-selection"),
+        black: getCssVar("--xterm-black"),
+        red: getCssVar("--xterm-red"),
+        green: getCssVar("--xterm-green"),
+        yellow: getCssVar("--xterm-yellow"),
+        blue: getCssVar("--xterm-blue"),
+        magenta: getCssVar("--xterm-magenta"),
+        cyan: getCssVar("--xterm-cyan"),
+        white: getCssVar("--xterm-white"),
+        brightBlack: getCssVar("--xterm-bright-black"),
+        brightRed: getCssVar("--xterm-bright-red"),
+        brightGreen: getCssVar("--xterm-bright-green"),
+        brightYellow: getCssVar("--xterm-bright-yellow"),
+        brightBlue: getCssVar("--xterm-bright-blue"),
+        brightMagenta: getCssVar("--xterm-bright-magenta"),
+        brightCyan: getCssVar("--xterm-bright-cyan"),
+        brightWhite: getCssVar("--xterm-bright-white"),
       },
       scrollback: 10000,
       convertEol: true,
@@ -98,8 +118,38 @@ export default function OutputPanel({
     // Handle resize
     const resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
+      // Notify backend of terminal size change
+      const sendMessage = (
+        window as unknown as {
+          awbSendMessage?: (message: unknown) => void;
+        }
+      ).awbSendMessage;
+      if (sendMessage && attachIdRef.current) {
+        sendMessage({
+          type: "tmux-resize",
+          attachId: attachIdRef.current,
+          cols: terminal.cols,
+          rows: terminal.rows,
+        });
+      }
     });
     resizeObserver.observe(terminalRef.current);
+
+    // Handle user input - send to tmux
+    terminal.onData((data: string) => {
+      const sendMessage = (
+        window as unknown as {
+          awbSendMessage?: (message: unknown) => void;
+        }
+      ).awbSendMessage;
+      if (sendMessage && attachIdRef.current) {
+        sendMessage({
+          type: "tmux-input",
+          attachId: attachIdRef.current,
+          data,
+        });
+      }
+    });
 
     // Detect user scroll to disable auto-scroll
     terminal.onScroll(() => {
@@ -123,52 +173,60 @@ export default function OutputPanel({
     };
   }, []);
 
-  // Poll for file updates
-  const fetchContent = useCallback(() => {
+  // Request tmux attach and handle output
+  useEffect(() => {
+    const attachId = `tmux-${tmuxSession}-${windowIndex}-${Date.now()}`;
+    attachIdRef.current = attachId;
+
+    // Request attach
     const sendMessage = (
       window as unknown as {
         awbSendMessage?: (message: unknown) => void;
       }
     ).awbSendMessage;
 
-    if (sendMessage && outputFile) {
-      sendMessage({ type: "read-file", path: outputFile });
+    if (sendMessage) {
+      sendMessage({
+        type: "tmux-attach",
+        attachId,
+        tmuxSession,
+        windowIndex,
+        cols: xtermRef.current?.cols || 80,
+        rows: xtermRef.current?.rows || 24,
+      });
+      setIsAttached(true);
     }
-  }, [outputFile]);
 
-  // Handle file content updates from WebSocket
-  useEffect(() => {
+    // Handle tmux output messages
     const handleMessage = (event: MessageEvent) => {
       try {
         const data =
           typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-        if (data.type === "file-content" && data.path === outputFile) {
-          const newContent = data.content || "";
-          fullContentRef.current = newContent;
+        if (data.type === "tmux-fallback" && data.attachId === attachId) {
+          // Server is using fallback mode (polling instead of pty)
+          setIsFallbackMode(true);
+        } else if (data.type === "tmux-output" && data.attachId === attachId) {
+          if (xtermRef.current && data.data) {
+            if (data.fullRefresh) {
+              // In fallback mode, clear and replace content
+              xtermRef.current.clear();
+              xtermRef.current.write(data.data);
+              fullContentRef.current = data.data;
+            } else {
+              xtermRef.current.write(data.data);
+              fullContentRef.current += data.data;
+            }
 
-          // Write only the new content to terminal
-          if (
-            xtermRef.current &&
-            newContent.length > writtenLengthRef.current
-          ) {
-            const newPart = newContent.slice(writtenLengthRef.current);
-            xtermRef.current.write(newPart);
-            writtenLengthRef.current = newContent.length;
-
-            // Auto-scroll to bottom if enabled
-            if (autoScroll) {
+            if (autoScrollRef.current) {
               xtermRef.current.scrollToBottom();
             }
           }
-
-          // Check if process has exited
-          const exitMatch = newContent.match(
-            /\[Process exited with code (\d+)\]/
-          );
-          if (exitMatch) {
-            setIsComplete(true);
-            setExitCode(Number.parseInt(exitMatch[1], 10));
-          }
+        } else if (
+          data.type === "tmux-detached" &&
+          data.attachId === attachId
+        ) {
+          setIsAttached(false);
+          setIsFallbackMode(false);
         }
       } catch {
         // Ignore parse errors
@@ -176,70 +234,27 @@ export default function OutputPanel({
     };
 
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [outputFile, autoScroll]);
 
-  // Start polling when component mounts
-  useEffect(() => {
-    // Initial fetch
-    fetchContent();
-
-    // Poll every 500ms while not complete
-    pollIntervalRef.current = setInterval(() => {
-      if (!isComplete) {
-        fetchContent();
-      }
-    }, 500);
-
+    // Cleanup: detach on unmount
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+      window.removeEventListener("message", handleMessage);
+      if (sendMessage) {
+        sendMessage({
+          type: "tmux-detach",
+          attachId,
+        });
       }
     };
-  }, [fetchContent, isComplete]);
+  }, [tmuxSession, windowIndex]); // Don't include autoScroll - it would cause reconnect on scroll
 
-  const handleKillProcess = async () => {
-    try {
-      const sendMessage = (
-        window as unknown as {
-          awbSendMessage?: (message: unknown) => void;
-        }
-      ).awbSendMessage;
-
-      if (sendMessage) {
-        sendMessage({ type: "kill-process", interactionId, sessionName });
-      }
-
-      // Mark as complete and close
-      setIsComplete(true);
-      setShowKillConfirm(false);
-
-      // Wait a moment for the kill to process, then dismiss
-      setTimeout(() => {
-        const respond = (
-          window as unknown as {
-            awbRespond?: (
-              id: string,
-              sessionName: string,
-              response: unknown
-            ) => void;
-          }
-        ).awbRespond;
-        if (respond) {
-          respond(interactionId, sessionName, { action: "accept" });
-        }
-      }, 100);
-    } catch (err) {
-      console.error("Failed to kill process:", err);
+  // Update tab title
+  useEffect(() => {
+    if (api) {
+      api.setTitle(windowName || `tmux:${windowIndex}`);
     }
-  };
-
-  const handleCancelKill = () => {
-    setShowKillConfirm(false);
-  };
+  }, [api, windowName, windowIndex]);
 
   const handleCopy = async () => {
-    // Copy the full terminal content
     const content = fullContentRef.current;
     const success = await copyToClipboard(content);
     setCopyState(success ? "success" : "error");
@@ -250,7 +265,6 @@ export default function OutputPanel({
     const newAutoScroll = !autoScroll;
     setAutoScroll(newAutoScroll);
     if (newAutoScroll && xtermRef.current) {
-      // If enabling, scroll to bottom immediately
       xtermRef.current.scrollToBottom();
     }
   };
@@ -285,14 +299,9 @@ export default function OutputPanel({
     }
   };
 
-  // Update tab title to show spinner when running
-  useEffect(() => {
-    if (api) {
-      const baseTitle = title || "Output";
-      const newTitle = !isComplete ? `⟳ ${baseTitle}` : baseTitle;
-      api.setTitle(newTitle);
-    }
-  }, [api, title, isComplete]);
+  const handleClosePanel = () => {
+    api.close();
+  };
 
   // Handle keyboard shortcut for search
   useEffect(() => {
@@ -312,10 +321,10 @@ export default function OutputPanel({
   }, [showSearch]);
 
   return (
-    <Card className="output-panel-container w-full h-full border-0 rounded-none shadow-none flex flex-col">
-      {/* Header - single row */}
-      <CardHeader className="panel-header py-2 px-3 flex-shrink-0">
-        <div className="flex items-center gap-2">
+    <Card className="tmux-panel-container w-full h-full border-0 rounded-none shadow-none flex flex-col bg-background">
+      {/* Header */}
+      <CardHeader className="panel-header py-2 px-3 flex-shrink-0 bg-background">
+        <div className="flex items-center gap-2 ml-2">
           <Button
             variant="ghost"
             size="sm"
@@ -349,27 +358,36 @@ export default function OutputPanel({
           >
             <Search className="h-4 w-4" />
           </Button>
-          {isComplete ? (
-            <span
-              className={`text-xs px-2 py-0.5 rounded flex-shrink-0 ${
-                exitCode === 0
-                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-              }`}
-            >
-              Exit: {exitCode}
-            </span>
-          ) : (
-            <span className="text-xs px-2 py-0.5 rounded flex-shrink-0 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 animate-pulse">
-              Running...
-            </span>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 flex-shrink-0 hover:text-destructive"
+            onClick={handleClosePanel}
+            title="Close"
+          >
+            <XCircle className="h-4 w-4" />
+          </Button>
+          <span
+            className={`text-xs px-2 py-0.5 rounded flex-shrink-0 flex items-center gap-1 ${
+              isAttached
+                ? isFallbackMode
+                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                  : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
+            }`}
+            title={
+              isFallbackMode ? "Using polling mode (node-pty unavailable)" : ""
+            }
+          >
+            <TerminalIcon className="h-3 w-3" />
+            {isAttached ? (isFallbackMode ? "poll" : "tmux") : "detached"}
+          </span>
           {command && (
             <div
               className="text-xs text-muted-foreground font-mono truncate flex-1"
               title={command}
             >
-              $ {command}
+              {command}
             </div>
           )}
         </div>
@@ -416,40 +434,6 @@ export default function OutputPanel({
       {/* Terminal content */}
       <CardContent className="p-0 flex-1 overflow-hidden relative">
         <div ref={terminalRef} className="h-full w-full" />
-
-        {/* Kill confirmation overlay */}
-        {showKillConfirm && (
-          <div className="absolute inset-0 bg-background/95 flex items-center justify-center z-50">
-            <Card className="w-96 shadow-lg">
-              <CardHeader>
-                <div className="text-base font-semibold">
-                  Process Still Running
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  This process is still running. Do you want to kill it?
-                </p>
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCancelKill}
-                  >
-                    No, Keep Running
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleKillProcess}
-                  >
-                    Yes, Kill Process
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

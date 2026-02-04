@@ -58,7 +58,9 @@ awb
 
 ## Components
 
-`confirm` `ask` `checklist` `select` `progress` `diff` `code` `table` `json` `markdown` `chart` `gauge` `tree` `mermaid` `card` `plan-viewer`
+`confirm` `ask` `checklist` `code` `table` `markdown` `html` `plan-viewer`
+
+Additional UI panels can be embedded via `html` using `<awb-*>` web components.
 
 ## License
 

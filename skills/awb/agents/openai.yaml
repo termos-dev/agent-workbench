@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Workbench"
+  short_description: "Run interactive awb UI components for tasks"
+  default_prompt: "Use $awb to run Agent Workbench UI components and wait for responses."

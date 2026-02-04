@@ -76,8 +76,7 @@ export type ComponentType =
   | "chart"
   | "gauge"
   | "progress" // Data display
-  | "output"
-  | "editor" // Command output and file editor
+  | "editor" // File editor
   | "message" // User message to agent
   | "html"; // Claude-generated HTML with web components
 

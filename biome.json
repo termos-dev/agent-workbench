@@ -54,6 +54,7 @@
       "ui/public/**",
       "node_modules/**",
       "coverage/**",
+      "docs/playground/**",
       "docs/vendor/**",
       "**/*.min.js"
     ]
