@@ -802,6 +802,9 @@ export function getTmuxSessionName(cwd: string = process.cwd()): string | null {
  * Check if tmux is available on the system.
  */
 export function isTmuxAvailable(): boolean {
+  if (process.env.AWB_DISABLE_TMUX && process.env.AWB_DISABLE_TMUX !== "0") {
+    return false;
+  }
   try {
     execSync("tmux -V", { stdio: ["pipe", "pipe", "pipe"] });
     return true;

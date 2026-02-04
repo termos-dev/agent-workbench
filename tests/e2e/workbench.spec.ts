@@ -73,18 +73,20 @@ test.describe("Agent Workbench UI", () => {
     await expect(page.getByRole("cell", { name: "30" })).toBeVisible();
   });
 
-  test("renders chart from JSON file", async ({ page }) => {
-    const chartFile = path.join(fixturesDir, "chart.json");
-    runCli(["run", "--title", "Chart File", "chart", "--file", chartFile]);
-    await expect(page.getByText("Mon")).toBeVisible();
-    await expect(page.getByText("Tue")).toBeVisible();
-  });
-
-  test("renders tree from JSON file", async ({ page }) => {
-    const treeFile = path.join(fixturesDir, "tree.json");
-    runCli(["run", "--title", "Tree File", "tree", "--file", treeFile]);
-    await expect(page.getByText("src")).toBeVisible();
-    await expect(page.getByText("index.ts")).toBeVisible();
+  test("renders html from content", async ({ page }) => {
+    runCli([
+      "run",
+      "--title",
+      "HTML Panel",
+      "html",
+      "--content",
+      "<h1>Hello HTML</h1>",
+    ]);
+    await expect(
+      page
+        .frameLocator('iframe[title="HTML Panel"]')
+        .getByRole("heading", { name: "Hello HTML" })
+    ).toBeVisible();
   });
 
   test("renders plan viewer from file", async ({ page }) => {

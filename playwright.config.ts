@@ -12,12 +12,13 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: "node dist/index.js ui --port 3847",
+    command: "node dist/index.js ui",
     url: "http://127.0.0.1:3847",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     env: {
       ...process.env,
       AWB_RUNTIME_DIR: runtimeDir,
+      AWB_DISABLE_TMUX: "1",
     },
   },
 });
